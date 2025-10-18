@@ -50,7 +50,7 @@ The HeroSchool database is designed to manage all aspects of an English language
 
 1. Go to [https://supabase.com](https://supabase.com)
 2. Log in to your account
-3. Open your project: `pyqmjwwxkdumgxdpjjnw`
+3. Open your project: `mqlihjzdfkhaomehxbye`
 
 ### Step 2: Run the Schema
 
@@ -104,7 +104,7 @@ npm install -g supabase
 supabase login
 
 # Generate TypeScript types
-supabase gen types typescript --project-id pyqmjwwxkdumgxdpjjnw > src/integrations/supabase/types.ts
+supabase gen types typescript --project-id mqlihjzdfkhaomehxbye > src/integrations/supabase/types.ts
 ```
 
 ## 🔌 Using the Database in Your App

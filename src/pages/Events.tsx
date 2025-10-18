@@ -4,8 +4,79 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, FormEvent } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const Events = () => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dbEvents, setDbEvents] = useState<any[]>([]);
+
+  // Fetch events from Supabase
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('is_published', true)
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .order('event_date', { ascending: true });
+
+      if (data && !error) {
+        setDbEvents(data);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    const eventIndex = formData.get('event') as string;
+
+    // Get event ID from either database events or fallback to hardcoded
+    let eventId = null;
+    if (dbEvents.length > 0) {
+      eventId = dbEvents[parseInt(eventIndex)]?.id;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .insert({
+          event_id: eventId,
+          parent_name: formData.get('parentName') as string,
+          child_name: formData.get('childName') as string,
+          child_age: parseInt(formData.get('childAge') as string),
+          phone: formData.get('phone') as string,
+          email: (formData.get('email') as string) || null,
+          notes: (formData.get('notes') as string) || null,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Registration successful!",
+        description: "We'll send you a confirmation via Zalo soon.",
+      });
+
+      // Reset form
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error submitting registration:', error);
+      toast({
+        title: "Error registering",
+        description: "Please try again or contact us directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const upcomingEvents = [
     {
       title: "🌈 FUN WITH COLORS",
@@ -235,24 +306,27 @@ const Events = () => {
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto bg-background p-8 rounded-2xl">
             <h2 className="text-3xl font-bold mb-6 text-center">Register for the Next Event</h2>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <Label htmlFor="event">Event Selection *</Label>
-                <select id="event" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                <select id="event" name="event" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
                   <option value="">Select an event</option>
-                  {upcomingEvents.filter(e => e.spots > 0).map((event, i) => (
-                    <option key={i} value={i}>{event.title} - {event.date}</option>
+                  {/* Use database events if available, otherwise fallback to hardcoded */}
+                  {(dbEvents.length > 0 ? dbEvents : upcomingEvents.filter(e => e.spots > 0)).map((event: any, i: number) => (
+                    <option key={i} value={i}>
+                      {event.title} - {event.event_date || event.date}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="childName">Child's Name *</Label>
-                  <Input id="childName" required />
+                  <Input id="childName" name="childName" required />
                 </div>
                 <div>
                   <Label htmlFor="childAge">Child's Age *</Label>
-                  <select id="childAge" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                  <select id="childAge" name="childAge" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
                     <option value="">Select age</option>
                     {[5, 6, 7, 8, 9, 10, 11, 12].map(age => (
                       <option key={age} value={age}>{age} years old</option>
@@ -263,29 +337,29 @@ const Events = () => {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="parentName">Parent Name *</Label>
-                  <Input id="parentName" required />
+                  <Input id="parentName" name="parentName" required />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
-                  <Input id="phone" type="tel" required placeholder="0084 XXX XXX XXX" />
+                  <Input id="phone" name="phone" type="tel" required placeholder="0084 XXX XXX XXX" />
                 </div>
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" />
+                <Input id="email" name="email" type="email" />
               </div>
               <div>
                 <Label htmlFor="notes">Any allergies or special needs?</Label>
-                <Textarea id="notes" rows={3} />
+                <Textarea id="notes" name="notes" rows={3} />
               </div>
               <div className="flex items-start gap-2">
-                <input type="checkbox" id="consent" className="mt-1" />
+                <input type="checkbox" id="consent" name="consent" className="mt-1" />
                 <Label htmlFor="consent" className="text-sm">
                   I consent to photos being taken for HeroSchool's social media
                 </Label>
               </div>
-              <Button type="submit" className="w-full" size="lg">
-                Register Now
+              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? "Registering..." : "Register Now"}
               </Button>
             </form>
           </div>

@@ -6,7 +6,7 @@
 
 ### Step 1: Load Database (MUST DO FIRST!)
 
-Go to: https://supabase.com/dashboard/project/pyqmjwwxkdumgxdpjjnw/sql
+Go to: https://supabase.com/dashboard/project/mqlihjzdfkhaomehxbye/sql
 
 **Run these two SQL files in order:**
 

@@ -4,8 +4,8 @@
 
 ### 1. Access Supabase Dashboard
 
-- URL: https://supabase.com/dashboard/project/pyqmjwwxkdumgxdpjjnw
-- Your Project ID: `pyqmjwwxkdumgxdpjjnw`
+- URL: https://supabase.com/dashboard/project/mqlihjzdfkhaomehxbye
+- Your Project ID: `mqlihjzdfkhaomehxbye`
 
 ### 2. Run the Schema
 

@@ -5,7 +5,7 @@
 **IMPORTANT:** Before testing login, you MUST run the database schemas in Supabase.
 
 ### Go to Supabase Dashboard:
-1. Visit: https://supabase.com/dashboard/project/pyqmjwwxkdumgxdpjjnw
+1. Visit: https://supabase.com/dashboard/project/mqlihjzdfkhaomehxbye
 2. Click "SQL Editor" in left sidebar
 3. Click "New Query"
 
@@ -70,7 +70,7 @@ Click "Sign In"
 
 2. **Verify Supabase Connection:**
    - Check `.env` file has correct credentials
-   - Project ID should be: pyqmjwwxkdumgxdpjjnw
+   - Project ID should be: mqlihjzdfkhaomehxbye
 
 3. **Check Tables Exist:**
    - Go to Supabase > Table Editor

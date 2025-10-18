@@ -4,8 +4,74 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from "@/integrations/supabase/client";
+import { useState, FormEvent } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const Contact = () => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+
+    // Collect interested_in checkboxes
+    const interestedIn: string[] = [];
+    const interests = [
+      "trial_class",
+      "curriculum_info",
+      "center_tour",
+      "event_registration",
+      "pricing",
+      "other"
+    ];
+
+    interests.forEach((interest, index) => {
+      if (formData.get(`interest_${index}`)) {
+        interestedIn.push(interest);
+      }
+    });
+
+    try {
+      const { error } = await supabase
+        .from('inquiries')
+        .insert({
+          parent_name: formData.get('parentName') as string,
+          child_name: formData.get('childName') as string,
+          child_age: parseInt(formData.get('childAge') as string),
+          current_level: (formData.get('level') as string) || null,
+          phone: formData.get('phone') as string,
+          email: (formData.get('email') as string) || null,
+          preferred_contact: formData.get('contact') as string,
+          how_did_hear: (formData.get('source') as string) || null,
+          interested_in: interestedIn.length > 0 ? interestedIn : null,
+          message: formData.get('message') as string,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Message sent successfully!",
+        description: "We'll contact you within 24 hours via your preferred method.",
+      });
+
+      // Reset form
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error submitting inquiry:', error);
+      toast({
+        title: "Error sending message",
+        description: "Please try again or contact us directly via Zalo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -28,20 +94,20 @@ const Contact = () => {
             <div className="bg-muted p-8 rounded-2xl">
               <h2 className="text-2xl font-bold mb-2">Send Us a Message</h2>
               <p className="text-sm text-muted-foreground mb-6">We'll respond within 24 hours</p>
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="parentName">Parent/Guardian Name *</Label>
-                    <Input id="parentName" required />
+                    <Input id="parentName" name="parentName" required />
                   </div>
                   <div>
                     <Label htmlFor="childName">Child's Name *</Label>
-                    <Input id="childName" required />
+                    <Input id="childName" name="childName" required />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="childAge">Child's Age *</Label>
-                  <select id="childAge" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                  <select id="childAge" name="childAge" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
                     <option value="">Select age</option>
                     {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(age => (
                       <option key={age} value={age}>{age} years old</option>
@@ -50,10 +116,10 @@ const Contact = () => {
                 </div>
                 <div>
                   <Label htmlFor="level">Current English Level</Label>
-                  <select id="level" className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                  <select id="level" name="level" className="w-full px-3 py-2 border border-input rounded-md bg-background">
                     <option value="">Select level</option>
                     <option value="beginner">Complete beginner (no English)</option>
-                    <option value="some">Some English (basic words)</option>
+                    <option value="some_english">Some English (basic words)</option>
                     <option value="confident">Confident speaker (conversations)</option>
                     <option value="unsure">Not sure / Need assessment</option>
                   </select>
@@ -61,11 +127,11 @@ const Contact = () => {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="phone">Phone Number *</Label>
-                    <Input id="phone" type="tel" required placeholder="+84 XXX XXX XXX" />
+                    <Input id="phone" name="phone" type="tel" required placeholder="+84 XXX XXX XXX" />
                   </div>
                   <div>
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" />
+                    <Input id="email" name="email" type="email" />
                   </div>
                 </div>
                 <div>
@@ -87,7 +153,7 @@ const Contact = () => {
                 </div>
                 <div>
                   <Label htmlFor="source">How did you hear about us?</Label>
-                  <select id="source" className="w-full px-3 py-2 border border-input rounded-md bg-background">
+                  <select id="source" name="source" className="w-full px-3 py-2 border border-input rounded-md bg-background">
                     <option value="">Select...</option>
                     <option>Facebook</option>
                     <option>Google search</option>
@@ -101,9 +167,9 @@ const Contact = () => {
                 <div>
                   <Label>What are you interested in?</Label>
                   <div className="space-y-2 mt-2">
-                    {["Book a free trial class", "Get curriculum information", "Schedule a center tour", "Register for events", "Ask about pricing", "Other questions"].map((item) => (
+                    {["Book a free trial class", "Get curriculum information", "Schedule a center tour", "Register for events", "Ask about pricing", "Other questions"].map((item, index) => (
                       <label key={item} className="flex items-center gap-2">
-                        <input type="checkbox" />
+                        <input type="checkbox" name={`interest_${index}`} />
                         <span className="text-sm">{item}</span>
                       </label>
                     ))}
@@ -111,16 +177,16 @@ const Contact = () => {
                 </div>
                 <div>
                   <Label htmlFor="message">Message/Questions *</Label>
-                  <Textarea id="message" required rows={4} />
+                  <Textarea id="message" name="message" required rows={4} />
                 </div>
                 <div className="flex items-start gap-2">
-                  <input type="checkbox" id="updates" className="mt-1" />
+                  <input type="checkbox" id="updates" name="updates" className="mt-1" />
                   <Label htmlFor="updates" className="text-sm">
                     I agree to receive updates about courses and events from HeroSchool
                   </Label>
                 </div>
-                <Button type="submit" className="w-full" size="lg">
-                  Send Message
+                <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                  {isSubmitting ? "Sending..." : "Send Message"}
                 </Button>
               </form>
             </div>
