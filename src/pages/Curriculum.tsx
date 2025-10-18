@@ -31,29 +31,87 @@ const Curriculum = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="section-padding bg-gradient-to-br from-primary/20 via-background to-background">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-fade-in">
-            Cambridge Global Stage Curriculum
-          </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-4">
-            The Same Proven Program Used by Vietnam's Top International Schools
-          </p>
-          <p className="text-lg max-w-2xl mx-auto">
-            From Vinschool to BIS - trusted by leading educators nationwide
-          </p>
+      {/* Hero Section with Image */}
+      <section className="relative overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1920&h=600&fit=crop"
+            alt="Students learning Cambridge English"
+            className="w-full h-full object-cover opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-background/80 to-background/90" />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 section-padding">
+          <div className="container mx-auto px-4 text-center">
+            <div className="inline-block px-6 py-2 bg-primary/20 backdrop-blur-sm rounded-full mb-6 border border-primary/30 animate-fade-in">
+              <span className="text-sm md:text-base font-semibold text-primary">Cambridge Authorized Learning Partner</span>
+            </div>
+
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-fade-in bg-gradient-to-r from-primary via-accent-teal to-primary bg-clip-text text-transparent leading-tight">
+              Cambridge Global Stage Curriculum
+            </h1>
+
+            <div className="max-w-3xl mx-auto space-y-4">
+              <p className="text-xl md:text-3xl font-bold text-foreground leading-relaxed">
+                The Same Proven Program Used by<br />
+                <span className="text-primary">Vietnam's Top International Schools</span>
+              </p>
+
+              <p className="text-lg md:text-xl text-muted-foreground font-medium">
+                From <span className="font-bold text-foreground">Vinschool</span> to <span className="font-bold text-foreground">BIS</span> - trusted by leading educators nationwide
+              </p>
+
+              <div className="pt-4 flex flex-wrap justify-center gap-3">
+                {['Vinschool', 'BIS', 'UNIS', 'Australian International School'].map((school) => (
+                  <span key={school} className="px-4 py-2 bg-background/80 backdrop-blur-sm rounded-lg text-sm font-medium border border-primary/20 shadow-sm">
+                    {school}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Overview */}
-      <section className="section-padding bg-background">
+      <section className="section-padding bg-gradient-to-b from-background to-muted/30">
         <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <p className="text-lg leading-relaxed">
-              HeroSchool teaches <strong>Cambridge Global Stage</strong> books used across Cambridge-pathway schools in Vietnam. 
-              Complete <strong>Stages 2, 4, and 6</strong> to unlock official Cambridge Young Learners exams.
-            </p>
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-background p-8 md:p-12 rounded-3xl shadow-xl border-2 border-primary/10">
+              <div className="text-center space-y-6">
+                <div className="inline-block">
+                  <Trophy className="w-16 h-16 text-primary mx-auto mb-4" />
+                </div>
+
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed">
+                  HeroSchool teaches <span className="text-primary underline decoration-2 underline-offset-4">Cambridge Global Stage</span> books used across Cambridge-pathway schools in Vietnam.
+                </h2>
+
+                <div className="h-1 w-24 bg-gradient-to-r from-primary to-accent-teal mx-auto rounded-full"></div>
+
+                <p className="text-xl md:text-2xl text-muted-foreground font-medium leading-relaxed">
+                  Complete <span className="font-bold text-primary">Stages 2, 4, and 6</span> to unlock official <span className="font-bold text-foreground">Cambridge Young Learners exams</span>.
+                </p>
+
+                <div className="grid grid-cols-3 gap-4 pt-6 max-w-2xl mx-auto">
+                  <div className="text-center p-4 bg-accent-pink/10 rounded-xl border border-accent-pink/20">
+                    <div className="text-3xl font-bold text-accent-pink mb-1">Stage 2</div>
+                    <div className="text-sm text-muted-foreground">Starters</div>
+                  </div>
+                  <div className="text-center p-4 bg-primary/10 rounded-xl border border-primary/20">
+                    <div className="text-3xl font-bold text-primary mb-1">Stage 4</div>
+                    <div className="text-sm text-muted-foreground">Movers</div>
+                  </div>
+                  <div className="text-center p-4 bg-accent-teal/10 rounded-xl border border-accent-teal/20">
+                    <div className="text-3xl font-bold text-accent-teal mb-1">Stage 6</div>
+                    <div className="text-sm text-muted-foreground">Flyers</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

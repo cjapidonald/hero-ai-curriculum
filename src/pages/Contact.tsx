@@ -199,11 +199,11 @@ const Contact = () => {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="font-medium">Monday - Friday</span>
-                    <span>8:00 AM - 6:00 PM</span>
+                    <span>4:00 PM - 9:00 PM</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border">
                     <span className="font-medium">Saturday</span>
-                    <span>8:00 AM - 5:00 PM</span>
+                    <span>4:00 PM - 9:00 PM</span>
                   </div>
                   <div className="flex justify-between py-2">
                     <span className="font-medium">Sunday</span>
@@ -211,7 +211,7 @@ const Contact = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-4">
-                  💡 Best time to visit: Weekday afternoons 2-5 PM (see classes in action!)
+                  💡 Best time to visit: Weekday evenings 5-7 PM (see classes in action!)
                 </p>
               </div>
 
@@ -232,7 +232,7 @@ const Contact = () => {
                     </div>
                   </a>
                   <a
-                    href="https://www.facebook.com/profile.php?id=61552900374349"
+                    href="https://www.facebook.com/Heroenglishvn"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 p-3 bg-background rounded-xl hover:bg-primary/10 transition-colors"
