@@ -111,6 +111,13 @@ export const ResourceLibrary = ({ onSelectResource, selectedType, compact = fals
     setFilteredResources(filtered);
   };
 
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setTypeFilter(selectedType || 'all');
+    setLevelFilter('all');
+    setStageFilter('all');
+  };
+
   const getResourceIcon = (type: string | null) => {
     switch (type) {
       case 'pdf':
@@ -215,7 +222,7 @@ export const ResourceLibrary = ({ onSelectResource, selectedType, compact = fals
             </SelectContent>
           </Select>
 
-          <Button variant="outline" onClick={fetchResources} className="gap-2">
+          <Button variant="outline" onClick={handleResetFilters} className="gap-2">
             <Filter size={16} />
             Reset
           </Button>

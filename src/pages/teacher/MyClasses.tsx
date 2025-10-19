@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Calendar, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, Calendar, Clock, ClipboardCheck } from 'lucide-react';
+import TakeAttendanceDialog from '@/components/teacher/TakeAttendanceDialog';
 
 interface Student {
   id: string;
@@ -9,6 +11,7 @@ interface Student {
   surname: string;
   class: string;
   attendance_rate: number;
+  sessions_left: number;
 }
 
 interface MyClassesProps {
@@ -19,6 +22,8 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<string[]>([]);
+  const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<string>('');
 
   useEffect(() => {
     loadStudents();
@@ -28,7 +33,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('dashboard_students')
-      .select('*')
+      .select('id, name, surname, class, attendance_rate, sessions_left')
       .eq('is_active', true)
       .order('class', { ascending: true })
       .order('name', { ascending: true });
@@ -39,6 +44,16 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       setClasses(uniqueClasses);
     }
     setLoading(false);
+  };
+
+  const handleTakeAttendance = (className: string) => {
+    setSelectedClass(className);
+    setAttendanceDialogOpen(true);
+  };
+
+  const handleAttendanceSaved = () => {
+    // Reload students to get updated sessions_left and attendance_rate
+    loadStudents();
   };
 
   if (loading) {
@@ -104,9 +119,19 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{className}</span>
-                  <span className="text-sm font-normal text-muted-foreground">
-                    {classStudents.length} students
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {classStudents.length} students
+                    </span>
+                    <Button
+                      size="sm"
+                      onClick={() => handleTakeAttendance(className)}
+                      className="ml-2"
+                    >
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Take Attendance
+                    </Button>
+                  </div>
                 </CardTitle>
                 <CardDescription>
                   Average Attendance: {avgAttendance}%
@@ -124,6 +149,9 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         Attendance: {student.attendance_rate?.toFixed(1) || 0}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Sessions left: {student.sessions_left || 0}
                       </div>
                     </div>
                   ))}
@@ -145,6 +173,15 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Attendance Dialog */}
+      <TakeAttendanceDialog
+        open={attendanceDialogOpen}
+        onOpenChange={setAttendanceDialogOpen}
+        className={selectedClass}
+        students={students.filter((s) => s.class === selectedClass)}
+        onAttendanceSaved={handleAttendanceSaved}
+      />
     </div>
   );
 };

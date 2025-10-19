@@ -161,7 +161,7 @@ export const EnhancedStudentCRUD = () => {
       surname: student.surname,
       email: student.email,
       password: '', // Don't pre-fill password
-      class: student., class: student.class || '',
+      class: student.class || '',
       gender: student.gender || '',
       subject: student.subject || 'English',
       level: student.level || '',

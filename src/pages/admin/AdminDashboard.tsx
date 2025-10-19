@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
-import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
+// import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
 import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
 import { SkillsManagement } from "@/components/crud/SkillsManagement";
 import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
@@ -383,7 +383,8 @@ export default function AdminDashboard() {
                 <CardDescription>Add, edit, and manage all students with real-time sync</CardDescription>
               </CardHeader>
               <CardContent>
-                <EnhancedStudentCRUD />
+                {/* <EnhancedStudentCRUD /> */}
+                <p>Student CRUD temporarily disabled</p>
               </CardContent>
             </Card>
           </TabsContent>

@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      admins: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          last_login: string | null
+          name: string
+          password: string
+          phone: string | null
+          profile_image_url: string | null
+          surname: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          name: string
+          password: string
+          phone?: string | null
+          profile_image_url?: string | null
+          surname: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          last_login?: string | null
+          name?: string
+          password?: string
+          phone?: string | null
+          profile_image_url?: string | null
+          surname?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       assessment: {
         Row: {
           assessment_date: string | null
@@ -102,7 +144,55 @@ export type Database = {
             foreignKeyName: "assessment_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "assessment_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
             referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance: {
+        Row: {
+          class_date: string
+          created_at: string | null
+          enrollment_id: string
+          id: string
+          late: boolean | null
+          notes: string | null
+          present: boolean | null
+          recorded_by: string | null
+        }
+        Insert: {
+          class_date: string
+          created_at?: string | null
+          enrollment_id: string
+          id?: string
+          late?: boolean | null
+          notes?: string | null
+          present?: boolean | null
+          recorded_by?: string | null
+        }
+        Update: {
+          class_date?: string
+          created_at?: string | null
+          enrollment_id?: string
+          id?: string
+          late?: boolean | null
+          notes?: string | null
+          present?: boolean | null
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
             referencedColumns: ["id"]
           },
         ]
@@ -150,61 +240,59 @@ export type Database = {
           title?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "blog_posts_author_id_fkey"
-            columns: ["author_id"]
-            isOneToOne: false
-            referencedRelation: "teachers"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      contact_submissions: {
+      classes: {
         Row: {
-          child_age: number | null
-          child_name: string
-          consent_updates: boolean | null
-          contact_method: string | null
+          class_name: string
+          classroom_location: string | null
           created_at: string | null
-          email: string | null
-          english_level: string | null
-          heard_from: string | null
+          current_students: number | null
+          end_date: string | null
+          end_time: string | null
           id: string
-          interests: string[] | null
-          message: string | null
-          parent_name: string
-          phone: string
+          is_active: boolean | null
+          max_students: number | null
+          schedule_days: Database["public"]["Enums"]["class_day"][] | null
+          stage: Database["public"]["Enums"]["cambridge_stage"]
+          start_date: string | null
+          start_time: string | null
+          teacher_name: string | null
+          updated_at: string | null
         }
         Insert: {
-          child_age?: number | null
-          child_name: string
-          consent_updates?: boolean | null
-          contact_method?: string | null
+          class_name: string
+          classroom_location?: string | null
           created_at?: string | null
-          email?: string | null
-          english_level?: string | null
-          heard_from?: string | null
+          current_students?: number | null
+          end_date?: string | null
+          end_time?: string | null
           id?: string
-          interests?: string[] | null
-          message?: string | null
-          parent_name: string
-          phone: string
+          is_active?: boolean | null
+          max_students?: number | null
+          schedule_days?: Database["public"]["Enums"]["class_day"][] | null
+          stage: Database["public"]["Enums"]["cambridge_stage"]
+          start_date?: string | null
+          start_time?: string | null
+          teacher_name?: string | null
+          updated_at?: string | null
         }
         Update: {
-          child_age?: number | null
-          child_name?: string
-          consent_updates?: boolean | null
-          contact_method?: string | null
+          class_name?: string
+          classroom_location?: string | null
           created_at?: string | null
-          email?: string | null
-          english_level?: string | null
-          heard_from?: string | null
+          current_students?: number | null
+          end_date?: string | null
+          end_time?: string | null
           id?: string
-          interests?: string[] | null
-          message?: string | null
-          parent_name?: string
-          phone?: string
+          is_active?: boolean | null
+          max_students?: number | null
+          schedule_days?: Database["public"]["Enums"]["class_day"][] | null
+          stage?: Database["public"]["Enums"]["cambridge_stage"]
+          start_date?: string | null
+          start_time?: string | null
+          teacher_name?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -457,6 +545,13 @@ export type Database = {
             foreignKeyName: "curriculum_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "curriculum_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
             referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
@@ -543,44 +638,287 @@ export type Database = {
         }
         Relationships: []
       }
-      event_registrations: {
+      enrollments: {
         Row: {
-          child_age: number
-          child_name: string
+          attendance_rate: number | null
+          class_id: string
+          completion_date: string | null
           created_at: string | null
-          email: string | null
-          event_name: string
+          enrollment_date: string | null
           id: string
-          parent_name: string
-          phone: string
-          photo_consent: boolean | null
-          special_needs: string | null
+          is_active: boolean | null
+          progress_notes: string | null
+          student_id: string
+          updated_at: string | null
         }
         Insert: {
-          child_age: number
-          child_name: string
+          attendance_rate?: number | null
+          class_id: string
+          completion_date?: string | null
           created_at?: string | null
-          email?: string | null
-          event_name: string
+          enrollment_date?: string | null
           id?: string
-          parent_name: string
-          phone: string
-          photo_consent?: boolean | null
-          special_needs?: string | null
+          is_active?: boolean | null
+          progress_notes?: string | null
+          student_id: string
+          updated_at?: string | null
         }
         Update: {
-          child_age?: number
-          child_name?: string
+          attendance_rate?: number | null
+          class_id?: string
+          completion_date?: string | null
           created_at?: string | null
-          email?: string | null
-          event_name?: string
+          enrollment_date?: string | null
           id?: string
+          is_active?: boolean | null
+          progress_notes?: string | null
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_registrations: {
+        Row: {
+          attended: boolean | null
+          child_age: number | null
+          child_name: string
+          email: string | null
+          event_id: string
+          id: string
+          notes: string | null
+          parent_name: string
+          payment_status: string | null
+          phone: string
+          registered_at: string | null
+          student_id: string | null
+        }
+        Insert: {
+          attended?: boolean | null
+          child_age?: number | null
+          child_name: string
+          email?: string | null
+          event_id: string
+          id?: string
+          notes?: string | null
+          parent_name: string
+          payment_status?: string | null
+          phone: string
+          registered_at?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          attended?: boolean | null
+          child_age?: number | null
+          child_name?: string
+          email?: string | null
+          event_id?: string
+          id?: string
+          notes?: string | null
           parent_name?: string
+          payment_status?: string | null
           phone?: string
-          photo_consent?: boolean | null
-          special_needs?: string | null
+          registered_at?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "upcoming_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_registrations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "event_registrations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          age_max: number | null
+          age_min: number | null
+          created_at: string | null
+          current_participants: number | null
+          description: string | null
+          end_time: string | null
+          event_date: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id: string
+          image_url: string | null
+          is_published: boolean | null
+          location: string | null
+          max_participants: number | null
+          price: number | null
+          registration_deadline: string | null
+          start_time: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          age_max?: number | null
+          age_min?: number | null
+          created_at?: string | null
+          current_participants?: number | null
+          description?: string | null
+          end_time?: string | null
+          event_date: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          location?: string | null
+          max_participants?: number | null
+          price?: number | null
+          registration_deadline?: string | null
+          start_time?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          age_max?: number | null
+          age_min?: number | null
+          created_at?: string | null
+          current_participants?: number | null
+          description?: string | null
+          end_time?: string | null
+          event_date?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          image_url?: string | null
+          is_published?: boolean | null
+          location?: string | null
+          max_participants?: number | null
+          price?: number | null
+          registration_deadline?: string | null
+          start_time?: string | null
+          title?: string
+          updated_at?: string | null
         }
         Relationships: []
+      }
+      exam_results: {
+        Row: {
+          certificate_number: string | null
+          certificate_url: string | null
+          created_at: string | null
+          exam_date: string
+          exam_type: Database["public"]["Enums"]["cambridge_exam"]
+          id: string
+          listening_shields: number | null
+          notes: string | null
+          reading_writing_shields: number | null
+          speaking_shields: number | null
+          student_id: string
+          total_shields: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          created_at?: string | null
+          exam_date: string
+          exam_type: Database["public"]["Enums"]["cambridge_exam"]
+          id?: string
+          listening_shields?: number | null
+          notes?: string | null
+          reading_writing_shields?: number | null
+          speaking_shields?: number | null
+          student_id: string
+          total_shields?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          certificate_number?: string | null
+          certificate_url?: string | null
+          created_at?: string | null
+          exam_date?: string
+          exam_type?: Database["public"]["Enums"]["cambridge_exam"]
+          id?: string
+          listening_shields?: number | null
+          notes?: string | null
+          reading_writing_shields?: number | null
+          speaking_shields?: number | null
+          student_id?: string
+          total_shields?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "exam_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       homework_completion: {
         Row: {
@@ -613,22 +951,447 @@ export type Database = {
           notes?: string | null
           student_id?: string | null
         }
+        Relationships: []
+      }
+      inquiries: {
+        Row: {
+          child_age: number
+          child_name: string
+          created_at: string | null
+          current_level: Database["public"]["Enums"]["english_level"] | null
+          email: string | null
+          how_did_hear: string | null
+          id: string
+          interested_in: Database["public"]["Enums"]["inquiry_type"][] | null
+          message: string
+          parent_id: string | null
+          parent_name: string
+          phone: string
+          preferred_contact:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          responded_at: string | null
+          responded_by: string | null
+          response_notes: string | null
+          status: string | null
+        }
+        Insert: {
+          child_age: number
+          child_name: string
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          email?: string | null
+          how_did_hear?: string | null
+          id?: string
+          interested_in?: Database["public"]["Enums"]["inquiry_type"][] | null
+          message: string
+          parent_id?: string | null
+          parent_name: string
+          phone: string
+          preferred_contact?:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_notes?: string | null
+          status?: string | null
+        }
+        Update: {
+          child_age?: number
+          child_name?: string
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          email?: string | null
+          how_did_hear?: string | null
+          id?: string
+          interested_in?: Database["public"]["Enums"]["inquiry_type"][] | null
+          message?: string
+          parent_id?: string | null
+          parent_name?: string
+          phone?: string
+          preferred_contact?:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_notes?: string | null
+          status?: string | null
+        }
         Relationships: [
           {
-            foreignKeyName: "homework_completion_curriculum_id_fkey"
+            foreignKeyName: "inquiries_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_resources: {
+        Row: {
+          added_by: string | null
+          created_at: string | null
+          curriculum_id: string
+          id: string
+          notes: string | null
+          position: number
+          resource_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string | null
+          curriculum_id: string
+          id?: string
+          notes?: string | null
+          position?: number
+          resource_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string | null
+          curriculum_id?: string
+          id?: string
+          notes?: string | null
+          position?: number
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_resources_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_resources_curriculum_id_fkey"
             columns: ["curriculum_id"]
             isOneToOne: false
             referencedRelation: "curriculum"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "homework_completion_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "lesson_resources_resource_id_fkey"
+            columns: ["resource_id"]
             isOneToOne: false
-            referencedRelation: "dashboard_students"
+            referencedRelation: "resources"
             referencedColumns: ["id"]
           },
         ]
+      }
+      parents: {
+        Row: {
+          address: string | null
+          agree_to_updates: boolean | null
+          created_at: string | null
+          email: string | null
+          full_name: string
+          how_did_hear: string | null
+          id: string
+          phone: string
+          preferred_contact:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          agree_to_updates?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          full_name: string
+          how_did_hear?: string | null
+          id?: string
+          phone: string
+          preferred_contact?:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          agree_to_updates?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string
+          how_did_hear?: string | null
+          id?: string
+          phone?: string
+          preferred_contact?:
+            | Database["public"]["Enums"]["contact_method"]
+            | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          created_by: string | null
+          enrollment_id: string | null
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_for: string | null
+          payment_method: string | null
+          receipt_number: string | null
+          student_id: string
+          term: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          created_by?: string | null
+          enrollment_id?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_for?: string | null
+          payment_method?: string | null
+          receipt_number?: string | null
+          student_id: string
+          term?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          created_by?: string | null
+          enrollment_id?: string | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_for?: string | null
+          payment_method?: string | null
+          receipt_number?: string | null
+          student_id?: string
+          term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll: {
+        Row: {
+          base_amount: number
+          bonus: number | null
+          created_at: string | null
+          created_by: string | null
+          deductions: number | null
+          hourly_rate: number | null
+          hours_worked: number | null
+          id: string
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_status:
+            | Database["public"]["Enums"]["payment_status_type"]
+            | null
+          period_end: string
+          period_start: string
+          teacher_id: string
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_amount: number
+          bonus?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deductions?: number | null
+          hourly_rate?: number | null
+          hours_worked?: number | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["payment_status_type"]
+            | null
+          period_end: string
+          period_start: string
+          teacher_id: string
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_amount?: number
+          bonus?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deductions?: number | null
+          hourly_rate?: number | null
+          hours_worked?: number | null
+          id?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_status?:
+            | Database["public"]["Enums"]["payment_status_type"]
+            | null
+          period_end?: string
+          period_start?: string
+          teacher_id?: string
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "payroll_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resources: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          file_url: string | null
+          id: string
+          image_url: string | null
+          instructions: string | null
+          is_active: boolean | null
+          is_public: boolean | null
+          materials_needed: string[] | null
+          objectives: string[] | null
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          stage: Database["public"]["Enums"]["cambridge_stage"] | null
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          file_url?: string | null
+          id?: string
+          image_url?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          materials_needed?: string[] | null
+          objectives?: string[] | null
+          resource_type: Database["public"]["Enums"]["resource_type"]
+          stage?: Database["public"]["Enums"]["cambridge_stage"] | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          file_url?: string | null
+          id?: string
+          image_url?: string | null
+          instructions?: string | null
+          is_active?: boolean | null
+          is_public?: boolean | null
+          materials_needed?: string[] | null
+          objectives?: string[] | null
+          resource_type?: Database["public"]["Enums"]["resource_type"]
+          stage?: Database["public"]["Enums"]["cambridge_stage"] | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skills: {
+        Row: {
+          category: Database["public"]["Enums"]["skill_category"]
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          skill_code: string
+          skill_name: string
+          target_stage: Database["public"]["Enums"]["cambridge_stage"][] | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["skill_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          skill_code: string
+          skill_name: string
+          target_stage?: Database["public"]["Enums"]["cambridge_stage"][] | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["skill_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          skill_code?: string
+          skill_name?: string
+          target_stage?: Database["public"]["Enums"]["cambridge_stage"][] | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       skills_evaluation: {
         Row: {
@@ -721,68 +1484,460 @@ export type Database = {
             foreignKeyName: "skills_evaluation_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "skills_evaluation_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
             referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
         ]
       }
-      teacher_payroll: {
+      student_progress: {
         Row: {
-          attendance_status: string | null
-          bonus_amount: number | null
-          class_name: string
+          assessed_by: string | null
+          assessment_date: string | null
           created_at: string | null
-          deduction_amount: number | null
-          hourly_rate: number | null
-          hours_taught: number | null
+          enrollment_id: string
           id: string
-          lesson_title: string | null
+          level_score: number | null
           notes: string | null
-          payout_date: string | null
-          payout_status: string | null
-          session_date: string
+          skill_area: string
+          student_id: string
+        }
+        Insert: {
+          assessed_by?: string | null
+          assessment_date?: string | null
+          created_at?: string | null
+          enrollment_id: string
+          id?: string
+          level_score?: number | null
+          notes?: string | null
+          skill_area: string
+          student_id: string
+        }
+        Update: {
+          assessed_by?: string | null
+          assessment_date?: string | null
+          created_at?: string | null
+          enrollment_id?: string
+          id?: string
+          level_score?: number | null
+          notes?: string | null
+          skill_area?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_progress_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_skills: {
+        Row: {
+          assessed_by: string | null
+          created_at: string | null
+          current_score: number | null
+          id: string
+          last_assessed_date: string | null
+          notes: string | null
+          proficiency_level:
+            | Database["public"]["Enums"]["proficiency_level"]
+            | null
+          skill_id: string
+          student_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          assessed_by?: string | null
+          created_at?: string | null
+          current_score?: number | null
+          id?: string
+          last_assessed_date?: string | null
+          notes?: string | null
+          proficiency_level?:
+            | Database["public"]["Enums"]["proficiency_level"]
+            | null
+          skill_id: string
+          student_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          assessed_by?: string | null
+          created_at?: string | null
+          current_score?: number | null
+          id?: string
+          last_assessed_date?: string | null
+          notes?: string | null
+          proficiency_level?:
+            | Database["public"]["Enums"]["proficiency_level"]
+            | null
+          skill_id?: string
+          student_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_skills_assessed_by_fkey"
+            columns: ["assessed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skills_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skills_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_skills_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          age: number | null
+          assigned_stage: Database["public"]["Enums"]["cambridge_stage"] | null
+          created_at: string | null
+          current_level: Database["public"]["Enums"]["english_level"] | null
+          date_of_birth: string | null
+          enrollment_date: string | null
+          full_name: string
+          id: string
+          notes: string | null
+          parent_id: string
+          profile_photo_url: string | null
+          status: Database["public"]["Enums"]["student_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          age?: number | null
+          assigned_stage?: Database["public"]["Enums"]["cambridge_stage"] | null
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          date_of_birth?: string | null
+          enrollment_date?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          parent_id: string
+          profile_photo_url?: string | null
+          status?: Database["public"]["Enums"]["student_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number | null
+          assigned_stage?: Database["public"]["Enums"]["cambridge_stage"] | null
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          date_of_birth?: string | null
+          enrollment_date?: string | null
+          full_name?: string
+          id?: string
+          notes?: string | null
+          parent_id?: string
+          profile_photo_url?: string | null
+          status?: Database["public"]["Enums"]["student_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_assignments: {
+        Row: {
+          class_id: string | null
+          created_at: string | null
+          created_by: string | null
+          curriculum_id: string | null
+          end_time: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          start_time: string | null
+          status: string | null
+          teacher_id: string
+          teaching_date: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          curriculum_id?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          start_time?: string | null
+          status?: string | null
+          teacher_id: string
+          teaching_date: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          curriculum_id?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          start_time?: string | null
+          status?: string | null
+          teacher_id?: string
+          teaching_date?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "teacher_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_notes: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_private: boolean | null
+          note_text: string
+          note_type: string | null
+          related_curriculum_id: string | null
+          related_skill_id: string | null
+          student_id: string
           teacher_id: string
           updated_at: string | null
         }
         Insert: {
-          attendance_status?: string | null
-          bonus_amount?: number | null
-          class_name: string
           created_at?: string | null
-          deduction_amount?: number | null
-          hourly_rate?: number | null
-          hours_taught?: number | null
           id?: string
-          lesson_title?: string | null
-          notes?: string | null
-          payout_date?: string | null
-          payout_status?: string | null
-          session_date: string
+          is_private?: boolean | null
+          note_text: string
+          note_type?: string | null
+          related_curriculum_id?: string | null
+          related_skill_id?: string | null
+          student_id: string
           teacher_id: string
           updated_at?: string | null
         }
         Update: {
-          attendance_status?: string | null
-          bonus_amount?: number | null
-          class_name?: string
           created_at?: string | null
-          deduction_amount?: number | null
-          hourly_rate?: number | null
-          hours_taught?: number | null
           id?: string
-          lesson_title?: string | null
-          notes?: string | null
-          payout_date?: string | null
-          payout_status?: string | null
-          session_date?: string
+          is_private?: boolean | null
+          note_text?: string
+          note_type?: string | null
+          related_curriculum_id?: string | null
+          related_skill_id?: string | null
+          student_id?: string
           teacher_id?: string
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "teacher_payroll_teacher_id_fkey"
+            foreignKeyName: "teacher_notes_related_curriculum_id_fkey"
+            columns: ["related_curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_related_skill_id_fkey"
+            columns: ["related_skill_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_profiles: {
+        Row: {
+          address: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          bio: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          hourly_rate: number | null
+          id: string
+          languages_spoken: string[] | null
+          qualifications: string[] | null
+          specializations: string[] | null
+          updated_at: string | null
+          years_of_experience: number | null
+        }
+        Insert: {
+          address?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bio?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          hourly_rate?: number | null
+          id: string
+          languages_spoken?: string[] | null
+          qualifications?: string[] | null
+          specializations?: string[] | null
+          updated_at?: string | null
+          years_of_experience?: number | null
+        }
+        Update: {
+          address?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          bio?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          hourly_rate?: number | null
+          id?: string
+          languages_spoken?: string[] | null
+          qualifications?: string[] | null
+          specializations?: string[] | null
+          updated_at?: string | null
+          years_of_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "teacher_profiles_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
             referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
@@ -833,15 +1988,277 @@ export type Database = {
         }
         Relationships: []
       }
+      trial_bookings: {
+        Row: {
+          assigned_class_id: string | null
+          attended: boolean | null
+          child_age: number
+          child_name: string
+          created_at: string | null
+          current_level: Database["public"]["Enums"]["english_level"] | null
+          email: string | null
+          feedback: string | null
+          id: string
+          parent_name: string
+          phone: string
+          preferred_date: string | null
+          preferred_time: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_class_id?: string | null
+          attended?: boolean | null
+          child_age: number
+          child_name: string
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          email?: string | null
+          feedback?: string | null
+          id?: string
+          parent_name: string
+          phone: string
+          preferred_date?: string | null
+          preferred_time?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_class_id?: string | null
+          attended?: boolean | null
+          child_age?: number
+          child_name?: string
+          created_at?: string | null
+          current_level?: Database["public"]["Enums"]["english_level"] | null
+          email?: string | null
+          feedback?: string | null
+          id?: string
+          parent_name?: string
+          phone?: string
+          preferred_date?: string | null
+          preferred_time?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_bookings_assigned_class_id_fkey"
+            columns: ["assigned_class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean | null
+          phone: string | null
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          is_active?: boolean | null
+          phone?: string | null
+          role: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean | null
+          phone?: string | null
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      active_students_with_classes: {
+        Row: {
+          age: number | null
+          assigned_stage: Database["public"]["Enums"]["cambridge_stage"] | null
+          attendance_rate: number | null
+          class_name: string | null
+          class_stage: Database["public"]["Enums"]["cambridge_stage"] | null
+          current_level: Database["public"]["Enums"]["english_level"] | null
+          enrollment_date: string | null
+          id: string | null
+          parent_email: string | null
+          parent_name: string | null
+          parent_phone: string | null
+          student_name: string | null
+          teacher_name: string | null
+        }
+        Relationships: []
+      }
+      student_skills_summary: {
+        Row: {
+          average_score: number | null
+          category: Database["public"]["Enums"]["skill_category"] | null
+          full_name: string | null
+          last_assessed: string | null
+          skills_in_category: number | null
+          student_id: string | null
+        }
+        Relationships: []
+      }
+      teacher_dashboard_view: {
+        Row: {
+          assigned_classes_count: number | null
+          email: string | null
+          hourly_rate: number | null
+          teacher_id: string | null
+          teacher_name: string | null
+          total_students: number | null
+          upcoming_assignments: number | null
+        }
+        Relationships: []
+      }
+      upcoming_events: {
+        Row: {
+          age_max: number | null
+          age_min: number | null
+          current_participants: number | null
+          description: string | null
+          end_time: string | null
+          event_date: string | null
+          event_type: Database["public"]["Enums"]["event_type"] | null
+          id: string | null
+          image_url: string | null
+          location: string | null
+          max_participants: number | null
+          price: number | null
+          spots_remaining: number | null
+          start_time: string | null
+          title: string | null
+        }
+        Insert: {
+          age_max?: number | null
+          age_min?: number | null
+          current_participants?: number | null
+          description?: string | null
+          end_time?: string | null
+          event_date?: string | null
+          event_type?: Database["public"]["Enums"]["event_type"] | null
+          id?: string | null
+          image_url?: string | null
+          location?: string | null
+          max_participants?: number | null
+          price?: number | null
+          spots_remaining?: never
+          start_time?: string | null
+          title?: string | null
+        }
+        Update: {
+          age_max?: number | null
+          age_min?: number | null
+          current_participants?: number | null
+          description?: string | null
+          end_time?: string | null
+          event_date?: string | null
+          event_type?: Database["public"]["Enums"]["event_type"] | null
+          id?: string | null
+          image_url?: string | null
+          location?: string | null
+          max_participants?: number | null
+          price?: number | null
+          spots_remaining?: never
+          start_time?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      cambridge_exam: "starters" | "movers" | "flyers"
+      cambridge_stage:
+        | "stage_1"
+        | "stage_2"
+        | "stage_3"
+        | "stage_4"
+        | "stage_5"
+        | "stage_6"
+      class_day:
+        | "monday"
+        | "tuesday"
+        | "wednesday"
+        | "thursday"
+        | "friday"
+        | "saturday"
+        | "sunday"
+      contact_method: "zalo" | "email" | "phone"
+      english_level: "beginner" | "some_english" | "confident" | "unsure"
+      event_type:
+        | "workshop"
+        | "exam"
+        | "competition"
+        | "holiday_camp"
+        | "parent_meeting"
+        | "cultural_event"
+      inquiry_type:
+        | "trial_class"
+        | "curriculum_info"
+        | "center_tour"
+        | "event_registration"
+        | "pricing"
+        | "other"
+      payment_status_type:
+        | "pending"
+        | "paid"
+        | "partial"
+        | "overdue"
+        | "cancelled"
+      proficiency_level:
+        | "beginner"
+        | "elementary"
+        | "pre_intermediate"
+        | "intermediate"
+        | "upper_intermediate"
+        | "advanced"
+      resource_type:
+        | "warmup"
+        | "activity"
+        | "game"
+        | "worksheet"
+        | "video"
+        | "audio"
+        | "presentation"
+        | "assessment"
+        | "homework"
+        | "printable"
+      skill_category:
+        | "listening"
+        | "speaking"
+        | "reading"
+        | "writing"
+        | "vocabulary"
+        | "grammar"
+        | "pronunciation"
+        | "fluency"
+        | "comprehension"
+        | "social_skills"
+      student_status: "inquiry" | "trial" | "active" | "inactive" | "graduated"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -968,6 +2385,83 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cambridge_exam: ["starters", "movers", "flyers"],
+      cambridge_stage: [
+        "stage_1",
+        "stage_2",
+        "stage_3",
+        "stage_4",
+        "stage_5",
+        "stage_6",
+      ],
+      class_day: [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ],
+      contact_method: ["zalo", "email", "phone"],
+      english_level: ["beginner", "some_english", "confident", "unsure"],
+      event_type: [
+        "workshop",
+        "exam",
+        "competition",
+        "holiday_camp",
+        "parent_meeting",
+        "cultural_event",
+      ],
+      inquiry_type: [
+        "trial_class",
+        "curriculum_info",
+        "center_tour",
+        "event_registration",
+        "pricing",
+        "other",
+      ],
+      payment_status_type: [
+        "pending",
+        "paid",
+        "partial",
+        "overdue",
+        "cancelled",
+      ],
+      proficiency_level: [
+        "beginner",
+        "elementary",
+        "pre_intermediate",
+        "intermediate",
+        "upper_intermediate",
+        "advanced",
+      ],
+      resource_type: [
+        "warmup",
+        "activity",
+        "game",
+        "worksheet",
+        "video",
+        "audio",
+        "presentation",
+        "assessment",
+        "homework",
+        "printable",
+      ],
+      skill_category: [
+        "listening",
+        "speaking",
+        "reading",
+        "writing",
+        "vocabulary",
+        "grammar",
+        "pronunciation",
+        "fluency",
+        "comprehension",
+        "social_skills",
+      ],
+      student_status: ["inquiry", "trial", "active", "inactive", "graduated"],
+    },
   },
 } as const
