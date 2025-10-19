@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3 } from 'lucide-react';
+import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -14,8 +14,9 @@ import Skills from './Skills';
 import Blog from './Blog';
 import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
+import LessonBuilder from './LessonBuilder';
 
-type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'students' | 'assessment' | 'skills' | 'blog';
+type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assessment' | 'skills' | 'blog';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
@@ -74,6 +75,7 @@ const TeacherDashboard = () => {
     { id: 'calendar' as TabType, label: 'Calendar', icon: Calendar },
     { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
+    { id: 'lessonbuilder' as TabType, label: 'Lesson Builder', icon: Blocks },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
     { id: 'assessment' as TabType, label: 'Assessment', icon: FileText },
     { id: 'skills' as TabType, label: 'Skills', icon: Award },
@@ -95,6 +97,8 @@ const TeacherDashboard = () => {
         return <MyClasses teacherId={user.id} />;
       case 'curriculum':
         return <CurriculumTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
+      case 'lessonbuilder':
+        return <LessonBuilder teacherId={user.id} />;
       case 'students':
         return <MyStudents teacherId={user.id} />;
       case 'assessment':
