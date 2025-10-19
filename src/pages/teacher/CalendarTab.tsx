@@ -51,25 +51,25 @@ const CalendarTab = ({ teacherId, teacherName }: CalendarTabProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('calendar_sessions')
+          .select('*')
+          .eq('teacher_id', teacherId)
+          .gte('session_date', new Date().toISOString().split('T')[0])
+          .order('session_date', { ascending: true })
+          .order('start_time', { ascending: true });
+
+        if (error) throw error;
+        setSessions(data || []);
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+      }
+    };
+
     fetchSessions();
   }, [teacherId]);
-
-  const fetchSessions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('calendar_sessions')
-        .select('*')
-        .eq('teacher_id', teacherId)
-        .gte('session_date', new Date().toISOString().split('T')[0])
-        .order('session_date', { ascending: true })
-        .order('start_time', { ascending: true });
-
-      if (error) throw error;
-      setSessions(data || []);
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-    }
-  };
 
   const openAttendance = async (session: CalendarSession) => {
     try {

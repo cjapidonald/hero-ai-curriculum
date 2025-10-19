@@ -59,51 +59,51 @@ const Skills = ({ teacherId }: SkillsProps) => {
   });
 
   useEffect(() => {
+    const fetchSkills = async () => {
+      try {
+        setLoading(true);
+        let query = supabase
+          .from('skills_evaluation')
+          .select('*')
+          .eq('teacher_id', teacherId)
+          .order('evaluation_date', { ascending: false });
+
+        if (filterCategory !== 'all') {
+          query = query.eq('skill_category', filterCategory);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        setSkills(data || []);
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load skills evaluations',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchStudents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('dashboard_students')
+          .select('id, name, surname, class')
+          .order('name');
+
+        if (error) throw error;
+        setStudents(data || []);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+      }
+    };
+
     fetchSkills();
     fetchStudents();
-  }, [teacherId, filterCategory]);
-
-  const fetchSkills = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('skills_evaluation')
-        .select('*')
-        .eq('teacher_id', teacherId)
-        .order('evaluation_date', { ascending: false });
-
-      if (filterCategory !== 'all') {
-        query = query.eq('skill_category', filterCategory);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setSkills(data || []);
-    } catch (error) {
-      console.error('Error fetching skills:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load skills evaluations',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dashboard_students')
-        .select('id, name, surname, class')
-        .order('name');
-
-      if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    }
-  };
+  }, [teacherId, filterCategory, toast]);
 
   const calculateAverage = () => {
     const { e1, e2, e3, e4, e5, e6 } = formData;

@@ -59,46 +59,46 @@ const Assessment = ({ teacherId }: AssessmentProps) => {
   });
 
   useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('assessment')
+          .select('*')
+          .eq('teacher_id', teacherId)
+          .order('assessment_date', { ascending: false });
+
+        if (error) throw error;
+        setAssessments(data || []);
+      } catch (error) {
+        console.error('Error fetching assessments:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load assessments',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchStudents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('dashboard_students')
+          .select('id, name, surname, class')
+          .order('name');
+
+        if (error) throw error;
+        setStudents(data || []);
+      } catch (error) {
+        console.error('Error fetching students:', error);
+      }
+    };
+
     fetchAssessments();
     fetchStudents();
-  }, [teacherId]);
-
-  const fetchAssessments = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('assessment')
-        .select('*')
-        .eq('teacher_id', teacherId)
-        .order('assessment_date', { ascending: false });
-
-      if (error) throw error;
-      setAssessments(data || []);
-    } catch (error) {
-      console.error('Error fetching assessments:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load assessments',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStudents = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dashboard_students')
-        .select('id, name, surname, class')
-        .order('name');
-
-      if (error) throw error;
-      setStudents(data || []);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    }
-  };
+  }, [teacherId, toast]);
 
   const calculateTotal = () => {
     const { r1, r2, r3, r4, r5 } = formData;

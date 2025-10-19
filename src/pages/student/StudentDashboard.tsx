@@ -24,70 +24,70 @@ export default function StudentDashboard() {
   const [skillsRadarData, setSkillsRadarData] = useState<any[]>([]);
 
   useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('dashboard_students')
+          .select('*')
+          .eq('email', user?.email)
+          .single();
+
+        if (error) throw error;
+        setStudentData(data);
+
+        // Fetch recent skills data
+        const { data: skillsData } = await supabase
+          .from('skills_evaluation')
+          .select('*')
+          .eq('student_id', data.id)
+          .order('evaluation_date', { ascending: false })
+          .limit(20);
+
+        if (skillsData) {
+          setRecentSkills(skillsData);
+
+          // Calculate average scores per skill category for radar chart
+          const categoryAverages = skillsData.reduce((acc: any, skill: any) => {
+            if (!acc[skill.skill_category]) {
+              acc[skill.skill_category] = { total: 0, count: 0 };
+            }
+            acc[skill.skill_category].total += skill.average_score || 0;
+            acc[skill.skill_category].count += 1;
+            return acc;
+          }, {});
+
+          const radarData = Object.entries(categoryAverages).map(([category, data]: [string, any]) => ({
+            subject: category,
+            score: (data.total / data.count).toFixed(2),
+            fullMark: 5,
+          }));
+          setSkillsRadarData(radarData);
+        }
+
+        // Fetch recent assessments
+        const { data: assessData } = await supabase
+          .from('assessment')
+          .select('*')
+          .eq('student_id', data.id)
+          .eq('published', true)
+          .order('assessment_date', { ascending: false })
+          .limit(5);
+
+        if (assessData) setRecentAssessments(assessData);
+
+      } catch (error) {
+        console.error('Error fetching student data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (!user || user.role !== 'student') {
       navigate('/login');
       return;
     }
     fetchStudentData();
   }, [user, navigate]);
-
-  const fetchStudentData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dashboard_students')
-        .select('*')
-        .eq('email', user?.email)
-        .single();
-
-      if (error) throw error;
-      setStudentData(data);
-
-      // Fetch recent skills data
-      const { data: skillsData } = await supabase
-        .from('skills_evaluation')
-        .select('*')
-        .eq('student_id', data.id)
-        .order('evaluation_date', { ascending: false })
-        .limit(20);
-
-      if (skillsData) {
-        setRecentSkills(skillsData);
-
-        // Calculate average scores per skill category for radar chart
-        const categoryAverages = skillsData.reduce((acc: any, skill: any) => {
-          if (!acc[skill.skill_category]) {
-            acc[skill.skill_category] = { total: 0, count: 0 };
-          }
-          acc[skill.skill_category].total += skill.average_score || 0;
-          acc[skill.skill_category].count += 1;
-          return acc;
-        }, {});
-
-        const radarData = Object.entries(categoryAverages).map(([category, data]: [string, any]) => ({
-          subject: category,
-          score: (data.total / data.count).toFixed(2),
-          fullMark: 5,
-        }));
-        setSkillsRadarData(radarData);
-      }
-
-      // Fetch recent assessments
-      const { data: assessData } = await supabase
-        .from('assessment')
-        .select('*')
-        .eq('student_id', data.id)
-        .eq('published', true)
-        .order('assessment_date', { ascending: false })
-        .limit(5);
-
-      if (assessData) setRecentAssessments(assessData);
-
-    } catch (error) {
-      console.error('Error fetching student data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     logout();

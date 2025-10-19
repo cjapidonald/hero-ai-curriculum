@@ -19,50 +19,50 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
 
   useEffect(() => {
+    const getDateFilter = () => {
+      const now = new Date();
+      switch (timeFilter) {
+        case '1week':
+          return subWeeks(now, 1);
+        case '1month':
+          return subMonths(now, 1);
+        case '3months':
+          return subMonths(now, 3);
+        case '6months':
+          return subMonths(now, 6);
+        case '9months':
+          return subMonths(now, 9);
+        default:
+          return subMonths(now, 1);
+      }
+    };
+
+    const fetchAssessments = async () => {
+      try {
+        setLoading(true);
+        const dateFilter = getDateFilter();
+
+        const { data, error } = await supabase
+          .from('assessment')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('published', true)
+          .gte('assessment_date', dateFilter.toISOString())
+          .order('assessment_date', { ascending: true });
+
+        if (error) throw error;
+        setAssessments(data || []);
+      } catch (error) {
+        console.error('Error fetching assessments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (studentId) {
       fetchAssessments();
     }
   }, [studentId, timeFilter]);
-
-  const getDateFilter = () => {
-    const now = new Date();
-    switch (timeFilter) {
-      case '1week':
-        return subWeeks(now, 1);
-      case '1month':
-        return subMonths(now, 1);
-      case '3months':
-        return subMonths(now, 3);
-      case '6months':
-        return subMonths(now, 6);
-      case '9months':
-        return subMonths(now, 9);
-      default:
-        return subMonths(now, 1);
-    }
-  };
-
-  const fetchAssessments = async () => {
-    try {
-      setLoading(true);
-      const dateFilter = getDateFilter();
-
-      const { data, error } = await supabase
-        .from('assessment')
-        .select('*')
-        .eq('student_id', studentId)
-        .eq('published', true)
-        .gte('assessment_date', dateFilter.toISOString())
-        .order('assessment_date', { ascending: true });
-
-      if (error) throw error;
-      setAssessments(data || []);
-    } catch (error) {
-      console.error('Error fetching assessments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const prepareLineChartData = () => {
     return assessments.map((assessment) => ({

@@ -34,82 +34,82 @@ export default function HomeworkList({ studentId }: HomeworkListProps) {
   const { toast } = useToast();
 
   useEffect(() => {
+    const fetchHomework = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch curriculum with homework
+        const { data: curriculumData, error: curriculumError } = await supabase
+          .from('curriculum')
+          .select('*')
+          .order('lesson_date', { ascending: false })
+          .limit(10);
+
+        if (curriculumError) throw curriculumError;
+
+        // Fetch homework completion status
+        const { data: completionData, error: completionError } = await supabase
+          .from('homework_completion')
+          .select('*')
+          .eq('student_id', studentId);
+
+        if (completionError) throw completionError;
+
+        // Process homework data
+        const processedHomework: HomeworkItem[] = [];
+
+        curriculumData?.forEach((lesson) => {
+          const homeworkItems: HomeworkMaterial[] = [];
+
+          // Extract homework materials (hw1-hw6)
+          for (let i = 1; i <= 6; i++) {
+            const hwKey = `hw${i}` as keyof typeof lesson;
+            const hwData = lesson[hwKey];
+
+            if (hwData && typeof hwData === 'object' && hwData.name) {
+              homeworkItems.push({
+                type: hwData.type || 'file',
+                url: hwData.url || '',
+                name: hwData.name || `Homework ${i}`,
+              });
+            }
+          }
+
+          if (homeworkItems.length > 0) {
+            // Get completed items for this lesson
+            const completedItems = completionData
+              ?.filter((c) => c.curriculum_id === lesson.id && c.completed)
+              .map((c) => c.homework_item) || [];
+
+            processedHomework.push({
+              id: lesson.id,
+              curriculum_id: lesson.id,
+              lesson_title: lesson.lesson_title,
+              lesson_date: lesson.lesson_date,
+              teacher_name: lesson.teacher_name,
+              homework_items: homeworkItems,
+              completed_items: completedItems,
+            });
+          }
+        });
+
+        setHomework(processedHomework);
+      } catch (error) {
+        console.error('Error fetching homework:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load homework',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (studentId) {
       fetchHomework();
     }
-  }, [studentId]);
-
-  const fetchHomework = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch curriculum with homework
-      const { data: curriculumData, error: curriculumError } = await supabase
-        .from('curriculum')
-        .select('*')
-        .order('lesson_date', { ascending: false })
-        .limit(10);
-
-      if (curriculumError) throw curriculumError;
-
-      // Fetch homework completion status
-      const { data: completionData, error: completionError } = await supabase
-        .from('homework_completion')
-        .select('*')
-        .eq('student_id', studentId);
-
-      if (completionError) throw completionError;
-
-      // Process homework data
-      const processedHomework: HomeworkItem[] = [];
-
-      curriculumData?.forEach((lesson) => {
-        const homeworkItems: HomeworkMaterial[] = [];
-
-        // Extract homework materials (hw1-hw6)
-        for (let i = 1; i <= 6; i++) {
-          const hwKey = `hw${i}` as keyof typeof lesson;
-          const hwData = lesson[hwKey];
-
-          if (hwData && typeof hwData === 'object' && hwData.name) {
-            homeworkItems.push({
-              type: hwData.type || 'file',
-              url: hwData.url || '',
-              name: hwData.name || `Homework ${i}`,
-            });
-          }
-        }
-
-        if (homeworkItems.length > 0) {
-          // Get completed items for this lesson
-          const completedItems = completionData
-            ?.filter((c) => c.curriculum_id === lesson.id && c.completed)
-            .map((c) => c.homework_item) || [];
-
-          processedHomework.push({
-            id: lesson.id,
-            curriculum_id: lesson.id,
-            lesson_title: lesson.lesson_title,
-            lesson_date: lesson.lesson_date,
-            teacher_name: lesson.teacher_name,
-            homework_items: homeworkItems,
-            completed_items: completedItems,
-          });
-        }
-      });
-
-      setHomework(processedHomework);
-    } catch (error) {
-      console.error('Error fetching homework:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load homework',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [studentId, toast]);
 
   const toggleHomeworkCompletion = async (
     curriculumId: string,

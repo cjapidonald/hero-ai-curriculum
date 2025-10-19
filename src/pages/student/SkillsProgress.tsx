@@ -20,55 +20,55 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
   const [skillFilter, setSkillFilter] = useState<SkillFilter>('all');
 
   useEffect(() => {
+    const getDateFilter = () => {
+      const now = new Date();
+      switch (timeFilter) {
+        case '1week':
+          return subWeeks(now, 1);
+        case '1month':
+          return subMonths(now, 1);
+        case '3months':
+          return subMonths(now, 3);
+        case '6months':
+          return subMonths(now, 6);
+        case '9months':
+          return subMonths(now, 9);
+        default:
+          return subMonths(now, 1);
+      }
+    };
+
+    const fetchSkillsData = async () => {
+      try {
+        setLoading(true);
+        const dateFilter = getDateFilter();
+
+        let query = supabase
+          .from('skills_evaluation')
+          .select('*')
+          .eq('student_id', studentId)
+          .gte('evaluation_date', dateFilter.toISOString())
+          .order('evaluation_date', { ascending: true });
+
+        if (skillFilter !== 'all') {
+          query = query.eq('skill_category', skillFilter);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setSkillsData(data || []);
+      } catch (error) {
+        console.error('Error fetching skills data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (studentId) {
       fetchSkillsData();
     }
   }, [studentId, timeFilter, skillFilter]);
-
-  const getDateFilter = () => {
-    const now = new Date();
-    switch (timeFilter) {
-      case '1week':
-        return subWeeks(now, 1);
-      case '1month':
-        return subMonths(now, 1);
-      case '3months':
-        return subMonths(now, 3);
-      case '6months':
-        return subMonths(now, 6);
-      case '9months':
-        return subMonths(now, 9);
-      default:
-        return subMonths(now, 1);
-    }
-  };
-
-  const fetchSkillsData = async () => {
-    try {
-      setLoading(true);
-      const dateFilter = getDateFilter();
-
-      let query = supabase
-        .from('skills_evaluation')
-        .select('*')
-        .eq('student_id', studentId)
-        .gte('evaluation_date', dateFilter.toISOString())
-        .order('evaluation_date', { ascending: true });
-
-      if (skillFilter !== 'all') {
-        query = query.eq('skill_category', skillFilter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setSkillsData(data || []);
-    } catch (error) {
-      console.error('Error fetching skills data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const prepareChartData = () => {
     if (!skillsData.length) return [];
