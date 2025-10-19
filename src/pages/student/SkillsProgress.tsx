@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, subMonths, subWeeks } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
@@ -16,6 +16,8 @@ type SkillFilter = 'all' | 'Writing' | 'Reading' | 'Listening' | 'Speaking';
 
 type SkillCategory = Exclude<SkillFilter, 'all'>;
 type SkillsEvaluationRecord = Tables<"skills_evaluation">;
+
+const SKILL_KEYS: SkillCategory[] = ["Writing", "Reading", "Listening", "Speaking"];
 
 export default function SkillsProgress({ studentId }: SkillsProgressProps) {
   const [skillsData, setSkillsData] = useState<SkillsEvaluationRecord[]>([]);
@@ -120,7 +122,9 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
       label: 'Speaking',
       color: 'hsl(var(--chart-4))',
     },
-  };
+  } as const;
+
+  const skillsToRender = skillFilter === 'all' ? SKILL_KEYS : [skillFilter as SkillCategory];
 
   if (loading) {
     return (
@@ -202,72 +206,59 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
         </CardHeader>
         <CardContent>
           {chartData.length > 0 ? (
-            <ChartContainer config={chartConfig} className="h-[400px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    domain={[0, 5]}
-                    ticks={[0, 1, 2, 3, 4, 5]}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  {skillFilter === 'all' ? (
-                    <>
-                      <Line
-                        type="monotone"
-                        dataKey="Writing"
-                        stroke="var(--color-Writing)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Reading"
-                        stroke="var(--color-Reading)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Listening"
-                        stroke="var(--color-Listening)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="Speaking"
-                        stroke="var(--color-Speaking)"
-                        strokeWidth={2}
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </>
-                  ) : (
+            <ChartContainer
+              config={chartConfig}
+              className="h-[400px] w-full rounded-3xl bg-gradient-to-br from-white/80 via-white/35 to-white/10 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/10 backdrop-blur-xl border border-white/40 dark:border-slate-800 shadow-[0_25px_55px_-35px_rgba(15,23,42,0.9)] px-4 py-6"
+            >
+              <ComposedChart data={chartData}>
+                <defs>
+                  {skillsToRender.map((skill) => (
+                    <linearGradient key={skill} id={`${skill}Gradient`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={`var(--color-${skill})`} stopOpacity={0.38} />
+                      <stop offset="95%" stopColor={`var(--color-${skill})`} stopOpacity={0.05} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid stroke="rgba(148,163,184,0.25)" vertical={false} strokeDasharray="4 8" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "rgba(71,85,105,0.85)", fontSize: 12, fontWeight: 500 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                />
+                <YAxis
+                  tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
+                  }
+                />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 500 }} />
+                {skillsToRender.map((skill) => (
+                  <Fragment key={skill}>
+                    <Area
+                      type="monotone"
+                      dataKey={skill}
+                      fill={`url(#${skill}Gradient)`}
+                      stroke="none"
+                      fillOpacity={1}
+                    />
                     <Line
                       type="monotone"
-                      dataKey={skillFilter}
-                      stroke={`var(--color-${skillFilter})`}
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
+                      dataKey={skill}
+                      stroke={`var(--color-${skill})`}
+                      strokeWidth={3}
+                      dot={false}
+                      activeDot={{ r: 7, strokeWidth: 2, fill: "#fff" }}
                     />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
+                  </Fragment>
+                ))}
+              </ComposedChart>
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground">
@@ -280,7 +271,7 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
 
       {/* Skills Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {['Writing', 'Reading', 'Listening', 'Speaking'].map((skill) => {
+        {SKILL_KEYS.map((skill) => {
           const skillDataForCategory = skillsData.filter((entry) => entry.skill_category === skill);
           const latestScore = skillDataForCategory.length > 0
             ? skillDataForCategory[skillDataForCategory.length - 1].average_score

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Download, Plus, X, Upload, FileText } from 'lucide-react';
 import { SortableItem } from '@/components/SortableItem';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+const SECTION_CONFIG = {
+  warmup: { max: 4, prefix: 'wp', activitiesKey: 'warmup_activities' },
+  main: { max: 5, prefix: 'ma', activitiesKey: 'main_activities' },
+  assessment: { max: 4, prefix: 'a', activitiesKey: 'assessment_activities' },
+  homework: { max: 6, prefix: 'hw', activitiesKey: 'homework_activities' },
+  printable: { max: 4, prefix: 'p', activitiesKey: 'printable_activities' },
+} as const;
+
+type SectionKey = keyof typeof SECTION_CONFIG;
+type LessonPlanActivitiesKey = typeof SECTION_CONFIG[SectionKey]['activitiesKey'];
 
 interface LessonActivity {
   id: string;
@@ -50,8 +63,7 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<string>('warmup');
-  const [draggedResource, setDraggedResource] = useState<Resource | null>(null);
+  const lessonPlanRef = useRef<HTMLDivElement>(null);
 
   const [lessonPlan, setLessonPlan] = useState<LessonPlan>({
     teacher_id: teacherId,
@@ -201,7 +213,10 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
     }
   };
 
-  const handleDrop = (sectionType: string, resource: Resource) => {
+  const handleDrop = (sectionType: SectionKey, resource: Resource) => {
+    const config = SECTION_CONFIG[sectionType];
+    const activitiesKey = config.activitiesKey;
+
     const newActivity: LessonActivity = {
       id: `${sectionType}${Date.now()}`,
       type: resource.file_type || 'file',
@@ -210,34 +225,72 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
       resource,
     };
 
-    setLessonPlan((prev) => ({
-      ...prev,
-      [`${sectionType}_activities`]: [...prev[`${sectionType}_activities` as keyof LessonPlan] as LessonActivity[], newActivity],
-    }));
+    setLessonPlan((prev) => {
+      const currentActivities = prev[activitiesKey as LessonPlanActivitiesKey] as LessonActivity[];
+
+      if (currentActivities.length >= config.max) {
+        toast({
+          title: 'Section full',
+          description: `You can only add ${config.max} item${config.max > 1 ? 's' : ''} to ${sectionType === 'main' ? 'main activities' : `${sectionType} activities`}.`,
+          variant: 'destructive',
+        });
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [activitiesKey]: [...currentActivities, newActivity],
+      };
+    });
   };
 
-  const handleRemoveActivity = (section: string, activityId: string) => {
+  const handleRemoveActivity = (section: SectionKey, activityId: string) => {
+    const { activitiesKey } = SECTION_CONFIG[section];
     setLessonPlan((prev) => ({
       ...prev,
-      [`${section}_activities`]: (prev[`${section}_activities` as keyof LessonPlan] as LessonActivity[]).filter(
+      [activitiesKey]: (prev[activitiesKey as LessonPlanActivitiesKey] as LessonActivity[]).filter(
         (a) => a.id !== activityId
       ),
     }));
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (sectionKey: SectionKey, event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const sectionKey = `${activeSection}_activities` as keyof LessonPlan;
-      const activities = lessonPlan[sectionKey] as LessonActivity[];
+    if (!over || active.id === over.id) return;
+
+    const { activitiesKey } = SECTION_CONFIG[sectionKey];
+
+    setLessonPlan((prev) => {
+      const activities = prev[activitiesKey as LessonPlanActivitiesKey] as LessonActivity[];
       const oldIndex = activities.findIndex((a) => a.id === active.id);
       const newIndex = activities.findIndex((a) => a.id === over.id);
 
-      setLessonPlan((prev) => ({
+      if (oldIndex === -1 || newIndex === -1) {
+        return prev;
+      }
+
+      return {
         ...prev,
-        [sectionKey]: arrayMove(activities, oldIndex, newIndex),
-      }));
+        [activitiesKey]: arrayMove(activities, oldIndex, newIndex),
+      };
+    });
+  };
+
+  const setFlatDataForSection = (
+    flatData: Record<string, any>,
+    sectionKey: SectionKey,
+    activities: LessonActivity[]
+  ) => {
+    const { max, prefix } = SECTION_CONFIG[sectionKey];
+
+    for (let idx = 0; idx < max; idx++) {
+      const activity = activities[idx];
+      const suffix = idx + 1;
+
+      flatData[`${prefix}${suffix}_type`] = activity?.type ?? null;
+      flatData[`${prefix}${suffix}_url`] = activity?.url ?? null;
+      flatData[`${prefix}${suffix}_name`] = activity?.name ?? null;
     }
   };
 
@@ -259,45 +312,11 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         curriculum_stage: lessonPlan.curriculum_stage,
       };
 
-      // Warmup activities
-      lessonPlan.warmup_activities.forEach((activity, idx) => {
-        const num = idx + 1;
-        flatData[`wp${num}_type`] = activity.type;
-        flatData[`wp${num}_url`] = activity.url;
-        flatData[`wp${num}_name`] = activity.name;
-      });
-
-      // Main activities
-      lessonPlan.main_activities.forEach((activity, idx) => {
-        const num = idx + 1;
-        flatData[`ma${num}_type`] = activity.type;
-        flatData[`ma${num}_url`] = activity.url;
-        flatData[`ma${num}_name`] = activity.name;
-      });
-
-      // Assessment activities
-      lessonPlan.assessment_activities.forEach((activity, idx) => {
-        const num = idx + 1;
-        flatData[`a${num}_type`] = activity.type;
-        flatData[`a${num}_url`] = activity.url;
-        flatData[`a${num}_name`] = activity.name;
-      });
-
-      // Homework activities
-      lessonPlan.homework_activities.forEach((activity, idx) => {
-        const num = idx + 1;
-        flatData[`hw${num}_type`] = activity.type;
-        flatData[`hw${num}_url`] = activity.url;
-        flatData[`hw${num}_name`] = activity.name;
-      });
-
-      // Printable activities
-      lessonPlan.printable_activities.forEach((activity, idx) => {
-        const num = idx + 1;
-        flatData[`p${num}_type`] = activity.type;
-        flatData[`p${num}_url`] = activity.url;
-        flatData[`p${num}_name`] = activity.name;
-      });
+      setFlatDataForSection(flatData, 'warmup', lessonPlan.warmup_activities);
+      setFlatDataForSection(flatData, 'main', lessonPlan.main_activities);
+      setFlatDataForSection(flatData, 'assessment', lessonPlan.assessment_activities);
+      setFlatDataForSection(flatData, 'homework', lessonPlan.homework_activities);
+      setFlatDataForSection(flatData, 'printable', lessonPlan.printable_activities);
 
       let error;
       if (lessonPlan.id) {
@@ -329,9 +348,29 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
   };
 
   const handleExportPDF = () => {
-    toast({
-      title: 'PDF Export',
-      description: 'PDF export feature coming soon!',
+    const input = lessonPlanRef.current;
+    if (!input) {
+      toast({
+        title: 'Error exporting PDF',
+        description: 'Could not find lesson plan content.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    html2canvas(input, { scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasWidth / canvasHeight;
+      const width = pdfWidth;
+      const height = width / ratio;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+      pdf.save(`${lessonPlan.lesson_title || 'lesson-plan'}.pdf`);
     });
   };
 
@@ -347,17 +386,13 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
 
   const renderActivitySection = (
     title: string,
-    sectionKey: string,
+    sectionKey: SectionKey,
     activities: LessonActivity[],
-    maxActivities: number
   ) => {
+    const { max } = SECTION_CONFIG[sectionKey];
     return (
       <div
         className="bg-muted/30 p-4 rounded-lg min-h-[200px] border-2 border-dashed border-muted-foreground/20"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setActiveSection(sectionKey);
-        }}
         onDrop={(e) => {
           e.preventDefault();
           const resourceData = e.dataTransfer.getData('application/json');
@@ -368,7 +403,11 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         }}
       >
         <h4 className="font-semibold mb-3">{title}</h4>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(event) => handleDragEnd(sectionKey, event)}
+        >
           <SortableContext items={activities.map((a) => a.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {activities.map((activity) => (
@@ -393,6 +432,11 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
                   Drag resources here or click to add
                 </p>
               )}
+              {activities.length >= max && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Maximum of {max} activities reached.
+                </p>
+              )}
             </div>
           </SortableContext>
         </DndContext>
@@ -403,7 +447,7 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
   return (
     <div className="grid lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
       {/* Left Side - Lesson Plan Editor */}
-      <div className="space-y-4 overflow-y-auto pr-4">
+      <div className="space-y-4 overflow-y-auto pr-4" ref={lessonPlanRef}>
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold">Lesson Planner</h2>
           <div className="flex gap-2">
@@ -497,11 +541,11 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
 
         {/* Activity Sections */}
         <div className="space-y-4">
-          {renderActivitySection('Warm-up Activities', 'warmup', lessonPlan.warmup_activities, 4)}
-          {renderActivitySection('Main Activities', 'main', lessonPlan.main_activities, 5)}
-          {renderActivitySection('Assessment Activities', 'assessment', lessonPlan.assessment_activities, 4)}
-          {renderActivitySection('Homework', 'homework', lessonPlan.homework_activities, 6)}
-          {renderActivitySection('Printables', 'printable', lessonPlan.printable_activities, 4)}
+          {renderActivitySection('Warm-up Activities', 'warmup', lessonPlan.warmup_activities)}
+          {renderActivitySection('Main Activities', 'main', lessonPlan.main_activities)}
+          {renderActivitySection('Assessment Activities', 'assessment', lessonPlan.assessment_activities)}
+          {renderActivitySection('Homework', 'homework', lessonPlan.homework_activities)}
+          {renderActivitySection('Printables', 'printable', lessonPlan.printable_activities)}
         </div>
       </div>
 
@@ -514,7 +558,16 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         <ResourceLibrary
           onSelectResource={(resource) => {
             // Auto-assign to appropriate section based on resource type
-            handleDrop(resource.resource_type === 'main_activity' ? 'main' : resource.resource_type, resource);
+            const resourceSection = resource.resource_type === 'main_activity' ? 'main' : resource.resource_type;
+            if (['warmup', 'main', 'assessment', 'homework', 'printable'].includes(resourceSection)) {
+              handleDrop(resourceSection as SectionKey, resource);
+            } else {
+              toast({
+                title: 'Unsupported resource type',
+                description: 'This resource cannot be added to the planner yet.',
+                variant: 'destructive',
+              });
+            }
           }}
           compact
         />

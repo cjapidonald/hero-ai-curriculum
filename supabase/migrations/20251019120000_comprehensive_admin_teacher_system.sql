@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS resources (
   description TEXT,
   resource_type resource_type NOT NULL,
   stage cambridge_stage,
+  level TEXT,
   duration_minutes INTEGER,
   objectives TEXT[],
   materials_needed TEXT[],
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS resources (
 CREATE INDEX IF NOT EXISTS idx_resources_tags ON resources USING GIN(tags);
 CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(resource_type);
 CREATE INDEX IF NOT EXISTS idx_resources_stage ON resources(stage);
+CREATE INDEX IF NOT EXISTS idx_resources_level ON resources(level);
 CREATE INDEX IF NOT EXISTS idx_resources_title ON resources USING GIN(to_tsvector('english', title));
 
 -- =============================================

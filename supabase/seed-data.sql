@@ -81,7 +81,9 @@ INSERT INTO classes (class_name, stage, teacher_name, max_students, current_stud
   ('Starters B - Afternoon', 'stage_1', 'Sarah Johnson', 12, 7, ARRAY['tuesday','thursday']::class_day[], '14:00', '15:30', 'Room 102', '2025-01-10', '2025-06-30', true),
   ('Movers A - Morning', 'stage_3', 'Michael Chen', 12, 9, ARRAY['monday','wednesday','friday']::class_day[], '10:45', '12:15', 'Room 103', '2025-01-10', '2025-06-30', true),
   ('Movers B - Afternoon', 'stage_3', 'Emily Williams', 12, 6, ARRAY['tuesday','thursday','saturday']::class_day[], '15:45', '17:15', 'Room 104', '2025-01-10', '2025-06-30', true),
-  ('Flyers A - Morning', 'stage_5', 'Donald Teacher', 10, 5, ARRAY['monday','wednesday','friday']::class_day[], '08:00', '09:30', 'Room 105', '2025-01-10', '2025-06-30', true);
+  ('Flyers A - Morning', 'stage_5', 'Donald Teacher', 10, 5, ARRAY['monday','wednesday','friday']::class_day[], '08:00', '09:30', 'Room 105', '2025-01-10', '2025-06-30', true),
+  ('Starters C - Weekend', 'stage_2', 'Donald Teacher', 12, 0, ARRAY['saturday','sunday']::class_day[], '09:00', '11:00', 'Room 201', '2025-01-11', '2025-07-01', true),
+  ('Flyers B - Weekend', 'stage_6', 'Donald Teacher', 10, 0, ARRAY['saturday','sunday']::class_day[], '13:00', '15:00', 'Room 202', '2025-01-11', '2025-07-01', true);
 
 -- =============================================
 -- STUDENTS (Main Schema)

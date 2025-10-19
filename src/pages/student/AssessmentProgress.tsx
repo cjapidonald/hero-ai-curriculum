@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Line, ComposedChart, Area } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, subMonths, subWeeks } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ interface AssessmentProgressProps {
 type TimeFilter = '1week' | '1month' | '3months' | '6months' | '9months';
 
 type AssessmentRecord = Tables<"assessment">;
+
+const RUBRIC_KEYS = ["r1", "r2", "r3", "r4", "r5"] as const;
 
 export default function AssessmentProgress({ studentId }: AssessmentProgressProps) {
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
@@ -210,35 +212,46 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
         </CardHeader>
         <CardContent>
           {lineChartData.length > 0 ? (
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={lineChartData}>
-                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    domain={[0, 5]}
-                    ticks={[0, 1, 2, 3, 4, 5]}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  <Line
-                    type="monotone"
-                    dataKey="score"
-                    stroke="var(--color-score)"
-                    strokeWidth={3}
-                    dot={{ r: 5, fill: 'var(--color-score)' }}
-                    activeDot={{ r: 7 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <ChartContainer
+              config={chartConfig}
+              className="h-[320px] w-full rounded-3xl bg-gradient-to-br from-white/85 via-white/40 to-white/15 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/10 backdrop-blur-xl border border-white/40 dark:border-slate-800 shadow-[0_25px_55px_-35px_rgba(15,23,42,0.9)] px-4 py-6"
+            >
+              <ComposedChart data={lineChartData}>
+                <defs>
+                  <linearGradient id="assessmentScoreGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-score)" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="var(--color-score)" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(148,163,184,0.25)" vertical={false} strokeDasharray="4 8" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "rgba(71,85,105,0.85)", fontSize: 12, fontWeight: 500 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                />
+                <YAxis
+                  tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
+                  }
+                />
+                <Area type="monotone" dataKey="score" fill="url(#assessmentScoreGradient)" stroke="none" />
+                <Line
+                  type="monotone"
+                  dataKey="score"
+                  stroke="var(--color-score)"
+                  strokeWidth={4}
+                  dot={false}
+                  activeDot={{ r: 8, strokeWidth: 2, fill: "#fff" }}
+                />
+              </ComposedChart>
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
@@ -256,35 +269,48 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
         </CardHeader>
         <CardContent>
           {barChartData.length > 0 ? (
-            <ChartContainer config={chartConfig} className="h-[350px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
-                  <XAxis
-                    dataKey="test"
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6b7280', fontSize: 12 }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                    domain={[0, 5]}
-                    ticks={[0, 1, 2, 3, 4, 5]}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  <Bar dataKey="r1" fill="var(--color-r1)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="r2" fill="var(--color-r2)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="r3" fill="var(--color-r3)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="r4" fill="var(--color-r4)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="r5" fill="var(--color-r5)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <ChartContainer
+              config={chartConfig}
+              className="h-[360px] w-full rounded-3xl bg-gradient-to-br from-white/85 via-white/40 to-white/15 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/10 backdrop-blur-xl border border-white/40 dark:border-slate-800 shadow-[0_25px_55px_-35px_rgba(15,23,42,0.9)] px-4 py-6"
+            >
+              <BarChart data={barChartData}>
+                <defs>
+                  {RUBRIC_KEYS.map((rubric, index) => (
+                    <linearGradient key={rubric} id={`${rubric}Gradient`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={`var(--color-${rubric})`} stopOpacity={0.85 - index * 0.08} />
+                      <stop offset="95%" stopColor={`var(--color-${rubric})`} stopOpacity={0.15} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid stroke="rgba(148,163,184,0.25)" vertical={false} strokeDasharray="4 8" />
+                <XAxis
+                  dataKey="test"
+                  tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 11, fontWeight: 500 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                  angle={-30}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis
+                  tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
+                  domain={[0, 5]}
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
+                  }
+                />
+                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 500 }} />
+                <Bar dataKey="r1" fill="url(#r1Gradient)" radius={[8, 8, 8, 8]} />
+                <Bar dataKey="r2" fill="url(#r2Gradient)" radius={[8, 8, 8, 8]} />
+                <Bar dataKey="r3" fill="url(#r3Gradient)" radius={[8, 8, 8, 8]} />
+                <Bar dataKey="r4" fill="url(#r4Gradient)" radius={[8, 8, 8, 8]} />
+                <Bar dataKey="r5" fill="url(#r5Gradient)" radius={[8, 8, 8, 8]} />
+              </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-[350px] text-muted-foreground">

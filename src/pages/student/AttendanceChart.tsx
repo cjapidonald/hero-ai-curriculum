@@ -1,20 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Legend } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 interface AttendanceChartProps {
   studentId: string;
   attendanceRate: number;
   sessionsCompleted: number;
-}
-
-interface PieLabelProps {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  percent: number;
 }
 
 export default function AttendanceChart({ studentId, attendanceRate, sessionsCompleted }: AttendanceChartProps) {
@@ -26,7 +17,7 @@ export default function AttendanceChart({ studentId, attendanceRate, sessionsCom
     { name: 'Absent', value: absent },
   ];
 
-  const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))'];
+  const COLORS = ['url(#attendancePresentGradient)', 'rgba(148,163,184,0.25)'];
 
   const chartConfig = {
     Present: {
@@ -37,32 +28,6 @@ export default function AttendanceChart({ studentId, attendanceRate, sessionsCom
       label: 'Absent',
       color: 'hsl(var(--chart-2))',
     },
-  };
-
-  const renderCustomLabel = ({
-    cx,
-    cy,
-    midAngle,
-    innerRadius,
-    outerRadius,
-    percent,
-  }: PieLabelProps) => {
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
-    const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
-
-    return (
-      <text
-        x={x}
-        y={y}
-        fill="white"
-        textAnchor={x > cx ? 'start' : 'end'}
-        dominantBaseline="central"
-        className="font-semibold"
-      >
-        {`${(percent * 100).toFixed(1)}%`}
-      </text>
-    );
   };
 
   if (sessionsCompleted === 0) {
@@ -84,34 +49,61 @@ export default function AttendanceChart({ studentId, attendanceRate, sessionsCom
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="overflow-hidden border-none bg-gradient-to-br from-white/85 via-white/40 to-white/15 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/10 backdrop-blur-xl shadow-xl">
         <CardHeader>
           <CardTitle>Attendance Overview</CardTitle>
           <CardDescription>Your attendance record at a glance</CardDescription>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+        <CardContent className="pt-2">
+          <div className="relative h-[340px]">
+            <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_65%)]" />
+            <ChartContainer
+              config={chartConfig}
+              className="h-full w-full rounded-full bg-gradient-to-br from-white/60 via-white/25 to-white/5 dark:from-slate-900/60 dark:via-slate-900/30 dark:to-slate-900/5 backdrop-blur-xl border border-white/40 dark:border-slate-800 shadow-[0_25px_55px_-35px_rgba(15,23,42,0.9)]"
+            >
               <PieChart>
+                <defs>
+                  <linearGradient id="attendancePresentGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0.8} />
+                  </linearGradient>
+                </defs>
                 <Pie
                   data={data}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={renderCustomLabel}
-                  outerRadius={120}
-                  fill="#8884d8"
+                  startAngle={210}
+                  endAngle={-150}
+                  innerRadius={95}
+                  outerRadius={125}
+                  paddingAngle={attendance > 0 && absent > 0 ? 6 : 0}
+                  cornerRadius={attendance > 0 ? 18 : 0}
                   dataKey="value"
                 >
                   {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                   ))}
                 </Pie>
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
+                  }
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, fontWeight: 500, paddingTop: 24 }}
+                />
               </PieChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+            </ChartContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
+              <span className="text-4xl font-semibold text-slate-900 dark:text-slate-100">
+                {attendance.toFixed(0)}%
+              </span>
+              <span className="text-sm tracking-wide text-muted-foreground">Present</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

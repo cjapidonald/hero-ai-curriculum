@@ -414,19 +414,56 @@ export default function StudentDashboard() {
 
         {/* Skills Overview Radar Chart */}
         {skillsRadarData.length > 0 && (
-          <Card className="mb-6">
+          <Card className="mb-6 overflow-hidden border-none bg-gradient-to-br from-slate-50/90 via-white/70 to-white/90 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60 shadow-xl backdrop-blur-xl">
             <CardHeader>
               <CardTitle>Skills Overview</CardTitle>
               <CardDescription>Your current performance across all skill categories</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative">
+              <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_65%)]" />
               <ResponsiveContainer width="100%" height={350}>
                 <RadarChart data={skillsRadarData}>
-                  <PolarGrid stroke="#e5e7eb" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: "#6b7280", fontSize: 12 }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fill: "#6b7280", fontSize: 10 }} />
-                  <Radar name="Score" dataKey="score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
-                  <Tooltip />
+                  <defs>
+                    <radialGradient id="radarFill" cx="50%" cy="50%" r="65%">
+                      <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
+                      <stop offset="100%" stopColor="rgba(139,92,246,0)" />
+                    </radialGradient>
+                    <linearGradient id="radarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#38bdf8" />
+                      <stop offset="100%" stopColor="#a855f7" />
+                    </linearGradient>
+                  </defs>
+                  <PolarGrid stroke="rgba(148, 163, 184, 0.3)" radialLines={false} />
+                  <PolarAngleAxis
+                    dataKey="subject"
+                    tick={{ fill: "rgba(71,85,105,0.85)", fontSize: 12, fontWeight: 500 }}
+                  />
+                  <PolarRadiusAxis
+                    angle={90}
+                    domain={[0, 5]}
+                    tick={{ fill: "rgba(100,116,139,0.65)", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Radar
+                    name="Score"
+                    dataKey="score"
+                    stroke="url(#radarStroke)"
+                    fill="url(#radarFill)"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                  />
+                  <Tooltip
+                    cursor={false}
+                    wrapperStyle={{ outline: "none" }}
+                    contentStyle={{
+                      backgroundColor: "rgba(15,23,42,0.85)",
+                      borderRadius: 16,
+                      border: "none",
+                      color: "#e2e8f0",
+                      boxShadow: "0 20px 45px -25px rgba(15,23,42,0.7)",
+                    }}
+                  />
                 </RadarChart>
               </ResponsiveContainer>
             </CardContent>
