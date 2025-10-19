@@ -10,6 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
+import { StudentCRUD } from "@/components/crud/StudentCRUD";
+import { TeacherCRUD } from "@/components/crud/TeacherCRUD";
+import { CurriculumCRUD } from "@/components/crud/CurriculumCRUD";
+import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
+import { AssignmentCRUD } from "@/components/crud/AssignmentCRUD";
+import { AssessmentCRUD } from "@/components/crud/AssessmentCRUD";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -265,12 +271,15 @@ export default function AdminDashboard() {
 
         {/* Charts and Tables */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-8 h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
             <TabsTrigger value="teachers">Teachers</TabsTrigger>
+            <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="assessments">Assessments</TabsTrigger>
             <TabsTrigger value="classes">Classes</TabsTrigger>
-            <TabsTrigger value="finance">Finance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -349,42 +358,11 @@ export default function AdminDashboard() {
           <TabsContent value="students" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Student List</CardTitle>
-                <CardDescription>All registered students</CardDescription>
+                <CardTitle>Student Management</CardTitle>
+                <CardDescription>Add, edit, and manage all students with real-time sync</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>Attendance</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">
-                          {student.name} {student.surname}
-                        </TableCell>
-                        <TableCell>{student.email}</TableCell>
-                        <TableCell>{student.class}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{student.level}</Badge>
-                        </TableCell>
-                        <TableCell>{Number(student.attendance_rate).toFixed(1)}%</TableCell>
-                        <TableCell>
-                          <Badge variant={student.is_active ? 'default' : 'secondary'}>
-                            {student.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <StudentCRUD />
               </CardContent>
             </Card>
           </TabsContent>
@@ -392,37 +370,11 @@ export default function AdminDashboard() {
           <TabsContent value="teachers" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Teacher Directory</CardTitle>
-                <CardDescription>All teaching staff</CardDescription>
+                <CardTitle>Teacher Management</CardTitle>
+                <CardDescription>Add, edit, and manage all teachers with real-time sync</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {teachers.map((teacher) => (
-                    <Card key={teacher.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-4">
-                          {teacher.profile_image_url ? (
-                            <img src={teacher.profile_image_url} alt={teacher.name} className="w-16 h-16 rounded-full" />
-                          ) : (
-                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-xl font-semibold">{teacher.name[0]}{teacher.surname[0]}</span>
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <h3 className="font-semibold">{teacher.name} {teacher.surname}</h3>
-                            <p className="text-sm text-muted-foreground">{teacher.email}</p>
-                            <div className="flex items-center gap-2 mt-2">
-                              <Badge variant="outline">{teacher.subject}</Badge>
-                            </div>
-                          </div>
-                        </div>
-                        {teacher.bio && (
-                          <p className="text-sm text-muted-foreground mt-3">{teacher.bio}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                <TeacherCRUD />
               </CardContent>
             </Card>
           </TabsContent>
@@ -468,6 +420,54 @@ export default function AdminDashboard() {
                     ))}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="curriculum" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Curriculum Management</CardTitle>
+                <CardDescription>Manage all lessons and curriculum resources with real-time sync</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CurriculumCRUD />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="calendar" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Calendar & Sessions</CardTitle>
+                <CardDescription>Schedule and manage class sessions with real-time sync</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CalendarSessionCRUD />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assignments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Assignment Management</CardTitle>
+                <CardDescription>Create and manage assignments for classes and students with real-time sync</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AssignmentCRUD />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assessments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Assessment Management</CardTitle>
+                <CardDescription>Track student assessments and scores with real-time sync</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AssessmentCRUD />
               </CardContent>
             </Card>
           </TabsContent>
