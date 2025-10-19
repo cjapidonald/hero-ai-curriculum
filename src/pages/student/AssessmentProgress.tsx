@@ -77,11 +77,11 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
       test: assessment.test_name.length > 20
         ? assessment.test_name.substring(0, 20) + '...'
         : assessment.test_name,
-      r1: assessment.r1 || 0,
-      r2: assessment.r2 || 0,
-      r3: assessment.r3 || 0,
-      r4: assessment.r4 || 0,
-      r5: assessment.r5 || 0,
+      r1: assessment.r1_score || 0,
+      r2: assessment.r2_score || 0,
+      r3: assessment.r3_score || 0,
+      r4: assessment.r4_score || 0,
+      r5: assessment.r5_score || 0,
     }));
   };
 
@@ -187,26 +187,29 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={lineChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
                   />
                   <YAxis
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                    domain={[0, 100]}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                    domain={[0, 5]}
+                    ticks={[0, 1, 2, 3, 4, 5]}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
                   <Line
                     type="monotone"
                     dataKey="score"
                     stroke="var(--color-score)"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
+                    strokeWidth={3}
+                    dot={{ r: 5, fill: 'var(--color-score)' }}
+                    activeDot={{ r: 7 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -230,27 +233,30 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
             <ChartContainer config={chartConfig} className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
                   <XAxis
                     dataKey="test"
-                    tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
                     angle={-45}
                     textAnchor="end"
                     height={100}
                   />
                   <YAxis
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                    domain={[0, 20]}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                    domain={[0, 5]}
+                    ticks={[0, 1, 2, 3, 4, 5]}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
-                  <Bar dataKey="r1" fill="var(--color-r1)" />
-                  <Bar dataKey="r2" fill="var(--color-r2)" />
-                  <Bar dataKey="r3" fill="var(--color-r3)" />
-                  <Bar dataKey="r4" fill="var(--color-r4)" />
-                  <Bar dataKey="r5" fill="var(--color-r5)" />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  <Bar dataKey="r1" fill="var(--color-r1)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="r2" fill="var(--color-r2)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="r3" fill="var(--color-r3)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="r4" fill="var(--color-r4)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="r5" fill="var(--color-r5)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>

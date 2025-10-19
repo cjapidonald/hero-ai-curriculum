@@ -186,19 +186,22 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
             <ChartContainer config={chartConfig} className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
                   />
                   <YAxis
-                    tick={{ fill: 'hsl(var(--foreground))' }}
-                    tickLine={{ stroke: 'hsl(var(--border))' }}
-                    domain={[0, 100]}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e5e7eb' }}
+                    domain={[0, 5]}
+                    ticks={[0, 1, 2, 3, 4, 5]}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
                   {skillFilter === 'all' ? (
                     <>
                       <Line
