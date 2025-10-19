@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth-context';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar } from 'lucide-react';

@@ -1,44 +1,13 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-
-type UserRole = 'teacher' | 'student' | 'admin';
-
-interface User {
-  id: string;
-  name: string;
-  surname: string;
-  email: string;
-  role: UserRole;
-  class?: string;
-  subject?: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
-  logout: () => void;
-  isTeacher: boolean;
-  isStudent: boolean;
-  isAdmin: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+import { useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { AuthContext, type AuthContextType, type AuthUser, type UserRole } from "@/contexts/auth-context";
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,7 +38,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return false;
         }
 
-        const userData: User = {
+        const userData: AuthUser = {
           id: data.id,
           name: data.name,
           surname: data.surname,
@@ -97,7 +66,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return false;
         }
 
-        const userData: User = {
+        const userData: AuthUser = {
           id: data.id,
           name: data.name,
           surname: data.surname,
@@ -131,9 +100,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isStudent = user?.role === 'student';
   const isAdmin = user?.role === 'admin';
 
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isTeacher, isStudent, isAdmin }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const contextValue: AuthContextType = {
+    user,
+    loading,
+    login,
+    logout,
+    isTeacher,
+    isStudent,
+    isAdmin,
+  };
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

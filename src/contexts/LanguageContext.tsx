@@ -1,28 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-
-type Language = "vi" | "en";
-
-type TranslationValue = string | TranslationDictionary;
-
-interface TranslationDictionary {
-  [key: string]: TranslationValue;
-}
-
-interface LanguageContextType {
-  language: Language;
-  setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
-}
-
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
-
-export const useLanguage = () => {
-  const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error("useLanguage must be used within a LanguageProvider");
-  }
-  return context;
-};
+import { useState, useEffect, ReactNode } from "react";
+import {
+  LanguageContext,
+  type Language,
+  type TranslationDictionary,
+  type TranslationValue,
+  type LanguageContextType,
+} from "@/contexts/language-context";
 
 interface LanguageProviderProps {
   children: ReactNode;
