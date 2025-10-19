@@ -5,25 +5,49 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+
+interface EventRecord {
+  id: string;
+  title: string;
+  event_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  max_participants: number | null;
+  current_participants: number | null;
+  price: number | null;
+}
+
+interface UpcomingEvent {
+  title: string;
+  date: string;
+  time: string;
+  ages: string;
+  activities: string[];
+  learning: string;
+  spots: number;
+  total: number;
+  color: string;
+}
 
 const Events = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [dbEvents, setDbEvents] = useState<any[]>([]);
+  const [dbEvents, setDbEvents] = useState<EventRecord[]>([]);
 
   // Fetch events from Supabase
   useEffect(() => {
     const fetchEvents = async () => {
       const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('is_published', true)
-        .gte('event_date', new Date().toISOString().split('T')[0])
-        .order('event_date', { ascending: true });
+        .from("events")
+        .select<EventRecord>("id, title, event_date, start_time, end_time, location, max_participants, current_participants, price")
+        .eq("is_published", true)
+        .gte("event_date", new Date().toISOString().split("T")[0])
+        .order("event_date", { ascending: true });
 
-      if (data && !error) {
+      if (!error && data) {
         setDbEvents(data);
       }
     };
@@ -35,25 +59,24 @@ const Events = () => {
     setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget);
-    const eventIndex = formData.get('event') as string;
+    const eventIndex = formData.get("event") as string;
+    const selectedIndex = Number.parseInt(eventIndex, 10);
 
     // Get event ID from either database events or fallback to hardcoded
-    let eventId = null;
-    if (dbEvents.length > 0) {
-      eventId = dbEvents[parseInt(eventIndex)]?.id;
-    }
+    const eventId =
+      dbEvents.length > 0 && Number.isInteger(selectedIndex) ? dbEvents[selectedIndex]?.id ?? null : null;
 
     try {
       const { error } = await supabase
-        .from('event_registrations')
+        .from("event_registrations")
         .insert({
           event_id: eventId,
-          parent_name: formData.get('parentName') as string,
-          child_name: formData.get('childName') as string,
-          child_age: parseInt(formData.get('childAge') as string),
-          phone: formData.get('phone') as string,
-          email: (formData.get('email') as string) || null,
-          notes: (formData.get('notes') as string) || null,
+          parent_name: formData.get("parentName") as string,
+          child_name: formData.get("childName") as string,
+          child_age: Number.parseInt(formData.get("childAge") as string, 10),
+          phone: formData.get("phone") as string,
+          email: (formData.get("email") as string) || null,
+          notes: (formData.get("notes") as string) || null,
         });
 
       if (error) throw error;
@@ -77,7 +100,8 @@ const Events = () => {
     }
   };
 
-  const upcomingEvents = [
+  const upcomingEvents: UpcomingEvent[] = useMemo(
+    () => [
     {
       title: "🌈 FUN WITH COLORS",
       date: "Saturday, March 15, 2025",
@@ -126,7 +150,14 @@ const Events = () => {
       total: 20,
       color: "bg-accent-orange"
     }
-  ];
+  ],
+    [],
+  );
+
+  const todaysDate = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const availableEvents = dbEvents.length > 0
+    ? dbEvents
+    : upcomingEvents.filter((event) => event.spots > 0);
 
   return (
     <div className="min-h-screen">
@@ -312,11 +343,21 @@ const Events = () => {
                 <select id="event" name="event" required className="w-full px-3 py-2 border border-input rounded-md bg-background">
                   <option value="">Select an event</option>
                   {/* Use database events if available, otherwise fallback to hardcoded */}
-                  {(dbEvents.length > 0 ? dbEvents : upcomingEvents.filter(e => e.spots > 0)).map((event: any, i: number) => (
-                    <option key={i} value={i}>
-                      {event.title} - {event.event_date || event.date}
-                    </option>
-                  ))}
+                  {availableEvents.map((event, index) => {
+                    if ("event_date" in event) {
+                      const eventDate = event.event_date ?? todaysDate;
+                      return (
+                        <option key={event.id} value={index}>
+                          {event.title} - {eventDate}
+                        </option>
+                      );
+                    }
+                    return (
+                      <option key={event.title} value={index}>
+                        {event.title} - {event.date}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div className="grid md:grid-cols-2 gap-4">

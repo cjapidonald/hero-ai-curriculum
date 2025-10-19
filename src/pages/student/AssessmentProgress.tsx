@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { format, subMonths, subWeeks } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { format, subMonths, subWeeks } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface AssessmentProgressProps {
   studentId: string;
@@ -13,8 +14,10 @@ interface AssessmentProgressProps {
 
 type TimeFilter = '1week' | '1month' | '3months' | '6months' | '9months';
 
+type AssessmentRecord = Tables<"assessment">;
+
 export default function AssessmentProgress({ studentId }: AssessmentProgressProps) {
-  const [assessments, setAssessments] = useState<any[]>([]);
+  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
 
@@ -43,17 +46,17 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
         const dateFilter = getDateFilter();
 
         const { data, error } = await supabase
-          .from('assessment')
-          .select('*')
-          .eq('student_id', studentId)
-          .eq('published', true)
-          .gte('assessment_date', dateFilter.toISOString())
-          .order('assessment_date', { ascending: true });
+          .from("assessment")
+          .select("*")
+          .eq("student_id", studentId)
+          .eq("published", true)
+          .gte("assessment_date", dateFilter.toISOString())
+          .order("assessment_date", { ascending: true });
 
         if (error) throw error;
-        setAssessments(data || []);
+        setAssessments((data ?? []) as AssessmentRecord[]);
       } catch (error) {
-        console.error('Error fetching assessments:', error);
+        console.error("Error fetching assessments:", error);
       } finally {
         setLoading(false);
       }
@@ -64,26 +67,35 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
     }
   }, [studentId, timeFilter]);
 
-  const prepareLineChartData = () => {
-    return assessments.map((assessment) => ({
-      date: format(new Date(assessment.assessment_date), 'MMM dd'),
-      score: assessment.total_score || 0,
-      test: assessment.test_name,
-    }));
-  };
+  const prepareLineChartData = () =>
+    assessments
+      .filter((assessment) => Boolean(assessment.assessment_date))
+      .map((assessment) => {
+        const dateLabel = assessment.assessment_date
+          ? format(new Date(assessment.assessment_date), "MMM dd")
+          : "Unknown";
+        return {
+          date: dateLabel,
+          score: assessment.total_score ?? 0,
+          test: assessment.test_name,
+        };
+      });
 
-  const prepareBarChartData = () => {
-    return assessments.map((assessment) => ({
-      test: assessment.test_name.length > 20
-        ? assessment.test_name.substring(0, 20) + '...'
-        : assessment.test_name,
-      r1: assessment.r1_score || 0,
-      r2: assessment.r2_score || 0,
-      r3: assessment.r3_score || 0,
-      r4: assessment.r4_score || 0,
-      r5: assessment.r5_score || 0,
-    }));
-  };
+  const prepareBarChartData = () =>
+    assessments.map((assessment) => {
+      const label =
+        assessment.test_name.length > 20
+          ? `${assessment.test_name.substring(0, 20)}...`
+          : assessment.test_name;
+      return {
+        test: label,
+        r1: assessment.r1_score ?? 0,
+        r2: assessment.r2_score ?? 0,
+        r3: assessment.r3_score ?? 0,
+        r4: assessment.r4_score ?? 0,
+        r5: assessment.r5_score ?? 0,
+      };
+    });
 
   const calculateAverageScore = () => {
     if (!assessments.length) return 0;

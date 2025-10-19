@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileText, Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FileText, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface AssessmentProps {
   teacherId: string;
@@ -22,23 +23,25 @@ interface Assessment {
   id: string;
   student_id: string;
   student_name: string;
-  class: string;
+  class: string | null;
   test_name: string;
-  rubrics: string;
-  r1: number;
-  r2: number;
-  r3: number;
-  r4: number;
-  r5: number;
-  total_score: number;
+  rubrics: string | null;
+  r1: number | null;
+  r2: number | null;
+  r3: number | null;
+  r4: number | null;
+  r5: number | null;
+  total_score: number | null;
   published: boolean;
   assessment_date: string;
-  feedback: string;
+  feedback: string | null;
 }
+
+type StudentOption = Pick<Tables<"dashboard_students">, "id" | "name" | "surname" | "class">;
 
 const Assessment = ({ teacherId }: AssessmentProps) => {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
@@ -58,47 +61,50 @@ const Assessment = ({ teacherId }: AssessmentProps) => {
     feedback: '',
   });
 
-  useEffect(() => {
-    const fetchAssessments = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('assessment')
-          .select('*')
-          .eq('teacher_id', teacherId)
-          .order('assessment_date', { ascending: false });
+  const fetchAssessments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("assessment")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("assessment_date", { ascending: false });
 
-        if (error) throw error;
-        setAssessments(data || []);
-      } catch (error) {
-        console.error('Error fetching assessments:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load assessments',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchStudents = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('dashboard_students')
-          .select('id, name, surname, class')
-          .order('name');
-
-        if (error) throw error;
-        setStudents(data || []);
-      } catch (error) {
-        console.error('Error fetching students:', error);
-      }
-    };
-
-    fetchAssessments();
-    fetchStudents();
+      if (error) throw error;
+      setAssessments((data ?? []) as Assessment[]);
+    } catch (error) {
+      console.error('Error fetching assessments:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load assessments',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [teacherId, toast]);
+
+  const fetchStudents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("dashboard_students")
+        .select("id, name, surname, class")
+        .order("name");
+
+      if (error) throw error;
+      setStudents((data ?? []) as StudentOption[]);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchAssessments();
+  }, [fetchAssessments]);
+
+  useEffect(() => {
+    void fetchStudents();
+  }, [fetchStudents]);
 
   const calculateTotal = () => {
     const { r1, r2, r3, r4, r5 } = formData;
@@ -166,7 +172,7 @@ const Assessment = ({ teacherId }: AssessmentProps) => {
 
       setIsDialogOpen(false);
       resetForm();
-      fetchAssessments();
+      await fetchAssessments();
     } catch (error) {
       console.error('Error saving assessment:', error);
       toast({
@@ -211,7 +217,7 @@ const Assessment = ({ teacherId }: AssessmentProps) => {
         description: 'Assessment deleted successfully',
       });
 
-      fetchAssessments();
+      await fetchAssessments();
     } catch (error) {
       console.error('Error deleting assessment:', error);
       toast({
@@ -236,7 +242,7 @@ const Assessment = ({ teacherId }: AssessmentProps) => {
         description: `Assessment ${!assessment.published ? 'published' : 'unpublished'} successfully`,
       });
 
-      fetchAssessments();
+      await fetchAssessments();
     } catch (error) {
       console.error('Error toggling published status:', error);
       toast({

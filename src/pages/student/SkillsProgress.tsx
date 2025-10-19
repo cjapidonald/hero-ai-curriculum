@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { format, subMonths, subWeeks, isAfter } from 'date-fns';
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { format, subMonths, subWeeks } from "date-fns";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface SkillsProgressProps {
   studentId: string;
@@ -13,8 +14,11 @@ interface SkillsProgressProps {
 type TimeFilter = '1week' | '1month' | '3months' | '6months' | '9months';
 type SkillFilter = 'all' | 'Writing' | 'Reading' | 'Listening' | 'Speaking';
 
+type SkillCategory = Exclude<SkillFilter, 'all'>;
+type SkillsEvaluationRecord = Tables<"skills_evaluation">;
+
 export default function SkillsProgress({ studentId }: SkillsProgressProps) {
-  const [skillsData, setSkillsData] = useState<any[]>([]);
+  const [skillsData, setSkillsData] = useState<SkillsEvaluationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
   const [skillFilter, setSkillFilter] = useState<SkillFilter>('all');
@@ -44,22 +48,22 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
         const dateFilter = getDateFilter();
 
         let query = supabase
-          .from('skills_evaluation')
-          .select('*')
-          .eq('student_id', studentId)
-          .gte('evaluation_date', dateFilter.toISOString())
-          .order('evaluation_date', { ascending: true });
+          .from("skills_evaluation")
+          .select("*")
+          .eq("student_id", studentId)
+          .gte("evaluation_date", dateFilter.toISOString())
+          .order("evaluation_date", { ascending: true });
 
         if (skillFilter !== 'all') {
-          query = query.eq('skill_category', skillFilter);
+          query = query.eq("skill_category", skillFilter);
         }
 
         const { data, error } = await query;
 
         if (error) throw error;
-        setSkillsData(data || []);
+        setSkillsData((data ?? []) as SkillsEvaluationRecord[]);
       } catch (error) {
-        console.error('Error fetching skills data:', error);
+        console.error("Error fetching skills data:", error);
       } finally {
         setLoading(false);
       }
@@ -70,30 +74,31 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     }
   }, [studentId, timeFilter, skillFilter]);
 
-  const prepareChartData = () => {
-    if (!skillsData.length) return [];
-
-    // Group by date and skill category
-    const groupedData: { [key: string]: any } = {};
+  const groupedChartData = useMemo(() => {
+    const grouped: Record<string, { date: string } & Partial<Record<SkillCategory, number>>> = {};
 
     skillsData.forEach((skill) => {
-      const date = format(new Date(skill.evaluation_date), 'MMM dd');
-      if (!groupedData[date]) {
-        groupedData[date] = { date };
+      if (!skill.evaluation_date) return;
+      const category = skill.skill_category as SkillCategory | null;
+      if (!category) return;
+
+      const dateKey = format(new Date(skill.evaluation_date), "MMM dd");
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = { date: dateKey };
       }
-      groupedData[date][skill.skill_category] = skill.average_score;
+      grouped[dateKey][category] = skill.average_score ?? 0;
     });
 
-    return Object.values(groupedData);
-  };
+    return Object.values(grouped);
+  }, [skillsData]);
 
   const calculateOverallAverage = () => {
     if (!skillsData.length) return 0;
-    const sum = skillsData.reduce((acc, skill) => acc + (skill.average_score || 0), 0);
-    return (sum / skillsData.length).toFixed(2);
+    const sum = skillsData.reduce((acc, skill) => acc + (skill.average_score ?? 0), 0);
+    return Number.isFinite(sum / skillsData.length) ? (sum / skillsData.length).toFixed(2) : "0.00";
   };
 
-  const chartData = prepareChartData();
+  const chartData = groupedChartData;
 
   const chartConfig = {
     Writing: {
@@ -262,10 +267,11 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
       {/* Skills Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {['Writing', 'Reading', 'Listening', 'Speaking'].map((skill) => {
-          const skillDataForCategory = skillsData.filter(s => s.skill_category === skill);
+          const skillDataForCategory = skillsData.filter((entry) => entry.skill_category === skill);
           const latestScore = skillDataForCategory.length > 0
             ? skillDataForCategory[skillDataForCategory.length - 1].average_score
-            : 0;
+            : null;
+          const hasScore = latestScore !== null && latestScore !== undefined;
 
           return (
             <Card key={skill}>
@@ -273,7 +279,9 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
                 <CardTitle className="text-base">{skill}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{latestScore ? latestScore.toFixed(1) : 'N/A'}</div>
+                <div className="text-2xl font-bold">
+                  {hasScore ? (latestScore ?? 0).toFixed(1) : 'N/A'}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {skillDataForCategory.length} evaluation{skillDataForCategory.length !== 1 ? 's' : ''}
                 </p>

@@ -1,43 +1,46 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Award, Plus, Pencil, Trash2, Eye } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Award, Plus, Pencil, Trash2, Eye } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import type { Tables } from "@/integrations/supabase/types";
 
 interface SkillsProps {
   teacherId: string;
 }
 
+type DashboardStudentOption = Pick<Tables<"dashboard_students">, "id" | "name" | "surname" | "class">;
+
 interface SkillEvaluation {
   id: string;
   student_id: string;
   student_name: string;
-  class: string;
+  class: string | null;
   skill_name: string;
   skill_category: string;
-  e1: number;
-  e2: number;
-  e3: number;
-  e4: number;
-  e5: number;
-  e6: number;
-  average_score: number;
+  e1: number | null;
+  e2: number | null;
+  e3: number | null;
+  e4: number | null;
+  e5: number | null;
+  e6: number | null;
+  average_score: number | null;
   evaluation_date: string;
-  notes: string;
+  notes: string | null;
 }
 
 const Skills = ({ teacherId }: SkillsProps) => {
   const [skills, setSkills] = useState<SkillEvaluation[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<DashboardStudentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<SkillEvaluation | null>(null);
@@ -58,52 +61,55 @@ const Skills = ({ teacherId }: SkillsProps) => {
     notes: '',
   });
 
+  const fetchSkills = useCallback(async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from("skills_evaluation")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("evaluation_date", { ascending: false });
+
+      if (filterCategory !== 'all') {
+        query = query.eq("skill_category", filterCategory);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setSkills((data ?? []) as SkillEvaluation[]);
+    } catch (error) {
+      console.error('Error fetching skills:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load skills evaluations',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filterCategory, teacherId, toast]);
+
+  const fetchStudents = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("dashboard_students")
+        .select("id, name, surname, class")
+        .order("name");
+
+      if (error) throw error;
+      setStudents((data ?? []) as DashboardStudentOption[]);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  }, []);
+
   useEffect(() => {
-    const fetchSkills = async () => {
-      try {
-        setLoading(true);
-        let query = supabase
-          .from('skills_evaluation')
-          .select('*')
-          .eq('teacher_id', teacherId)
-          .order('evaluation_date', { ascending: false });
+    void fetchSkills();
+  }, [fetchSkills]);
 
-        if (filterCategory !== 'all') {
-          query = query.eq('skill_category', filterCategory);
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        setSkills(data || []);
-      } catch (error) {
-        console.error('Error fetching skills:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load skills evaluations',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const fetchStudents = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('dashboard_students')
-          .select('id, name, surname, class')
-          .order('name');
-
-        if (error) throw error;
-        setStudents(data || []);
-      } catch (error) {
-        console.error('Error fetching students:', error);
-      }
-    };
-
-    fetchSkills();
-    fetchStudents();
-  }, [teacherId, filterCategory, toast]);
+  useEffect(() => {
+    void fetchStudents();
+  }, [fetchStudents]);
 
   const calculateAverage = () => {
     const { e1, e2, e3, e4, e5, e6 } = formData;
@@ -173,7 +179,7 @@ const Skills = ({ teacherId }: SkillsProps) => {
 
       setIsDialogOpen(false);
       resetForm();
-      fetchSkills();
+      await fetchSkills();
     } catch (error) {
       console.error('Error saving skill evaluation:', error);
       toast({
@@ -218,7 +224,7 @@ const Skills = ({ teacherId }: SkillsProps) => {
         description: 'Skill evaluation deleted successfully',
       });
 
-      fetchSkills();
+      await fetchSkills();
     } catch (error) {
       console.error('Error deleting skill evaluation:', error);
       toast({
@@ -456,7 +462,9 @@ const Skills = ({ teacherId }: SkillsProps) => {
                       <TableCell>{skill.e4 || '-'}</TableCell>
                       <TableCell>{skill.e5 || '-'}</TableCell>
                       <TableCell>{skill.e6 || '-'}</TableCell>
-                      <TableCell className="font-bold">{skill.average_score?.toFixed(1)}</TableCell>
+                      <TableCell className="font-bold">
+                        {skill.average_score !== null && skill.average_score !== undefined ? skill.average_score.toFixed(1) : '-'}
+                      </TableCell>
                       <TableCell>{format(new Date(skill.evaluation_date), 'MMM dd, yyyy')}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">

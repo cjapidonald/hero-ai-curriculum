@@ -1,6 +1,12 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-type Language = 'vi' | 'en';
+type Language = "vi" | "en";
+
+type TranslationValue = string | TranslationDictionary;
+
+interface TranslationDictionary {
+  [key: string]: TranslationValue;
+}
 
 interface LanguageContextType {
   language: Language;
@@ -13,7 +19,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const useLanguage = () => {
   const context = useContext(LanguageContext);
   if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+    throw new Error("useLanguage must be used within a LanguageProvider");
   }
   return context;
 };
@@ -24,20 +30,22 @@ interface LanguageProviderProps {
 
 export const LanguageProvider = ({ children }: LanguageProviderProps) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    const saved = localStorage.getItem('language');
-    return (saved as Language) || 'en'; // Default to English
+    const saved = localStorage.getItem("language");
+    return (saved as Language) || "en"; // Default to English
   });
 
-  const [translations, setTranslations] = useState<Record<string, any>>({});
+  const [translations, setTranslations] = useState<TranslationDictionary>({});
 
   useEffect(() => {
     // Load translations dynamically
     const loadTranslations = async () => {
       try {
-        const module = await import(`../translations/${language}.ts`);
+        const module = (await import(`../translations/${language}.ts`)) as {
+          default: TranslationDictionary;
+        };
         setTranslations(module.default);
       } catch (error) {
-        console.error('Failed to load translations:', error);
+        console.error("Failed to load translations:", error);
       }
     };
     loadTranslations();
@@ -45,22 +53,22 @@ export const LanguageProvider = ({ children }: LanguageProviderProps) => {
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('language', lang);
+    localStorage.setItem("language", lang);
   };
 
   const t = (key: string): string => {
-    const keys = key.split('.');
-    let value: any = translations;
+    const keys = key.split(".");
+    let value: TranslationValue = translations;
 
     for (const k of keys) {
-      if (value && typeof value === 'object') {
+      if (value && typeof value === "object") {
         value = value[k];
       } else {
         return key; // Return key if translation not found
       }
     }
 
-    return typeof value === 'string' ? value : key;
+    return typeof value === "string" ? value : key;
   };
 
   return (

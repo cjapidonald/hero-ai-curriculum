@@ -1,14 +1,52 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from "lucide-react";
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import type { Tables } from "@/integrations/supabase/types";
+
+type DashboardStudent = Tables<"dashboard_students">;
+type TeacherRecord = Tables<"teachers">;
+
+interface ClassRecord {
+  id: string;
+  class_name: string;
+  teacher_name: string | null;
+  stage: string | null;
+  schedule_days: string[] | null;
+  start_time: string | null;
+  end_time: string | null;
+  current_students: number | null;
+  max_students: number | null;
+  is_active: boolean | null;
+}
+
+interface PaymentRecord {
+  id: string;
+  payment_date: string | null;
+  receipt_number: string | null;
+  payment_for: string | null;
+  payment_method: string | null;
+  amount: number | string;
+}
+
+interface EventRecord {
+  id: string;
+  title: string;
+  event_date: string | null;
+  location: string | null;
+}
+
+interface LevelDistribution {
+  level: string;
+  count: number;
+}
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -22,11 +60,11 @@ export default function AdminDashboard() {
     totalRevenue: 0,
     upcomingEvents: 0,
   });
-  const [students, setStudents] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [students, setStudents] = useState<DashboardStudent[]>([]);
+  const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
+  const [classes, setClasses] = useState<ClassRecord[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [events, setEvents] = useState<EventRecord[]>([]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -42,58 +80,59 @@ export default function AdminDashboard() {
 
       // Fetch students
       const { data: studentsData } = await supabase
-        .from('dashboard_students')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("dashboard_students")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       // Fetch teachers
       const { data: teachersData } = await supabase
-        .from('teachers')
-        .select('*')
-        .eq('is_active', true);
+        .from("teachers")
+        .select("*")
+        .eq("is_active", true);
 
       // Fetch classes
       const { data: classesData } = await supabase
-        .from('classes')
-        .select('*')
-        .eq('is_active', true);
+        .from("classes")
+        .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
+        .eq("is_active", true);
 
       // Fetch payments
       const { data: paymentsData } = await supabase
-        .from('payments')
-        .select('*')
-        .order('payment_date', { ascending: false })
+        .from("payments")
+        .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
+        .order("payment_date", { ascending: false })
         .limit(10);
 
       // Fetch events
       const { data: eventsData } = await supabase
-        .from('events')
-        .select('*')
-        .eq('is_published', true)
-        .gte('event_date', new Date().toISOString())
-        .order('event_date', { ascending: true });
+        .from("events")
+        .select("id, title, event_date, location")
+        .eq("is_published", true)
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true });
 
-      setStudents(studentsData || []);
-      setTeachers(teachersData || []);
-      setClasses(classesData || []);
-      setPayments(paymentsData || []);
-      setEvents(eventsData || []);
+      setStudents((studentsData ?? []) as DashboardStudent[]);
+      setTeachers((teachersData ?? []) as TeacherRecord[]);
+      setClasses((classesData ?? []) as ClassRecord[]);
+      setPayments((paymentsData ?? []) as PaymentRecord[]);
+      setEvents((eventsData ?? []) as EventRecord[]);
 
       // Calculate stats
-      const totalRevenue = paymentsData?.reduce((acc, p) => acc + Number(p.amount), 0) || 0;
-      const activeStudents = studentsData?.filter(s => s.is_active).length || 0;
+      const totalRevenue =
+        paymentsData?.reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0) ?? 0;
+      const activeStudents = studentsData?.filter((student) => student.is_active).length ?? 0;
 
       setStats({
-        totalStudents: studentsData?.length || 0,
+        totalStudents: studentsData?.length ?? 0,
         activeStudents,
-        totalTeachers: teachersData?.length || 0,
-        totalClasses: classesData?.length || 0,
+        totalTeachers: teachersData?.length ?? 0,
+        totalClasses: classesData?.length ?? 0,
         totalRevenue,
-        upcomingEvents: eventsData?.length || 0,
+        upcomingEvents: eventsData?.length ?? 0,
       });
 
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      console.error("Error fetching admin data:", error);
     } finally {
       setLoading(false);
     }
@@ -101,29 +140,34 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   // Chart data
-  const classDistributionData = classes.map(c => ({
-    name: c.class_name,
-    students: c.current_students,
-    capacity: c.max_students,
-  }));
+  const classDistributionData = useMemo(
+    () =>
+      classes.map((classroom) => ({
+        name: classroom.class_name,
+        students: classroom.current_students ?? 0,
+        capacity: classroom.max_students ?? 0,
+      })),
+    [classes],
+  );
 
-  const studentLevelData = students.reduce((acc: any[], student) => {
-    const existing = acc.find(item => item.level === student.level);
+  const studentLevelData = students.reduce<LevelDistribution[]>((acc, student) => {
+    const levelLabel = student.level || "Unknown";
+    const existing = acc.find((item) => item.level === levelLabel);
     if (existing) {
       existing.count += 1;
     } else {
-      acc.push({ level: student.level || 'Unknown', count: 1 });
+      acc.push({ level: levelLabel, count: 1 });
     }
     return acc;
   }, []);
 
-  const attendanceData = students.slice(0, 10).map(s => ({
-    name: `${s.name} ${s.surname}`,
-    rate: Number(s.attendance_rate) || 0,
+  const attendanceData = students.slice(0, 10).map((student) => ({
+    name: `${student.name} ${student.surname}`,
+    rate: Number(student.attendance_rate ?? 0),
   }));
 
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
