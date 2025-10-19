@@ -224,6 +224,54 @@ INSERT INTO assessment (teacher_id, student_id, class, student_name, test_name, 
    4.16, true, '2025-05-15', 'Good effort. Practice grammar exercises.');
 
 -- =============================================
+-- TEACHER PAYROLL & ATTENDANCE
+-- =============================================
+INSERT INTO teacher_payroll (
+  teacher_id,
+  session_date,
+  class_name,
+  lesson_title,
+  attendance_status,
+  hours_taught,
+  hourly_rate,
+  bonus_amount,
+  deduction_amount,
+  payout_status,
+  payout_date,
+  notes
+) VALUES
+  ((SELECT id FROM teachers WHERE email = 'donald@heroschool.com'),
+   '2025-05-05', 'Starters A - Morning', 'Numbers 1-20', 'present', 1.5, 350000, 50000, 0, 'paid', '2025-05-10',
+   'Excellent energy, class fully attended.'),
+  ((SELECT id FROM teachers WHERE email = 'donald@heroschool.com'),
+   '2025-05-07', 'Starters A - Morning', 'Colors Review', 'present', 1.5, 350000, 0, 0, 'paid', '2025-05-12',
+   'Smooth lesson flow, punctual.'),
+  ((SELECT id FROM teachers WHERE email = 'donald@heroschool.com'),
+   '2025-05-09', 'Flyers A - Morning', 'Speaking Drills', 'present', 1.5, 380000, 75000, 0, 'approved', '2025-05-15',
+   'Parents sent positive feedback.'),
+  ((SELECT id FROM teachers WHERE email = 'donald@heroschool.com'),
+   '2025-05-10', 'Starters A - Morning', 'Story Time', 'sick_leave', 0, 350000, 0, 50000, 'pending', NULL,
+   'Medical leave submitted with doctor note.'),
+  ((SELECT id FROM teachers WHERE email = 'sarah@heroschool.com'),
+   '2025-05-06', 'Starters B - Afternoon', 'Colors and Shapes', 'present', 1.5, 340000, 30000, 0, 'paid', '2025-05-11',
+   'Great parent feedback after class.'),
+  ((SELECT id FROM teachers WHERE email = 'sarah@heroschool.com'),
+   '2025-05-08', 'Starters B - Afternoon', 'Phonics Drills', 'present', 1.5, 340000, 0, 0, 'approved', '2025-05-14',
+   'All students participated enthusiastically.'),
+  ((SELECT id FROM teachers WHERE email = 'sarah@heroschool.com'),
+   '2025-05-11', 'Starters B - Afternoon', 'Grammar Games', 'absent', 0, 340000, 0, 200000, 'pending', NULL,
+   'Emergency absence covered by substitute.'),
+  ((SELECT id FROM teachers WHERE email = 'michael@heroschool.com'),
+   '2025-05-05', 'Movers A - Morning', 'Past Simple Review', 'present', 2.0, 360000, 60000, 0, 'paid', '2025-05-12',
+   'Extended speaking drills improved results.'),
+  ((SELECT id FROM teachers WHERE email = 'michael@heroschool.com'),
+   '2025-05-09', 'Movers A - Morning', 'Listening Workshop', 'present', 2.0, 360000, 0, 0, 'approved', '2025-05-16',
+   'High engagement, recommended follow-up.'),
+  ((SELECT id FROM teachers WHERE email = 'michael@heroschool.com'),
+   '2025-05-11', 'Movers A - Morning', 'Project Presentations', 'present', 2.0, 360000, 45000, 0, 'pending', NULL,
+   'Awaiting admin approval for bonus payout.');
+
+-- =============================================
 -- SKILLS EVALUATION (Multiple entries over time)
 -- =============================================
 INSERT INTO skills_evaluation (teacher_id, student_id, student_name, class, skill_name, skill_category,

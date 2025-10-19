@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar } from 'lucide-react';
+import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import MyClasses from './MyClasses';
 import CurriculumTab from './CurriculumTab';
 import MyStudents from './MyStudents';
@@ -10,18 +13,64 @@ import Assessment from './Assessment';
 import Skills from './Skills';
 import Blog from './Blog';
 import CalendarTab from './CalendarTab';
+import TeacherPerformance from './TeacherPerformance';
 
-type TabType = 'classes' | 'curriculum' | 'students' | 'assessment' | 'skills' | 'blog' | 'calendar';
+type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'students' | 'assessment' | 'skills' | 'blog';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('classes');
+  const [activeTab, setActiveTab] = useState<TabType>('performance');
+  const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProfile = async () => {
+      if (!user?.id) {
+        return;
+      }
+
+      try {
+        setLoadingProfile(true);
+        const { data, error } = await supabase
+          .from('teachers')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (error) {
+          console.error('Error loading teacher profile:', error);
+        }
+
+        setTeacherProfile(data ?? null);
+      } catch (profileError) {
+        if (isMounted) {
+          console.error('Unexpected profile error:', profileError);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
   if (!isTeacher || !user) {
     return <Navigate to="/login" replace />;
   }
 
   const tabs = [
+    { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
     { id: 'calendar' as TabType, label: 'Calendar', icon: Calendar },
     { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
@@ -33,6 +82,13 @@ const TeacherDashboard = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'performance':
+        return (
+          <TeacherPerformance
+            teacherId={user.id}
+            teacherProfile={teacherProfile}
+          />
+        );
       case 'calendar':
         return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
       case 'classes':
@@ -52,6 +108,18 @@ const TeacherDashboard = () => {
     }
   };
 
+  const resolvedName = teacherProfile
+    ? `${teacherProfile.name} ${teacherProfile.surname}`
+    : `${user.name} ${user.surname}`;
+
+  const teacherSubject = teacherProfile?.subject ?? user.subject ?? 'Teacher';
+
+  const profileImageUrl = teacherProfile?.profile_image_url ?? user.profileImageUrl;
+
+  const avatarFallback = `${(teacherProfile?.name ?? user.name).charAt(0)}${(
+    teacherProfile?.surname ?? user.surname
+  ).charAt(0)}`.toUpperCase();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       {/* Header */}
@@ -59,16 +127,20 @@ const TeacherDashboard = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-xl font-bold text-background">
-                  {user.name.charAt(0)}
-                </span>
-              </div>
+              <Avatar className="h-12 w-12 border">
+                {profileImageUrl ? (
+                  <AvatarImage src={profileImageUrl} alt={resolvedName} />
+                ) : null}
+                <AvatarFallback>{avatarFallback}</AvatarFallback>
+              </Avatar>
               <div>
                 <h1 className="text-2xl font-bold">
-                  Welcome, Teacher {user.name}!
+                  Welcome, Teacher {resolvedName}!
                 </h1>
-                <p className="text-sm text-muted-foreground">{user.subject}</p>
+                <p className="text-sm text-muted-foreground">
+                  {teacherSubject}
+                  {loadingProfile && <span className="ml-2 text-xs text-muted-foreground">(syncing profile...)</span>}
+                </p>
               </div>
             </div>
             <Button variant="outline" onClick={logout} className="gap-2">

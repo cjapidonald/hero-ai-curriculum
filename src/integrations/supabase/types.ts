@@ -726,6 +726,68 @@ export type Database = {
           },
         ]
       }
+      teacher_payroll: {
+        Row: {
+          attendance_status: string | null
+          bonus_amount: number | null
+          class_name: string
+          created_at: string | null
+          deduction_amount: number | null
+          hourly_rate: number | null
+          hours_taught: number | null
+          id: string
+          lesson_title: string | null
+          notes: string | null
+          payout_date: string | null
+          payout_status: string | null
+          session_date: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attendance_status?: string | null
+          bonus_amount?: number | null
+          class_name: string
+          created_at?: string | null
+          deduction_amount?: number | null
+          hourly_rate?: number | null
+          hours_taught?: number | null
+          id?: string
+          lesson_title?: string | null
+          notes?: string | null
+          payout_date?: string | null
+          payout_status?: string | null
+          session_date: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attendance_status?: string | null
+          bonus_amount?: number | null
+          class_name?: string
+          created_at?: string | null
+          deduction_amount?: number | null
+          hourly_rate?: number | null
+          hours_taught?: number | null
+          id?: string
+          lesson_title?: string | null
+          notes?: string | null
+          payout_date?: string | null
+          payout_status?: string | null
+          session_date?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_payroll_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           bio: string | null

@@ -10,6 +10,9 @@ export interface AuthUser {
   role: UserRole;
   class?: string;
   subject?: string;
+  profileImageUrl?: string;
+  phone?: string;
+  bio?: string;
 }
 
 export interface AuthContextType {

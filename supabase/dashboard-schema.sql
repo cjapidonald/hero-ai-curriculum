@@ -217,6 +217,27 @@ CREATE TABLE skills_evaluation (
 );
 
 -- =============================================
+-- TEACHER PAYROLL & ATTENDANCE
+-- =============================================
+CREATE TABLE teacher_payroll (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  session_date DATE NOT NULL,
+  class_name TEXT NOT NULL,
+  lesson_title TEXT,
+  attendance_status TEXT DEFAULT 'present', -- present, absent, substitute, sick_leave
+  hours_taught NUMERIC(5,2) DEFAULT 0,
+  hourly_rate NUMERIC(10,2) DEFAULT 0,
+  bonus_amount NUMERIC(10,2) DEFAULT 0,
+  deduction_amount NUMERIC(10,2) DEFAULT 0,
+  payout_status TEXT DEFAULT 'pending', -- pending, approved, paid
+  payout_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
 -- HOMEWORK COMPLETION TRACKING
 -- =============================================
 CREATE TABLE homework_completion (
@@ -261,6 +282,9 @@ CREATE INDEX idx_assessment_student ON assessment(student_id);
 CREATE INDEX idx_assessment_published ON assessment(published);
 CREATE INDEX idx_skills_student ON skills_evaluation(student_id);
 CREATE INDEX idx_skills_category ON skills_evaluation(skill_category);
+CREATE INDEX idx_teacher_payroll_teacher ON teacher_payroll(teacher_id);
+CREATE INDEX idx_teacher_payroll_date ON teacher_payroll(session_date);
+CREATE INDEX idx_teacher_payroll_status ON teacher_payroll(payout_status);
 CREATE INDEX idx_homework_student ON homework_completion(student_id);
 CREATE INDEX idx_blog_published ON blog_posts(published);
 
@@ -272,6 +296,7 @@ ALTER TABLE dashboard_students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE curriculum ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assessment ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skills_evaluation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE teacher_payroll ENABLE ROW LEVEL SECURITY;
 ALTER TABLE homework_completion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 
@@ -301,6 +326,10 @@ CREATE POLICY "Allow all for skills"
   ON skills_evaluation FOR ALL
   USING (true);
 
+CREATE POLICY "Teachers can view payroll"
+  ON teacher_payroll FOR SELECT
+  USING (true);
+
 CREATE POLICY "Allow all for homework"
   ON homework_completion FOR ALL
   USING (true);
@@ -325,6 +354,9 @@ CREATE TRIGGER update_assessment_updated_at BEFORE UPDATE ON assessment
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_skills_updated_at BEFORE UPDATE ON skills_evaluation
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_teacher_payroll_updated_at BEFORE UPDATE ON teacher_payroll
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_blog_updated_at BEFORE UPDATE ON blog_posts

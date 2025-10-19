@@ -45,6 +45,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           email: data.email,
           role: 'teacher',
           subject: data.subject,
+          profileImageUrl: data.profile_image_url ?? undefined,
+          phone: data.phone ?? undefined,
+          bio: data.bio ?? undefined,
         };
 
         setUser(userData);
