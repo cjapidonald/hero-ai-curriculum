@@ -28,5 +28,10 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Force dark mode as default
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    </script>
   </body>
 </html>

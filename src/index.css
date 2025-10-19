@@ -1,3 +1,6 @@
+/* Import Apple Theme */
+@import './styles/apple-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

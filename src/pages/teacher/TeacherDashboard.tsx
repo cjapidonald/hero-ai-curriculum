@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut } from 'lucide-react';
+import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar } from 'lucide-react';
 import MyClasses from './MyClasses';
 import CurriculumTab from './CurriculumTab';
 import MyStudents from './MyStudents';
 import Assessment from './Assessment';
 import Skills from './Skills';
 import Blog from './Blog';
+import CalendarTab from './CalendarTab';
 
-type TabType = 'classes' | 'curriculum' | 'students' | 'assessment' | 'skills' | 'blog';
+type TabType = 'classes' | 'curriculum' | 'students' | 'assessment' | 'skills' | 'blog' | 'calendar';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
@@ -21,6 +22,7 @@ const TeacherDashboard = () => {
   }
 
   const tabs = [
+    { id: 'calendar' as TabType, label: 'Calendar', icon: Calendar },
     { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
@@ -31,6 +33,8 @@ const TeacherDashboard = () => {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'calendar':
+        return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
       case 'classes':
         return <MyClasses teacherId={user.id} />;
       case 'curriculum':
@@ -44,7 +48,7 @@ const TeacherDashboard = () => {
       case 'blog':
         return <Blog />;
       default:
-        return <MyClasses teacherId={user.id} />;
+        return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
     }
   };
 
