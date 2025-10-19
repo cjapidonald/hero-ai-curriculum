@@ -61,13 +61,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         return true;
       } else if (role === 'teacher') {
         // Try login with email OR username
-        const { data, error } = await supabase
+        const teacherResponse = await supabase
           .from('teachers')
           .select('*')
           .or(`email.eq.${email},username.eq.${email}`)
           .eq('password', password)
           .eq('is_active', true)
           .single();
+
+        let data = teacherResponse.data;
+        let error = teacherResponse.error;
+
+        // Fallback for environments where the username column hasn't been added yet
+        if (error && error.code === '42703') {
+          const fallbackResponse = await supabase
+            .from('teachers')
+            .select('*')
+            .eq('email', email)
+            .eq('password', password)
+            .eq('is_active', true)
+            .single();
+
+          data = fallbackResponse.data;
+          error = fallbackResponse.error;
+        }
 
         if (error || !data) {
           console.error('Teacher login error:', error);
