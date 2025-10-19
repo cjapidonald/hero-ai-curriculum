@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserCircle, GraduationCap, AlertCircle } from 'lucide-react';
+import { UserCircle, GraduationCap, AlertCircle, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const [activeTab, setActiveTab] = useState<'teacher' | 'student'>('teacher');
+  const [activeTab, setActiveTab] = useState<'admin' | 'teacher' | 'student'>('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,9 @@ const Login = () => {
         description: `Logged in successfully as ${activeTab}`,
       });
 
-      if (activeTab === 'teacher') {
+      if (activeTab === 'admin') {
+        navigate('/admin/dashboard');
+      } else if (activeTab === 'teacher') {
         navigate('/teacher/dashboard');
       } else {
         navigate('/student/dashboard');
@@ -58,7 +60,16 @@ const Login = () => {
 
         <CardContent>
           {/* Role Tabs */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            <Button
+              type="button"
+              variant={activeTab === 'admin' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('admin')}
+              className="gap-2"
+            >
+              <Shield size={18} />
+              Admin
+            </Button>
             <Button
               type="button"
               variant={activeTab === 'teacher' ? 'default' : 'outline'}
@@ -85,7 +96,12 @@ const Login = () => {
               <AlertCircle size={16} className="text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-semibold mb-2">Demo Credentials:</p>
-                {activeTab === 'teacher' ? (
+                {activeTab === 'admin' ? (
+                  <div className="space-y-1">
+                    <p>Email: admin@heroschool.com</p>
+                    <p>Password: admin123</p>
+                  </div>
+                ) : activeTab === 'teacher' ? (
                   <div className="space-y-1">
                     <p>Email: donald@heroschool.com</p>
                     <p>Password: teacher123</p>
@@ -107,7 +123,7 @@ const Login = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder={activeTab === 'teacher' ? 'teacher@heroschool.com' : 'student@example.com'}
+                placeholder={activeTab === 'admin' ? 'admin@heroschool.com' : activeTab === 'teacher' ? 'teacher@heroschool.com' : 'student@example.com'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -23,7 +23,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       setLoading(true);
 
-      if (role === 'teacher') {
+      if (role === 'admin') {
+        const { data, error } = await supabase
+          .from('admins')
+          .select('*')
+          .eq('email', email)
+          .eq('password', password)
+          .eq('is_active', true)
+          .single();
+
+        if (error || !data) {
+          console.error('Admin login error:', error);
+          setLoading(false);
+          return false;
+        }
+
+        const userData: AuthUser = {
+          id: data.id,
+          name: data.name,
+          surname: data.surname,
+          email: data.email,
+          role: 'admin',
+          profileImageUrl: data.profile_image_url ?? undefined,
+          phone: data.phone ?? undefined,
+        };
+
+        setUser(userData);
+        localStorage.setItem('hero_user', JSON.stringify(userData));
+
+        // Update last login
+        await supabase
+          .from('admins')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', data.id);
+
+        setLoading(false);
+        return true;
+      } else if (role === 'teacher') {
         const { data, error } = await supabase
           .from('teachers')
           .select('*')
