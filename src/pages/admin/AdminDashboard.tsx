@@ -10,12 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
-import { StudentCRUD } from "@/components/crud/StudentCRUD";
-import { TeacherCRUD } from "@/components/crud/TeacherCRUD";
-import { CurriculumCRUD } from "@/components/crud/CurriculumCRUD";
+import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
+import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
+import { SkillsManagement } from "@/components/crud/SkillsManagement";
+import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
-import { AssignmentCRUD } from "@/components/crud/AssignmentCRUD";
-import { AssessmentCRUD } from "@/components/crud/AssessmentCRUD";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -275,10 +274,9 @@ export default function AdminDashboard() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
             <TabsTrigger value="teachers">Teachers</TabsTrigger>
-            <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
+            <TabsTrigger value="curriculum">Full Curriculum</TabsTrigger>
+            <TabsTrigger value="skills">Skills</TabsTrigger>
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="assessments">Assessments</TabsTrigger>
             <TabsTrigger value="classes">Classes</TabsTrigger>
           </TabsList>
 
@@ -362,7 +360,7 @@ export default function AdminDashboard() {
                 <CardDescription>Add, edit, and manage all students with real-time sync</CardDescription>
               </CardHeader>
               <CardContent>
-                <StudentCRUD />
+                <EnhancedStudentCRUD />
               </CardContent>
             </Card>
           </TabsContent>
@@ -374,7 +372,7 @@ export default function AdminDashboard() {
                 <CardDescription>Add, edit, and manage all teachers with real-time sync</CardDescription>
               </CardHeader>
               <CardContent>
-                <TeacherCRUD />
+                <EnhancedTeacherCRUD />
               </CardContent>
             </Card>
           </TabsContent>
@@ -427,11 +425,23 @@ export default function AdminDashboard() {
           <TabsContent value="curriculum" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Curriculum Management</CardTitle>
-                <CardDescription>Manage all lessons and curriculum resources with real-time sync</CardDescription>
+                <CardTitle>Full Curriculum View</CardTitle>
+                <CardDescription>View and manage all curriculum entries</CardDescription>
               </CardHeader>
               <CardContent>
-                <CurriculumCRUD />
+                <FullCurriculumView />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="skills" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills Management</CardTitle>
+                <CardDescription>Manage skills and their assignments to classes</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SkillsManagement />
               </CardContent>
             </Card>
           </TabsContent>
@@ -444,30 +454,6 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <CalendarSessionCRUD />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="assignments" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Assignment Management</CardTitle>
-                <CardDescription>Create and manage assignments for classes and students with real-time sync</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AssignmentCRUD />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="assessments" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Assessment Management</CardTitle>
-                <CardDescription>Track student assessments and scores with real-time sync</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AssessmentCRUD />
               </CardContent>
             </Card>
           </TabsContent>

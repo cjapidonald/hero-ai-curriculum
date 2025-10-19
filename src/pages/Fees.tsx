@@ -56,8 +56,13 @@ const Fees = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="section-padding bg-gradient-to-br from-primary/20 via-background to-background">
-        <div className="container mx-auto px-4 text-center">
+      <section className="section-padding bg-gradient-to-br from-primary/20 via-background to-background relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-10 right-10 w-20 h-20 bg-accent-pink/20 rounded-full blur-2xl" />
+        <div className="absolute bottom-20 left-20 w-32 h-32 bg-accent-teal/20 rounded-full blur-2xl" />
+        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
+
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-fade-in">
             Investment in Your Child's Future
           </h1>
@@ -241,20 +246,6 @@ const Fees = () => {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="section-padding bg-foreground text-background">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-8">Ready to Enroll?</h2>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" variant="secondary">
-              <Link to="/curriculum">View Curriculum</Link>
-            </Button>
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90">
-              <Link to="/contact">Book Free Trial</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
     </div>
   );
 };

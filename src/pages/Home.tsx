@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Book, Brain, Users, Trophy, ArrowRight, MapPin, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import RollingNumber from "@/components/RollingNumber";
 
 const Home = () => {
   return (
@@ -165,19 +166,33 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <div className="text-5xl font-bold text-primary mb-2">95%</div>
+              <RollingNumber
+                end={95}
+                suffix="%"
+                className="text-5xl font-bold text-primary mb-2"
+              />
               <div className="text-lg">Exam Pass Rate</div>
             </div>
             <div>
-              <div className="text-5xl font-bold text-primary mb-2">12</div>
+              <RollingNumber
+                end={12}
+                className="text-5xl font-bold text-primary mb-2"
+              />
               <div className="text-lg">Max Class Size</div>
             </div>
             <div>
-              <div className="text-5xl font-bold text-primary mb-2">2022</div>
+              <RollingNumber
+                end={2022}
+                className="text-5xl font-bold text-primary mb-2"
+              />
               <div className="text-lg">Established</div>
             </div>
             <div>
-              <div className="text-5xl font-bold text-primary mb-2">100%</div>
+              <RollingNumber
+                end={100}
+                suffix="%"
+                className="text-5xl font-bold text-primary mb-2"
+              />
               <div className="text-lg">Parent Satisfaction</div>
             </div>
           </div>

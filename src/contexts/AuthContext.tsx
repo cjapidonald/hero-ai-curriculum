@@ -60,10 +60,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setLoading(false);
         return true;
       } else if (role === 'teacher') {
+        // Try login with email OR username
         const { data, error } = await supabase
           .from('teachers')
           .select('*')
-          .eq('email', email)
+          .or(`email.eq.${email},username.eq.${email}`)
           .eq('password', password)
           .eq('is_active', true)
           .single();
@@ -88,6 +89,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         setUser(userData);
         localStorage.setItem('hero_user', JSON.stringify(userData));
+
+        // Update last login
+        await supabase
+          .from('teachers')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', data.id);
+
         setLoading(false);
         return true;
       } else if (role === 'student') {

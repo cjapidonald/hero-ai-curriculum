@@ -9,19 +9,17 @@ import type { Tables } from '@/integrations/supabase/types';
 import MyClasses from './MyClasses';
 import CurriculumTab from './CurriculumTab';
 import MyStudents from './MyStudents';
-import Assessment from './Assessment';
 import Skills from './Skills';
-import Blog from './Blog';
 import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
 import LessonBuilder from './LessonBuilder';
+import { EnhancedLessonPlanner } from './EnhancedLessonPlanner';
 import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
 import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
-import { AssessmentCRUD } from '@/components/crud/AssessmentCRUD';
 import { StudentCRUD } from '@/components/crud/StudentCRUD';
 
-type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assessment' | 'assignments' | 'skills' | 'blog';
+type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assignments' | 'skills';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
@@ -82,10 +80,8 @@ const TeacherDashboard = () => {
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
     { id: 'lessonbuilder' as TabType, label: 'Lesson Builder', icon: Blocks },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
-    { id: 'assignments' as TabType, label: 'Assignments', icon: BookOpen },
-    { id: 'assessment' as TabType, label: 'Assessment', icon: FileText },
+    { id: 'assignments' as TabType, label: 'Assignments', icon: FileText },
     { id: 'skills' as TabType, label: 'Skills', icon: Award },
-    { id: 'blog' as TabType, label: 'Blog', icon: Lightbulb },
   ];
 
   const renderTabContent = () => {
@@ -100,9 +96,9 @@ const TeacherDashboard = () => {
       case 'calendar':
         return (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-background rounded-lg shadow p-6">
               <h2 className="text-xl font-bold mb-4">Manage Class Sessions</h2>
-              <p className="text-gray-600 mb-4">Schedule and manage your class sessions with real-time sync</p>
+              <p className="text-muted-foreground mb-4">Schedule and manage your class sessions with real-time sync</p>
               <CalendarSessionCRUD teacherId={user.id} />
             </div>
           </div>
@@ -112,21 +108,21 @@ const TeacherDashboard = () => {
       case 'curriculum':
         return (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-background rounded-lg shadow p-6">
               <h2 className="text-xl font-bold mb-4">Manage Curriculum</h2>
-              <p className="text-gray-600 mb-4">Create and edit lessons with resources and materials</p>
+              <p className="text-muted-foreground mb-4">Create and edit lessons with resources and materials</p>
               <CurriculumCRUD teacherId={user.id} />
             </div>
           </div>
         );
       case 'lessonbuilder':
-        return <LessonBuilder teacherId={user.id} />;
+        return <EnhancedLessonPlanner teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
       case 'students':
         return (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-background rounded-lg shadow p-6">
               <h2 className="text-xl font-bold mb-4">Manage Students</h2>
-              <p className="text-gray-600 mb-4">View and edit student information with real-time sync</p>
+              <p className="text-muted-foreground mb-4">View and edit student information with real-time sync</p>
               <StudentCRUD />
             </div>
           </div>
@@ -134,27 +130,15 @@ const TeacherDashboard = () => {
       case 'assignments':
         return (
           <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-background rounded-lg shadow p-6">
               <h2 className="text-xl font-bold mb-4">Manage Assignments</h2>
-              <p className="text-gray-600 mb-4">Create and manage assignments for your classes</p>
+              <p className="text-muted-foreground mb-4">Create and manage assignments for your classes</p>
               <AssignmentCRUD teacherId={user.id} />
-            </div>
-          </div>
-        );
-      case 'assessment':
-        return (
-          <div className="space-y-4">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Manage Assessments</h2>
-              <p className="text-gray-600 mb-4">Create and track student assessments with real-time sync</p>
-              <AssessmentCRUD teacherId={user.id} />
             </div>
           </div>
         );
       case 'skills':
         return <Skills teacherId={user.id} />;
-      case 'blog':
-        return <Blog />;
       default:
         return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
     }

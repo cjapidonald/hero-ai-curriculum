@@ -39,7 +39,7 @@ const Login = () => {
     } else {
       toast({
         title: 'Login Failed',
-        description: 'Invalid email or password',
+        description: 'Invalid credentials',
         variant: 'destructive',
       });
     }
@@ -52,7 +52,7 @@ const Login = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-background">H</span>
+            <img src="/logo.png" alt="HeroSchool Logo" className="w-10 h-10" />
           </div>
           <CardTitle className="text-2xl">HeroSchool Login</CardTitle>
           <CardDescription>Sign in to access your dashboard</CardDescription>
@@ -103,7 +103,7 @@ const Login = () => {
                   </div>
                 ) : activeTab === 'teacher' ? (
                   <div className="space-y-1">
-                    <p>Email: donald@heroschool.com</p>
+                    <p>Email or Username: donald / donald@heroschool.com</p>
                     <p>Password: teacher123</p>
                   </div>
                 ) : (
@@ -119,11 +119,11 @@ const Login = () => {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{activeTab === 'teacher' ? 'Email or Username' : 'Email'}</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder={activeTab === 'admin' ? 'admin@heroschool.com' : activeTab === 'teacher' ? 'teacher@heroschool.com' : 'student@example.com'}
+                type={activeTab === 'teacher' ? 'text' : 'email'}
+                placeholder={activeTab === 'admin' ? 'admin@heroschool.com' : activeTab === 'teacher' ? 'donald / donald@heroschool.com' : 'student@example.com'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

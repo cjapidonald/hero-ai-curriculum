@@ -162,8 +162,13 @@ const Events = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="section-padding bg-gradient-to-br from-accent-pink/20 via-primary/20 to-accent-teal/20">
-        <div className="container mx-auto px-4 text-center">
+      <section className="section-padding bg-gradient-to-br from-accent-pink/20 via-primary/20 to-accent-teal/20 relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-10 right-10 w-20 h-20 bg-accent-pink/20 rounded-full blur-2xl" />
+        <div className="absolute bottom-20 left-20 w-32 h-32 bg-accent-teal/20 rounded-full blur-2xl" />
+        <div className="absolute top-1/2 right-1/3 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
+
+        <div className="container mx-auto px-4 text-center relative z-10">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-fade-in">
             Science, Discovery & Fun - Open to All!
           </h1>
