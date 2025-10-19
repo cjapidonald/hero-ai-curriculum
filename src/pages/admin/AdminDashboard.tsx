@@ -57,6 +57,7 @@ export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeStudents: 0,
@@ -82,39 +83,45 @@ export default function AdminDashboard() {
   const fetchAdminData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
       // Fetch students
-      const { data: studentsData } = await supabase
+      const { data: studentsData, error: studentError } = await supabase
         .from("dashboard_students")
         .select("*")
         .order("created_at", { ascending: false });
+      if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
 
       // Fetch teachers
-      const { data: teachersData } = await supabase
+      const { data: teachersData, error: teacherError } = await supabase
         .from("teachers")
         .select("*")
         .eq("is_active", true);
+      if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
 
       // Fetch classes
-      const { data: classesData } = await supabase
+      const { data: classesData, error: classesError } = await supabase
         .from("classes")
         .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
         .eq("is_active", true);
+      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
 
       // Fetch payments
-      const { data: paymentsData } = await supabase
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from("payments")
         .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
         .order("payment_date", { ascending: false })
         .limit(10);
+      if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
 
       // Fetch events
-      const { data: eventsData } = await supabase
+      const { data: eventsData, error: eventsError } = await supabase
         .from("events")
         .select("id, title, event_date, location")
         .eq("is_published", true)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true });
+      if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
 
       setStudents((studentsData ?? []) as DashboardStudent[]);
       setTeachers((teachersData ?? []) as TeacherRecord[]);
@@ -136,8 +143,9 @@ export default function AdminDashboard() {
         upcomingEvents: eventsData?.length ?? 0,
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching admin data:", error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -183,6 +191,20 @@ export default function AdminDashboard() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-semibold text-destructive">Failed to load dashboard</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={fetchAdminData}>
+            Try again
+          </Button>
         </div>
       </div>
     );
@@ -278,6 +300,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="skills">Skills</TabsTrigger>
             <TabsTrigger value="calendar">Calendar</TabsTrigger>
             <TabsTrigger value="classes">Classes</TabsTrigger>
+            <TabsTrigger value="finance">Finance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">

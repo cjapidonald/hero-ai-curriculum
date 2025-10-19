@@ -5,6 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 interface AttendanceChartProps {
   studentId: string;
   attendanceRate: number;
+  sessionsCompleted: number;
 }
 
 interface PieLabelProps {
@@ -16,7 +17,7 @@ interface PieLabelProps {
   percent: number;
 }
 
-export default function AttendanceChart({ studentId, attendanceRate }: AttendanceChartProps) {
+export default function AttendanceChart({ studentId, attendanceRate, sessionsCompleted }: AttendanceChartProps) {
   const attendance = attendanceRate ? Number(attendanceRate) : 0;
   const absent = 100 - attendance;
 
@@ -63,6 +64,23 @@ export default function AttendanceChart({ studentId, attendanceRate }: Attendanc
       </text>
     );
   };
+
+  if (sessionsCompleted === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Overview</CardTitle>
+          <CardDescription>Your attendance record at a glance</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center h-[400px]">
+          <div className="text-center text-muted-foreground">
+            <p>No attendance data yet.</p>
+            <p className="text-sm">Your attendance will be tracked once you attend your first class.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">

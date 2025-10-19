@@ -20,6 +20,7 @@ type SkillsEvaluationRecord = Tables<"skills_evaluation">;
 export default function SkillsProgress({ studentId }: SkillsProgressProps) {
   const [skillsData, setSkillsData] = useState<SkillsEvaluationRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
   const [skillFilter, setSkillFilter] = useState<SkillFilter>('all');
 
@@ -45,6 +46,7 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     const fetchSkillsData = async () => {
       try {
         setLoading(true);
+        setError(null);
         const dateFilter = getDateFilter();
 
         let query = supabase
@@ -62,8 +64,9 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
 
         if (error) throw error;
         setSkillsData((data ?? []) as SkillsEvaluationRecord[]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching skills data:", error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -123,6 +126,17 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold text-destructive">Failed to load skills data</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
       </div>
     );
   }

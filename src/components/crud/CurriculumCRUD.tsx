@@ -32,6 +32,47 @@ interface CurriculumCRUDProps {
   showActions?: boolean;
 }
 
+interface Activity {
+  name: string;
+  type: string;
+  url: string;
+}
+
+const activityPrefixes = {
+  warmups: 'wp',
+  main_activities: 'ma',
+  assessments: 'a',
+  homework: 'hw',
+  printables: 'p',
+};
+
+const activityLimits = { warmups: 4, main_activities: 5, assessments: 4, homework: 6, printables: 4 };
+
+const parseActivities = (lesson: Partial<Curriculum>, prefix: string, count: number): Activity[] => {
+  const activities: Activity[] = [];
+  for (let i = 1; i <= count; i++) {
+    if (lesson[`${prefix}${i}_name`]) {
+      activities.push({
+        name: lesson[`${prefix}${i}_name`] || '',
+        type: lesson[`${prefix}${i}_type`] || '',
+        url: lesson[`${prefix}${i}_url`] || '',
+      });
+    }
+  }
+  return activities;
+};
+
+const flattenActivities = (activities: Activity[], prefix: string, limit: number) => {
+  const flat: { [key: string]: any } = {};
+  for (let i = 0; i < limit; i++) {
+    const activity = activities[i];
+    flat[`${prefix}${i + 1}_name`] = activity?.name || null;
+    flat[`${prefix}${i + 1}_type`] = activity?.type || null;
+    flat[`${prefix}${i + 1}_url`] = activity?.url || null;
+  }
+  return flat;
+};
+
 export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
   const filters = teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined;
@@ -41,7 +82,13 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
   const [editingLesson, setEditingLesson] = useState<Curriculum | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Curriculum>>({});
+  const [formData, setFormData] = useState<Partial<Curriculum> & {
+    warmups?: Activity[];
+    main_activities?: Activity[];
+    assessments?: Activity[];
+    homework?: Activity[];
+    printables?: Activity[];
+  }>({});
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
@@ -49,7 +96,14 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
   const handleOpenDialog = (lesson?: Curriculum) => {
     if (lesson) {
       setEditingLesson(lesson);
-      setFormData(lesson);
+      setFormData({
+        ...lesson,
+        warmups: parseActivities(lesson, 'wp', activityLimits.warmups),
+        main_activities: parseActivities(lesson, 'ma', activityLimits.main_activities),
+        assessments: parseActivities(lesson, 'a', activityLimits.assessments),
+        homework: parseActivities(lesson, 'hw', activityLimits.homework),
+        printables: parseActivities(lesson, 'p', activityLimits.printables),
+      });
     } else {
       setEditingLesson(null);
       setFormData({
@@ -60,6 +114,11 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
         lesson_date: new Date().toISOString().split('T')[0],
         lesson_skills: '',
         success_criteria: '',
+        warmups: [],
+        main_activities: [],
+        assessments: [],
+        homework: [],
+        printables: [],
       });
     }
     setIsDialogOpen(true);
@@ -68,8 +127,19 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const { warmups, main_activities, assessments, homework, printables, ...restOfData } = formData;
+
+    const payload = {
+      ...restOfData,
+      ...flattenActivities(warmups || [], 'wp', activityLimits.warmups),
+      ...flattenActivities(main_activities || [], 'ma', activityLimits.main_activities),
+      ...flattenActivities(assessments || [], 'a', activityLimits.assessments),
+      ...flattenActivities(homework || [], 'hw', activityLimits.homework),
+      ...flattenActivities(printables || [], 'p', activityLimits.printables),
+    };
+
     if (editingLesson) {
-      const { error } = await update(editingLesson.id, formData);
+      const { error } = await update(editingLesson.id, payload);
       if (!error) {
         setIsDialogOpen(false);
         toast({
@@ -78,7 +148,7 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
         });
       }
     } else {
-      const { error } = await create(formData as any);
+      const { error } = await create(payload as any);
       if (!error) {
         setIsDialogOpen(false);
         toast({
@@ -181,122 +251,83 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
                 </div>
 
                 <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Resources (Optional)</h3>
-                  <div className="space-y-3">
-                    {/* Warmup Activity 1 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label htmlFor="wp1_name">Warmup 1 Name</Label>
-                        <Input
-                          id="wp1_name"
-                          value={formData.wp1_name || ''}
-                          onChange={(e) => setFormData({ ...formData, wp1_name: e.target.value })}
-                          placeholder="Activity name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="wp1_type">Type</Label>
-                        <select
-                          id="wp1_type"
-                          className="w-full border rounded-md p-2"
-                          value={formData.wp1_type || ''}
-                          onChange={(e) => setFormData({ ...formData, wp1_type: e.target.value })}
-                        >
-                          <option value="">Select...</option>
-                          <option value="file">File</option>
-                          <option value="link">Link</option>
-                          <option value="image">Image</option>
-                          <option value="pdf">PDF</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="wp1_url">URL</Label>
-                        <Input
-                          id="wp1_url"
-                          value={formData.wp1_url || ''}
-                          onChange={(e) => setFormData({ ...formData, wp1_url: e.target.value })}
-                          placeholder="https://..."
-                        />
-                      </div>
-                    </div>
+                  <h3 className="font-semibold mb-3">Resources</h3>
+                  {Object.entries(activityPrefixes).map(([type, prefix]) => {
+                    const activities = formData[type as keyof typeof formData] as Activity[] || [];
+                    const limit = activityLimits[type as keyof typeof activityLimits];
 
-                    {/* Main Activity 1 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label htmlFor="ma1_name">Main Activity 1 Name</Label>
-                        <Input
-                          id="ma1_name"
-                          value={formData.ma1_name || ''}
-                          onChange={(e) => setFormData({ ...formData, ma1_name: e.target.value })}
-                          placeholder="Activity name"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="ma1_type">Type</Label>
-                        <select
-                          id="ma1_type"
-                          className="w-full border rounded-md p-2"
-                          value={formData.ma1_type || ''}
-                          onChange={(e) => setFormData({ ...formData, ma1_type: e.target.value })}
-                        >
-                          <option value="">Select...</option>
-                          <option value="file">File</option>
-                          <option value="link">Link</option>
-                          <option value="image">Image</option>
-                          <option value="pdf">PDF</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="ma1_url">URL</Label>
-                        <Input
-                          id="ma1_url"
-                          value={formData.ma1_url || ''}
-                          onChange={(e) => setFormData({ ...formData, ma1_url: e.target.value })}
-                          placeholder="https://..."
-                        />
-                      </div>
-                    </div>
+                    const handleActivityChange = (index: number, field: keyof Activity, value: string) => {
+                      const newActivities = [...activities];
+                      newActivities[index] = { ...newActivities[index], [field]: value };
+                      setFormData({ ...formData, [type]: newActivities });
+                    };
 
-                    {/* Homework 1 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <Label htmlFor="hw1_name">Homework 1 Name</Label>
-                        <Input
-                          id="hw1_name"
-                          value={formData.hw1_name || ''}
-                          onChange={(e) => setFormData({ ...formData, hw1_name: e.target.value })}
-                          placeholder="Homework name"
-                        />
+                    const addActivity = () => {
+                      if (activities.length < limit) {
+                        setFormData({ ...formData, [type]: [...activities, { name: '', type: '', url: '' }] });
+                      }
+                    };
+
+                    const removeActivity = (index: number) => {
+                      const newActivities = activities.filter((_, i) => i !== index);
+                      setFormData({ ...formData, [type]: newActivities });
+                    };
+
+                    return (
+                      <div key={type} className="space-y-3 border-b pb-4 mb-4">
+                        <h4 className="font-medium capitalize">{type.replace('_', ' ')}</h4>
+                        {activities.map((activity, index) => (
+                          <div key={index} className="grid grid-cols-10 gap-2 items-center">
+                            <Input
+                              className="col-span-4"
+                              value={activity.name}
+                              onChange={(e) => handleActivityChange(index, 'name', e.target.value)}
+                              placeholder="Activity Name"
+                            />
+                            <Select
+                              value={activity.type}
+                              onValueChange={(value) => handleActivityChange(index, 'type', value)}
+                            >
+                              <SelectTrigger className="col-span-2">
+                                <SelectValue placeholder="Type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="file">File</SelectItem>
+                                <SelectItem value="link">Link</SelectItem>
+                                <SelectItem value="image">Image</SelectItem>
+                                <SelectItem value="pdf">PDF</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="col-span-3"
+                              value={activity.url}
+                              onChange={(e) => handleActivityChange(index, 'url', e.target.value)}
+                              placeholder="URL"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeActivity(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        {activities.length < limit && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addActivity}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add {type.replace('_', ' ').slice(0, -1)}
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <Label htmlFor="hw1_type">Type</Label>
-                        <select
-                          id="hw1_type"
-                          className="w-full border rounded-md p-2"
-                          value={formData.hw1_type || ''}
-                          onChange={(e) => setFormData({ ...formData, hw1_type: e.target.value })}
-                        >
-                          <option value="">Select...</option>
-                          <option value="file">File</option>
-                          <option value="link">Link</option>
-                          <option value="image">Image</option>
-                          <option value="pdf">PDF</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="hw1_url">URL</Label>
-                        <Input
-                          id="hw1_url"
-                          value={formData.hw1_url || ''}
-                          onChange={(e) => setFormData({ ...formData, hw1_url: e.target.value })}
-                          placeholder="https://..."
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Add more resources after creating the lesson
-                  </p>
+                    );
+                  })}
                 </div>
 
                 <div className="flex justify-end gap-2">

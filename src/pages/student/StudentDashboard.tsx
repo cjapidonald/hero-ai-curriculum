@@ -30,6 +30,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [recentSkills, setRecentSkills] = useState<SkillsEvaluationRecord[]>([]);
   const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
   const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
@@ -37,19 +38,22 @@ export default function StudentDashboard() {
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
+        setLoading(true);
+        setError(null);
         if (!user?.email) {
           throw new Error("Missing user email");
         }
 
-        const { data, error } = await supabase
+        const { data, error: studentError } = await supabase
           .from("dashboard_students")
           .select("*")
           .eq("email", user.email)
           .single();
 
-        if (error) throw error;
+        if (studentError) throw new Error(`Failed to fetch student profile: ${studentError.message}`);
         if (!data) {
           setStudentData(null);
+          setLoading(false);
           return;
         }
 
@@ -63,7 +67,9 @@ export default function StudentDashboard() {
           .order("evaluation_date", { ascending: false })
           .limit(20);
 
-        if (!skillsError && skillsData) {
+        if (skillsError) console.error('Partial data error (skills):', skillsError);
+
+        if (skillsData) {
           const typedSkills = skillsData as SkillsEvaluationRecord[];
           setRecentSkills(typedSkills);
 
@@ -98,11 +104,14 @@ export default function StudentDashboard() {
           .order("assessment_date", { ascending: false })
           .limit(5);
 
-        if (!assessmentsError && assessmentsData) {
+        if (assessmentsError) console.error('Partial data error (assessments):', assessmentsError);
+
+        if (assessmentsData) {
           setRecentAssessments(assessmentsData as AssessmentRecord[]);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching student data:", error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -133,6 +142,20 @@ export default function StudentDashboard() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-semibold text-destructive">Failed to load dashboard</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Try again
+          </Button>
         </div>
       </div>
     );
@@ -428,7 +451,7 @@ export default function StudentDashboard() {
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
-            <AttendanceChart studentId={studentId} attendanceRate={attendanceRate} />
+            <AttendanceChart studentId={studentId} attendanceRate={attendanceRate} sessionsCompleted={sessionsCompleted} />
           </TabsContent>
 
           <TabsContent value="homework" className="space-y-4">

@@ -19,6 +19,7 @@ type AssessmentRecord = Tables<"assessment">;
 export default function AssessmentProgress({ studentId }: AssessmentProgressProps) {
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
     const fetchAssessments = async () => {
       try {
         setLoading(true);
+        setError(null);
         const dateFilter = getDateFilter();
 
         const { data, error } = await supabase
@@ -55,8 +57,9 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
 
         if (error) throw error;
         setAssessments((data ?? []) as AssessmentRecord[]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching assessments:", error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
@@ -142,6 +145,17 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-2">
+          <p className="text-lg font-semibold text-destructive">Failed to load assessments</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
       </div>
     );
   }

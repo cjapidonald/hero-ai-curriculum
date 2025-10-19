@@ -47,6 +47,9 @@ export const EnhancedStudentCRUD = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingStudentId, setViewingStudentId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalStudents, setTotalStudents] = useState(0);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -71,20 +74,32 @@ export const EnhancedStudentCRUD = () => {
   });
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(currentPage);
+    fetchClasses();
+  }, [currentPage]);
 
-  const fetchData = async () => {
+  const fetchClasses = async () => {
+    const { data } = await supabase.from('classes').select('*').eq('is_active', true);
+    if (data) setClasses(data);
+  }
+
+  const fetchData = async (page: number) => {
     try {
       setLoading(true);
+      const from = (page - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
 
-      const [studentsRes, classesRes] = await Promise.all([
-        supabase.from('dashboard_students').select('*').order('created_at', { ascending: false }),
-        supabase.from('classes').select('*').eq('is_active', true),
-      ]);
+      const { data, count } = await supabase
+        .from('dashboard_students')
+        .select('* ', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      if (studentsRes.data) setStudents(studentsRes.data);
-      if (classesRes.data) setClasses(classesRes.data);
+      if (data) {
+        setStudents(data);
+        setTotalStudents(count || 0);
+      }
+
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -128,7 +143,7 @@ export const EnhancedStudentCRUD = () => {
 
       setDialogOpen(false);
       resetForm();
-      fetchData();
+      fetchData(currentPage);
     } catch (error: any) {
       console.error('Error saving student:', error);
       toast({
@@ -146,7 +161,7 @@ export const EnhancedStudentCRUD = () => {
       surname: student.surname,
       email: student.email,
       password: '', // Don't pre-fill password
-      class: student.class || '',
+      class: student., class: student.class || '',
       gender: student.gender || '',
       subject: student.subject || 'English',
       level: student.level || '',
@@ -181,15 +196,9 @@ export const EnhancedStudentCRUD = () => {
         description: 'Student deleted successfully',
       });
 
-      fetchData();
+      fetchData(currentPage);
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete student',
-        variant: 'destructive',
-      });
-    }
-  };
+
 
   const handleViewDashboard = (studentId: string) => {
     setViewingStudentId(studentId);
@@ -508,6 +517,29 @@ export const EnhancedStudentCRUD = () => {
             ))}
           </TableBody>
         </Table>
+      </div>
+      <div className="flex justify-between items-center mt-4">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} of {Math.ceil(totalStudents / itemsPerPage)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === Math.ceil(totalStudents / itemsPerPage)}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

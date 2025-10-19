@@ -42,6 +42,7 @@ export default function HomeworkList({ studentId }: HomeworkListProps) {
         const { data: curriculumData, error: curriculumError } = await supabase
           .from('curriculum')
           .select('*')
+          .or('hw1_name.not.is.null,hw2_name.not.is.null,hw3_name.not.is.null,hw4_name.not.is.null,hw5_name.not.is.null,hw6_name.not.is.null')
           .order('lesson_date', { ascending: false })
           .limit(10);
 
@@ -63,14 +64,15 @@ export default function HomeworkList({ studentId }: HomeworkListProps) {
 
           // Extract homework materials (hw1-hw6)
           for (let i = 1; i <= 6; i++) {
-            const hwKey = `hw${i}` as keyof typeof lesson;
-            const hwData = lesson[hwKey];
+            const name = lesson[`hw${i}_name`];
+            const type = lesson[`hw${i}_type`];
+            const url = lesson[`hw${i}_url`];
 
-            if (hwData && typeof hwData === 'object' && hwData.name) {
+            if (name) {
               homeworkItems.push({
-                type: hwData.type || 'file',
-                url: hwData.url || '',
-                name: hwData.name || `Homework ${i}`,
+                type: type || 'file',
+                url: url || '',
+                name: name || `Homework ${i}`,
               });
             }
           }
