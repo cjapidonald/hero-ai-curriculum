@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, DollarSign, Key, BarChart3 } from 'lucide-react';
+import { Plus, Edit, Trash2, DollarSign, Key, BarChart3, ClipboardCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { TeacherInsightPanel } from '@/pages/admin/components/TeacherInsightPanel';
+import ClassroomObservationForm from '@/components/teacher/ClassroomObservationForm';
 
 interface Teacher {
   id: string;
@@ -43,6 +44,8 @@ export const EnhancedTeacherCRUD = () => {
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [insightOpen, setInsightOpen] = useState(false);
   const [insightTeacher, setInsightTeacher] = useState<Teacher | null>(null);
+  const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
+  const [evaluatingTeacher, setEvaluatingTeacher] = useState<Teacher | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -446,6 +449,16 @@ export const EnhancedTeacherCRUD = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Evaluation Dialog */}
+      <Dialog open={evaluationDialogOpen} onOpenChange={setEvaluationDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Classroom Observation Form</DialogTitle>
+          </DialogHeader>
+          {evaluatingTeacher && <ClassroomObservationForm teacher={evaluatingTeacher} classes={classes} />}
+        </DialogContent>
+      </Dialog>
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -511,6 +524,17 @@ export const EnhancedTeacherCRUD = () => {
                       title="View teacher dashboard"
                     >
                       <BarChart3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEvaluatingTeacher(teacher);
+                        setEvaluationDialogOpen(true);
+                      }}
+                      title="Evaluate Teacher"
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
