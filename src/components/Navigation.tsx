@@ -37,7 +37,7 @@ const Navigation = () => {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <NavLink to="/" className="flex items-center gap-2 group">
-            <div className="flex items-center bg-primary rounded-full w-10 h-10 md:w-12 md:h-12 justify-center transition-transform group-hover:scale-110">
+            <div className="flex items-center bg-green-500 rounded-full w-10 h-10 md:w-12 md:h-12 justify-center transition-transform group-hover:scale-110">
               <img src="/logo.svg" alt="HeroSchool Logo" className="w-6 h-6 md:w-8 md:h-8" />
             </div>
             <div className="flex items-baseline gap-0.5">

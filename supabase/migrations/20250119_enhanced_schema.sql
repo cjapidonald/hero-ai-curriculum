@@ -42,11 +42,16 @@ CREATE TABLE IF NOT EXISTS resources (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Add missing columns to resources table if it already exists
+ALTER TABLE resources
+ADD COLUMN IF NOT EXISTS level TEXT,
+ADD COLUMN IF NOT EXISTS stage TEXT;
+
 -- Indexes for resources
 CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(resource_type);
 CREATE INDEX IF NOT EXISTS idx_resources_level ON resources(level);
 CREATE INDEX IF NOT EXISTS idx_resources_stage ON resources(stage);
-CREATE INDEX IF NOT EXISTS idx_resources_uploaded_by ON resources(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_resources_uploaded_by ON.resources(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_resources_tags ON resources USING GIN(tags);
 
 -- RLS for resources

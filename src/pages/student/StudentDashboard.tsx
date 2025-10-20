@@ -7,13 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { LogOut, TrendingUp, Target, Calendar, BookOpen, Award, MapPin, Phone, User } from "lucide-react";
+import { LogOut, TrendingUp, Target, Calendar, BookOpen, Award, MapPin, Phone, User, MessageCircle, FileText, HelpCircle } from "lucide-react";
 import SkillsProgress from "./SkillsProgress";
 import AssessmentProgress from "./AssessmentProgress";
 import AttendanceChart from "./AttendanceChart";
 import HomeworkList from "./HomeworkList";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
+import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
+import { NotificationCenter } from "@/components/NotificationCenter";
+import { ProfileEditor } from "@/components/ProfileEditor";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type SkillsEvaluationRecord = Tables<"skills_evaluation">;
@@ -67,7 +70,10 @@ export default function StudentDashboard() {
           .order("evaluation_date", { ascending: false })
           .limit(20);
 
-        if (skillsError) console.error('Partial data error (skills):', skillsError);
+        if (skillsError) {
+          console.error('Error loading skills:', skillsError);
+          setError(`Warning: Could not load skills data. ${skillsError.message}`);
+        }
 
         if (skillsData) {
           const typedSkills = skillsData as SkillsEvaluationRecord[];
@@ -104,7 +110,10 @@ export default function StudentDashboard() {
           .order("assessment_date", { ascending: false })
           .limit(5);
 
-        if (assessmentsError) console.error('Partial data error (assessments):', assessmentsError);
+        if (assessmentsError) {
+          console.error('Error loading assessments:', assessmentsError);
+          setError(`Warning: Could not load assessment data. ${assessmentsError.message}`);
+        }
 
         if (assessmentsData) {
           setRecentAssessments(assessmentsData as AssessmentRecord[]);
@@ -123,6 +132,44 @@ export default function StudentDashboard() {
     }
 
     void fetchStudentData();
+
+    // Set up real-time subscriptions
+    const skillsChannel = supabase
+      .channel('student-skills-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'skills_evaluation',
+          filter: `student_id=eq.${studentData?.id}`,
+        },
+        () => {
+          void fetchStudentData();
+        }
+      )
+      .subscribe();
+
+    const assessmentChannel = supabase
+      .channel('student-assessment-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assessment',
+          filter: `student_id=eq.${studentData?.id}`,
+        },
+        () => {
+          void fetchStudentData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(skillsChannel);
+      supabase.removeChannel(assessmentChannel);
+    };
   }, [navigate, user]);
 
   const averageAssessmentScore = useMemo(() => {
@@ -138,10 +185,20 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading your dashboard...</p>
+      <div className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background">
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full animate-pulse bg-muted" />
+              <div className="space-y-2">
+                <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto px-4 py-8">
+          <DashboardSkeleton />
         </div>
       </div>
     );
@@ -235,10 +292,14 @@ export default function StudentDashboard() {
               </div>
             </div>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <ProfileEditor userType="student" />
+            <NotificationCenter />
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -371,6 +432,30 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Quick Actions */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Common tasks and helpful links</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <MessageCircle className="h-5 w-5" />
+                <span className="text-sm">Contact Teacher</span>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <FileText className="h-5 w-5" />
+                <span className="text-sm">Submit Homework</span>
+              </Button>
+              <Button variant="outline" className="h-auto py-4 flex-col gap-2">
+                <HelpCircle className="h-5 w-5" />
+                <span className="text-sm">Get Help</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Placement Test Results */}
         <Card className="mb-6">

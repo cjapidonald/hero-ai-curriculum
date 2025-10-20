@@ -198,7 +198,14 @@ export const EnhancedStudentCRUD = () => {
 
       fetchData(currentPage);
     } catch (error: any) {
-
+      console.error('Error deleting student:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete student',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleViewDashboard = (studentId: string) => {
     setViewingStudentId(studentId);

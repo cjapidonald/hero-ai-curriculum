@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { ProfileEditor } from '@/components/ProfileEditor';
 import MyClasses from './MyClasses';
 import CurriculumTab from './CurriculumTab';
 import MyStudents from './MyStudents';
@@ -23,7 +25,9 @@ type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbu
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('performance');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as TabType | null;
+  const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'performance');
   const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
@@ -69,9 +73,21 @@ const TeacherDashboard = () => {
     };
   }, [user?.id]);
 
+  // Update URL when tab changes
+  useEffect(() => {
+    if (activeTab !== tabFromUrl) {
+      setSearchParams({ tab: activeTab });
+    }
+  }, [activeTab, tabFromUrl, setSearchParams]);
+
   if (!isTeacher || !user) {
     return <Navigate to="/login" replace />;
   }
+
+  const handleTabChange = (tabId: TabType) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
 
   const tabs = [
     { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
@@ -179,10 +195,14 @@ const TeacherDashboard = () => {
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={logout} className="gap-2">
-              <LogOut size={18} />
-              Logout
-            </Button>
+            <div className="flex items-center gap-2">
+              <ProfileEditor userType="teacher" />
+              <NotificationCenter />
+              <Button variant="outline" onClick={logout} className="gap-2">
+                <LogOut size={18} />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -197,7 +217,7 @@ const TeacherDashboard = () => {
                 <Button
                   key={tab.id}
                   variant={activeTab === tab.id ? 'default' : 'ghost'}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className="gap-2 rounded-none border-b-2 border-transparent data-[active=true]:border-primary whitespace-nowrap"
                   data-active={activeTab === tab.id}
                 >

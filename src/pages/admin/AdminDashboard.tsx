@@ -1,20 +1,33 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award } from "lucide-react";
+import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award, RefreshCw, Download, Search } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
-// import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
+import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
 import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
 import { SkillsManagement } from "@/components/crud/SkillsManagement";
 import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
+import { exportToCSV, formatDateForExport } from "@/lib/export-utils";
+import { useToast } from "@/hooks/use-toast";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { QuickTips, adminDashboardTips } from "@/components/QuickTips";
+import { BulkImport } from "@/components/BulkImport";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { NotificationCenter } from "@/components/NotificationCenter";
+import { ProfileEditor } from "@/components/ProfileEditor";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/hooks/use-theme";
+import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
+import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -53,9 +66,18 @@ interface LevelDistribution {
   count: number;
 }
 
+type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
+
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const { isDark } = useTheme();
+  const chartTheme = useChartTheme(isDark);
+  const tooltipStyles = getTooltipStyles(isDark);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as AdminTabType | null;
+  const [activeTab, setActiveTab] = useState<AdminTabType>(tabFromUrl || 'overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -71,6 +93,65 @@ export default function AdminDashboard() {
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [classesPage, setClassesPage] = useState(1);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const classesPerPage = 10;
+  const paymentsPerPage = 10;
+
+  // Update URL when tab changes
+  useEffect(() => {
+    if (activeTab !== tabFromUrl) {
+      setSearchParams({ tab: activeTab });
+    }
+  }, [activeTab, tabFromUrl, setSearchParams]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: 'r',
+      ctrl: true,
+      callback: () => {
+        fetchAdminData();
+        toast({ title: "Refreshing data..." });
+      },
+      description: 'Refresh dashboard data',
+    },
+    {
+      key: '1',
+      ctrl: true,
+      callback: () => setActiveTab('overview'),
+      description: 'Go to Overview tab',
+    },
+    {
+      key: '2',
+      ctrl: true,
+      callback: () => setActiveTab('students'),
+      description: 'Go to Students tab',
+    },
+    {
+      key: '3',
+      ctrl: true,
+      callback: () => setActiveTab('teachers'),
+      description: 'Go to Teachers tab',
+    },
+    {
+      key: '4',
+      ctrl: true,
+      callback: () => setActiveTab('classes'),
+      description: 'Go to Classes tab',
+    },
+    {
+      key: '/',
+      ctrl: true,
+      callback: () => {
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        searchInput?.focus();
+      },
+      description: 'Focus search bar',
+    },
+  ]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -78,6 +159,58 @@ export default function AdminDashboard() {
       return;
     }
     fetchAdminData();
+
+    // Set up real-time subscriptions for critical data
+    const studentsChannel = supabase
+      .channel('admin-students-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'dashboard_students',
+        },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .subscribe();
+
+    const teachersChannel = supabase
+      .channel('admin-teachers-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'teachers',
+        },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .subscribe();
+
+    const classesChannel = supabase
+      .channel('admin-classes-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'classes',
+        },
+        () => {
+          fetchAdminData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(studentsChannel);
+      supabase.removeChannel(teachersChannel);
+      supabase.removeChannel(classesChannel);
+    };
   }, [user, navigate]);
 
   const fetchAdminData = async () => {
@@ -143,6 +276,7 @@ export default function AdminDashboard() {
         upcomingEvents: eventsData?.length ?? 0,
       });
 
+      setLastUpdated(new Date());
     } catch (error: any) {
       console.error("Error fetching admin data:", error);
       setError(error.message);
@@ -154,6 +288,105 @@ export default function AdminDashboard() {
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const exportStudentsToCSV = () => {
+    try {
+      const studentsForExport = students.map((student) => ({
+        Name: `${student.name} ${student.surname}`,
+        Email: student.email,
+        Class: student.class,
+        Level: student.level,
+        'Attendance Rate': student.attendance_rate ? `${student.attendance_rate}%` : 'N/A',
+        'Sessions Left': student.sessions_left || 0,
+        Status: student.is_active ? 'Active' : 'Inactive',
+        Location: student.location || 'N/A',
+      }));
+      exportToCSV(studentsForExport, `students-export-${new Date().toISOString().split('T')[0]}.csv`);
+      toast({
+        title: "Export Successful",
+        description: `Exported ${students.length} students to CSV`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export students. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportTeachersToCSV = () => {
+    try {
+      const teachersForExport = teachers.map((teacher) => ({
+        Name: `${teacher.name} ${teacher.surname}`,
+        Email: teacher.email,
+        Subject: teacher.subject || 'N/A',
+        Phone: teacher.phone || 'N/A',
+        'Hourly Rate': teacher.hourly_rate || 0,
+        Status: teacher.is_active ? 'Active' : 'Inactive',
+      }));
+      exportToCSV(teachersForExport, `teachers-export-${new Date().toISOString().split('T')[0]}.csv`);
+      toast({
+        title: "Export Successful",
+        description: `Exported ${teachers.length} teachers to CSV`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export teachers. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportClassesToCSV = () => {
+    try {
+      const classesForExport = classes.map((classItem) => ({
+        'Class Name': classItem.class_name,
+        Teacher: classItem.teacher_name || 'Unassigned',
+        Stage: classItem.stage || 'N/A',
+        Schedule: classItem.schedule_days?.join(', ') || 'N/A',
+        Time: `${classItem.start_time}-${classItem.end_time}`,
+        'Current Students': classItem.current_students || 0,
+        'Max Students': classItem.max_students || 0,
+        Status: classItem.is_active ? 'Active' : 'Inactive',
+      }));
+      exportToCSV(classesForExport, `classes-export-${new Date().toISOString().split('T')[0]}.csv`);
+      toast({
+        title: "Export Successful",
+        description: `Exported ${classes.length} classes to CSV`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export classes. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportPaymentsToCSV = () => {
+    try {
+      const paymentsForExport = payments.map((payment) => ({
+        Date: formatDateForExport(payment.payment_date),
+        'Receipt Number': payment.receipt_number || 'N/A',
+        'Payment For': payment.payment_for || 'N/A',
+        Method: payment.payment_method || 'N/A',
+        'Amount (VND)': Number(payment.amount).toLocaleString(),
+      }));
+      exportToCSV(paymentsForExport, `payments-export-${new Date().toISOString().split('T')[0]}.csv`);
+      toast({
+        title: "Export Successful",
+        description: `Exported ${payments.length} payments to CSV`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export payments. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Chart data
@@ -183,7 +416,31 @@ export default function AdminDashboard() {
     rate: Number(student.attendance_rate ?? 0),
   }));
 
-  const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+  // Use theme-aware colors instead of hard-coded ones
+  const COLORS = chartTheme.pie;
+
+  // Filter data based on search query
+  const filteredClasses = useMemo(() => {
+    if (!searchQuery) return classes;
+    const query = searchQuery.toLowerCase();
+    return classes.filter(
+      (c) =>
+        c.class_name?.toLowerCase().includes(query) ||
+        c.teacher_name?.toLowerCase().includes(query) ||
+        c.stage?.toLowerCase().includes(query)
+    );
+  }, [classes, searchQuery]);
+
+  const filteredPayments = useMemo(() => {
+    if (!searchQuery) return payments;
+    const query = searchQuery.toLowerCase();
+    return payments.filter(
+      (p) =>
+        p.receipt_number?.toLowerCase().includes(query) ||
+        p.payment_for?.toLowerCase().includes(query) ||
+        p.payment_method?.toLowerCase().includes(query)
+    );
+  }, [payments, searchQuery]);
 
   if (loading) {
     return (
@@ -214,26 +471,61 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center border-2 border-purple-200">
-              <span className="text-lg font-semibold text-white">
-                {user?.name?.[0]}{user?.name?.[1]}
-              </span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{user?.name}</span>
-                <span>•</span>
-                <Badge variant="outline" className="text-xs">Administrator</Badge>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center border-2 border-purple-200 flex-shrink-0">
+                <span className="text-base md:text-lg font-semibold text-white">
+                  {user?.name?.[0]}{user?.name?.[1]}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xl md:text-2xl font-bold truncate">Admin Dashboard</h1>
+                <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground flex-wrap">
+                  <span className="truncate">{user?.name}</span>
+                  <span className="hidden sm:inline">•</span>
+                  <Badge variant="outline" className="text-xs">Administrator</Badge>
+                  {lastUpdated && (
+                    <>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="text-xs text-muted-foreground">
+                        Updated {new Date().getTime() - lastUpdated.getTime() < 60000
+                          ? 'just now'
+                          : `${Math.floor((new Date().getTime() - lastUpdated.getTime()) / 60000)}m ago`}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <ProfileEditor userType="admin" />
+              <NotificationCenter />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchAdminData}
+                disabled={loading}
+                className="flex-1 sm:flex-none"
+                aria-label="Refresh dashboard data (Ctrl+R)"
+                title="Ctrl+R"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''} sm:mr-2`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="flex-1 sm:flex-none"
+                aria-label="Logout from admin dashboard"
+              >
+                <LogOut className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
+              </Button>
+            </div>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
         </div>
       </div>
 
@@ -291,16 +583,18 @@ export default function AdminDashboard() {
         </div>
 
         {/* Charts and Tables */}
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8 h-auto">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="students">Students</TabsTrigger>
-            <TabsTrigger value="teachers">Teachers</TabsTrigger>
-            <TabsTrigger value="curriculum">Full Curriculum</TabsTrigger>
-            <TabsTrigger value="skills">Skills</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="classes">Classes</TabsTrigger>
-            <TabsTrigger value="finance">Finance</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTabType)} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-10 h-auto" role="tablist" aria-label="Dashboard sections">
+            <TabsTrigger value="overview" aria-label="Overview tab (Ctrl+1)">Overview</TabsTrigger>
+            <TabsTrigger value="students" aria-label="Students tab (Ctrl+2)">Students</TabsTrigger>
+            <TabsTrigger value="teachers" aria-label="Teachers tab (Ctrl+3)">Teachers</TabsTrigger>
+            <TabsTrigger value="curriculum" aria-label="Full Curriculum tab">Curriculum</TabsTrigger>
+            <TabsTrigger value="skills" aria-label="Skills tab">Skills</TabsTrigger>
+            <TabsTrigger value="calendar" aria-label="Calendar tab">Calendar</TabsTrigger>
+            <TabsTrigger value="classes" aria-label="Classes tab (Ctrl+4)">Classes</TabsTrigger>
+            <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
+            <TabsTrigger value="analytics" aria-label="Analytics tab">Analytics</TabsTrigger>
+            <TabsTrigger value="audit" aria-label="Audit Log tab">Audit Log</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -314,13 +608,25 @@ export default function AdminDashboard() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={classDistributionData}>
-                      <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} vertical={false} />
-                      <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} angle={-45} textAnchor="end" height={100} />
-                      <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Bar dataKey="students" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="capacity" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: chartTheme.axis, fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={{ stroke: chartTheme.grid }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis
+                        tick={{ fill: chartTheme.axis, fontSize: 12 }}
+                        tickLine={false}
+                        axisLine={{ stroke: chartTheme.grid }}
+                      />
+                      <Tooltip {...tooltipStyles} />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: chartTheme.legend }} />
+                      <Bar dataKey="students" fill={chartTheme.bar[0]} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="capacity" fill={chartTheme.bar[1]} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -342,14 +648,14 @@ export default function AdminDashboard() {
                         labelLine={false}
                         label={({ level, count }) => `${level}: ${count}`}
                         outerRadius={80}
-                        fill="#8884d8"
+                        fill={chartTheme.primary}
                         dataKey="count"
                       >
                         {studentLevelData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip {...tooltipStyles} />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -364,11 +670,24 @@ export default function AdminDashboard() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={attendanceData} layout="vertical">
-                      <CartesianGrid strokeDasharray="0" stroke="#e5e7eb" strokeOpacity={0.5} horizontal={false} />
-                      <XAxis type="number" domain={[0, 100]} tick={{ fill: '#6b7280', fontSize: 12 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
-                      <YAxis dataKey="name" type="category" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} width={150} />
-                      <Tooltip />
-                      <Bar dataKey="rate" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} horizontal={false} />
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                        tick={{ fill: chartTheme.axis, fontSize: 12 }}
+                        tickLine={false}
+                        axisLine={{ stroke: chartTheme.grid }}
+                      />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        tick={{ fill: chartTheme.axis, fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={{ stroke: chartTheme.grid }}
+                        width={150}
+                      />
+                      <Tooltip {...tooltipStyles} />
+                      <Bar dataKey="rate" fill={chartTheme.success} radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -379,12 +698,22 @@ export default function AdminDashboard() {
           <TabsContent value="students" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Student Management</CardTitle>
-                <CardDescription>Add, edit, and manage all students with real-time sync</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Student Management</CardTitle>
+                    <CardDescription>Add, edit, and manage all students with real-time sync</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <BulkImport type="students" onImportComplete={fetchAdminData} />
+                    <Button variant="outline" size="sm" onClick={() => exportStudentsToCSV()}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {/* <EnhancedStudentCRUD /> */}
-                <p>Student CRUD temporarily disabled</p>
+                <EnhancedStudentCRUD />
               </CardContent>
             </Card>
           </TabsContent>
@@ -392,8 +721,16 @@ export default function AdminDashboard() {
           <TabsContent value="teachers" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Teacher Management</CardTitle>
-                <CardDescription>Add, edit, and manage all teachers with real-time sync</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Teacher Management</CardTitle>
+                    <CardDescription>Add, edit, and manage all teachers with real-time sync</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={exportTeachersToCSV}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <EnhancedTeacherCRUD />
@@ -404,8 +741,34 @@ export default function AdminDashboard() {
           <TabsContent value="classes" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Class Schedule</CardTitle>
-                <CardDescription>All active classes</CardDescription>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Class Schedule</CardTitle>
+                      <CardDescription>
+                        {searchQuery && filteredClasses.length !== classes.length
+                          ? `Showing ${filteredClasses.length} of ${classes.length} classes`
+                          : `All active classes (${classes.length} total)`}
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={exportClassesToCSV}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  </div>
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <Input
+                      type="text"
+                      placeholder="Search classes, teachers, or stages..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                      aria-label="Search classes by name, teacher, or stage"
+                      title="Ctrl+/ to focus"
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -420,28 +783,68 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {classes.map((classItem) => (
-                      <TableRow key={classItem.id}>
-                        <TableCell className="font-medium">{classItem.class_name}</TableCell>
-                        <TableCell>{classItem.teacher_name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{classItem.stage}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {classItem.schedule_days?.join(', ')} • {classItem.start_time}-{classItem.end_time}
-                        </TableCell>
-                        <TableCell>
-                          {classItem.current_students}/{classItem.max_students}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
-                            {classItem.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredClasses
+                      .slice((classesPage - 1) * classesPerPage, classesPage * classesPerPage)
+                      .map((classItem) => (
+                        <TableRow key={classItem.id}>
+                          <TableCell className="font-medium">{classItem.class_name}</TableCell>
+                          <TableCell>{classItem.teacher_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{classItem.stage}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {classItem.schedule_days?.join(', ')} • {classItem.start_time}-{classItem.end_time}
+                          </TableCell>
+                          <TableCell>
+                            {classItem.current_students}/{classItem.max_students}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+                              {classItem.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
+                {filteredClasses.length > classesPerPage && (
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(classesPage - 1) * classesPerPage + 1} to{' '}
+                      {Math.min(classesPage * classesPerPage, filteredClasses.length)} of {filteredClasses.length} classes
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setClassesPage((p) => Math.max(1, p - 1))}
+                        disabled={classesPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setClassesPage((p) => p + 1)}
+                        disabled={classesPage * classesPerPage >= filteredClasses.length}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {filteredClasses.length === 0 && searchQuery && (
+                  <div className="text-center py-8">
+                    <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No classes found</h3>
+                    <p className="text-muted-foreground mb-4">
+                      No classes match your search query "{searchQuery}"
+                    </p>
+                    <Button variant="outline" onClick={() => setSearchQuery('')}>
+                      Clear Search
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -485,8 +888,32 @@ export default function AdminDashboard() {
           <TabsContent value="finance" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Payments</CardTitle>
-                <CardDescription>Latest 10 transactions</CardDescription>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Recent Payments</CardTitle>
+                      <CardDescription>
+                        {searchQuery && filteredPayments.length !== payments.length
+                          ? `Showing ${filteredPayments.length} of ${payments.length} payments`
+                          : `Payment transactions (${payments.length} total)`}
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={exportPaymentsToCSV}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                  </div>
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Search receipts, methods, or purposes..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -500,26 +927,77 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>{new Date(payment.payment_date).toLocaleDateString()}</TableCell>
-                        <TableCell className="font-mono text-sm">{payment.receipt_number}</TableCell>
-                        <TableCell>{payment.payment_for}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{payment.payment_method}</Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {Number(payment.amount).toLocaleString()} VND
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredPayments
+                      .slice((paymentsPage - 1) * paymentsPerPage, paymentsPage * paymentsPerPage)
+                      .map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : 'N/A'}</TableCell>
+                          <TableCell className="font-mono text-sm">{payment.receipt_number}</TableCell>
+                          <TableCell>{payment.payment_for}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{payment.payment_method}</Badge>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {Number(payment.amount).toLocaleString()} VND
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
+                {filteredPayments.length > paymentsPerPage && (
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Showing {(paymentsPage - 1) * paymentsPerPage + 1} to{' '}
+                      {Math.min(paymentsPage * paymentsPerPage, filteredPayments.length)} of {filteredPayments.length} payments
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPaymentsPage((p) => Math.max(1, p - 1))}
+                        disabled={paymentsPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPaymentsPage((p) => p + 1)}
+                        disabled={paymentsPage * paymentsPerPage >= filteredPayments.length}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {filteredPayments.length === 0 && searchQuery && (
+                  <div className="text-center py-8">
+                    <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No payments found</h3>
+                    <p className="text-muted-foreground mb-4">
+                      No payments match your search query "{searchQuery}"
+                    </p>
+                    <Button variant="outline" onClick={() => setSearchQuery('')}>
+                      Clear Search
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-4">
+            <AnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="audit" className="space-y-4">
+            <AuditLogViewer />
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Quick Tips for new users */}
+      <QuickTips tips={adminDashboardTips} storageKey="admin-dashboard-tips" />
     </div>
   );
 }
