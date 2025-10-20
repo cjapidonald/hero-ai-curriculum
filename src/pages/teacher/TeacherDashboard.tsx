@@ -20,6 +20,7 @@ import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
 import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
 import { StudentCRUD } from '@/components/crud/StudentCRUD';
+import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
 
 type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assignments' | 'skills';
 
@@ -137,9 +138,7 @@ const TeacherDashboard = () => {
         return (
           <div className="space-y-4">
             <div className="bg-background rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Manage Students</h2>
-              <p className="text-muted-foreground mb-4">View and edit student information with real-time sync</p>
-              <StudentCRUD />
+              <TeacherStudentCRUD teacherId={user.id} />
             </div>
           </div>
         );
