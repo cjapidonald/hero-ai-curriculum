@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-export interface Skill {
+export interface ObservationCriteria {
   id: string;
-  stage_id: string;
+  stage_name: string;
   category: string;
   code: string;
   name: string;
@@ -15,10 +15,10 @@ export interface Skill {
   updated_at: string;
 }
 
-export interface StudentSkillEvaluation {
+export interface StudentObservationEvaluation {
   id: string;
   student_id: string;
-  skill_id: string;
+  criteria_id: string;
   teacher_id: string;
   class_id: string;
   score: number | null;
@@ -30,9 +30,9 @@ export interface StudentSkillEvaluation {
   updated_at: string;
 }
 
-export interface HomeworkAssignment {
+export interface SkillHomework {
   id: string;
-  skill_id: string;
+  criteria_id: string;
   student_id: string;
   teacher_id: string;
   class_id: string;
@@ -62,30 +62,30 @@ export interface Notification {
 }
 
 export const useFormativeAssessment = (teacherId: string) => {
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [criteria, setCriteria] = useState<ObservationCriteria[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchSkills = useCallback(async (stageId?: string) => {
+  const fetchCriteria = useCallback(async (stageName?: string) => {
     try {
       setLoading(true);
       let query = supabase
-        .from('skills')
+        .from('observation_criteria')
         .select('*')
         .order('display_order', { ascending: true });
 
-      if (stageId) {
-        query = query.eq('stage_id', stageId);
+      if (stageName) {
+        query = query.eq('stage_name', stageName);
       }
 
       const { data, error } = await query;
       if (error) throw error;
-      setSkills(data || []);
+      setCriteria(data || []);
     } catch (error) {
-      console.error('Error fetching skills:', error);
+      console.error('Error fetching criteria:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load skills',
+        description: 'Failed to load observation criteria',
         variant: 'destructive',
       });
     } finally {
@@ -93,16 +93,16 @@ export const useFormativeAssessment = (teacherId: string) => {
     }
   }, [toast]);
 
-  const fetchStudentEvaluations = async (studentId: string, skillId?: string) => {
+  const fetchStudentEvaluations = async (studentId: string, criteriaId?: string) => {
     try {
       let query = supabase
-        .from('student_skill_evaluations')
+        .from('student_observation_evaluations')
         .select('*')
         .eq('student_id', studentId)
         .order('evaluation_date', { ascending: false });
 
-      if (skillId) {
-        query = query.eq('skill_id', skillId);
+      if (criteriaId) {
+        query = query.eq('criteria_id', criteriaId);
       }
 
       const { data, error } = await query;
@@ -119,10 +119,10 @@ export const useFormativeAssessment = (teacherId: string) => {
     }
   };
 
-  const createEvaluation = async (evaluation: Omit<StudentSkillEvaluation, 'id' | 'created_at' | 'updated_at'>) => {
+  const createEvaluation = async (evaluation: Omit<StudentObservationEvaluation, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       const { data, error } = await supabase
-        .from('student_skill_evaluations')
+        .from('student_observation_evaluations')
         .insert(evaluation)
         .select()
         .single();
@@ -146,10 +146,10 @@ export const useFormativeAssessment = (teacherId: string) => {
     }
   };
 
-  const updateEvaluation = async (id: string, updates: Partial<StudentSkillEvaluation>) => {
+  const updateEvaluation = async (id: string, updates: Partial<StudentObservationEvaluation>) => {
     try {
-      const { data, error } = await supabase
-        .from('student_skill_evaluations')
+      const { data, error} = await supabase
+        .from('student_observation_evaluations')
         .update(updates)
         .eq('id', id)
         .select()
@@ -174,10 +174,10 @@ export const useFormativeAssessment = (teacherId: string) => {
     }
   };
 
-  const assignHomework = async (homework: Omit<HomeworkAssignment, 'id' | 'created_at' | 'updated_at' | 'status' | 'submitted_at' | 'submission_notes' | 'teacher_feedback' | 'feedback_date'>) => {
+  const assignHomework = async (homework: Omit<SkillHomework, 'id' | 'created_at' | 'updated_at' | 'status' | 'submitted_at' | 'submission_notes' | 'teacher_feedback' | 'feedback_date'>) => {
     try {
       const { data, error } = await supabase
-        .from('homework_assignments')
+        .from('skill_homework')
         .insert(homework)
         .select()
         .single();
@@ -204,8 +204,8 @@ export const useFormativeAssessment = (teacherId: string) => {
   const fetchStudentHomework = async (studentId: string) => {
     try {
       const { data, error } = await supabase
-        .from('homework_assignments')
-        .select('*, skills(name, code, category)')
+        .from('skill_homework')
+        .select('*, observation_criteria(name, code, category)')
         .eq('student_id', studentId)
         .order('due_date', { ascending: true });
 
@@ -218,13 +218,13 @@ export const useFormativeAssessment = (teacherId: string) => {
   };
 
   useEffect(() => {
-    fetchSkills();
-  }, [fetchSkills]);
+    fetchCriteria();
+  }, [fetchCriteria]);
 
   return {
-    skills,
+    criteria,
     loading,
-    fetchSkills,
+    fetchCriteria,
     fetchStudentEvaluations,
     createEvaluation,
     updateEvaluation,
@@ -242,13 +242,13 @@ export const useNotifications = (studentId: string) => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('notifications')
+        .from('student_notifications')
         .select('*')
         .eq('student_id', studentId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       const notifs = data || [];
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.is_read).length);
@@ -262,7 +262,7 @@ export const useNotifications = (studentId: string) => {
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase
-        .from('notifications')
+        .from('student_notifications')
         .update({ is_read: true })
         .eq('id', notificationId);
 
@@ -276,7 +276,7 @@ export const useNotifications = (studentId: string) => {
   const markAllAsRead = async () => {
     try {
       const { error } = await supabase
-        .from('notifications')
+        .from('student_notifications')
         .update({ is_read: true })
         .eq('student_id', studentId)
         .eq('is_read', false);
@@ -293,13 +293,13 @@ export const useNotifications = (studentId: string) => {
 
     // Subscribe to real-time notifications
     const channel = supabase
-      .channel(`notifications:${studentId}`)
+      .channel(`student_notifications:${studentId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'notifications',
+          table: 'student_notifications',
           filter: `student_id=eq.${studentId}`,
         },
         () => {

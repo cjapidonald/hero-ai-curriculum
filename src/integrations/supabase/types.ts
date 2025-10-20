@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admins: {
@@ -197,54 +222,10 @@ export type Database = {
           },
         ]
       }
-      blog_posts: {
-        Row: {
-          author: string | null
-          author_id: string | null
-          category: string | null
-          content: string
-          created_at: string | null
-          id: string
-          image_url: string | null
-          published: boolean | null
-          published_date: string | null
-          tags: string[] | null
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          author?: string | null
-          author_id?: string | null
-          category?: string | null
-          content: string
-          created_at?: string | null
-          id?: string
-          image_url?: string | null
-          published?: boolean | null
-          published_date?: string | null
-          tags?: string[] | null
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          author?: string | null
-          author_id?: string | null
-          category?: string | null
-          content?: string
-          created_at?: string | null
-          id?: string
-          image_url?: string | null
-          published?: boolean | null
-          published_date?: string | null
-          tags?: string[] | null
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       classes: {
         Row: {
           class_name: string
+          classroom: string | null
           classroom_location: string | null
           created_at: string | null
           current_students: number | null
@@ -252,16 +233,20 @@ export type Database = {
           end_time: string | null
           id: string
           is_active: boolean | null
+          level: string | null
           max_students: number | null
+          schedule: string | null
           schedule_days: Database["public"]["Enums"]["class_day"][] | null
           stage: Database["public"]["Enums"]["cambridge_stage"]
           start_date: string | null
           start_time: string | null
+          teacher_id: string | null
           teacher_name: string | null
           updated_at: string | null
         }
         Insert: {
           class_name: string
+          classroom?: string | null
           classroom_location?: string | null
           created_at?: string | null
           current_students?: number | null
@@ -269,16 +254,20 @@ export type Database = {
           end_time?: string | null
           id?: string
           is_active?: boolean | null
+          level?: string | null
           max_students?: number | null
+          schedule?: string | null
           schedule_days?: Database["public"]["Enums"]["class_day"][] | null
           stage: Database["public"]["Enums"]["cambridge_stage"]
           start_date?: string | null
           start_time?: string | null
+          teacher_id?: string | null
           teacher_name?: string | null
           updated_at?: string | null
         }
         Update: {
           class_name?: string
+          classroom?: string | null
           classroom_location?: string | null
           created_at?: string | null
           current_students?: number | null
@@ -286,15 +275,33 @@ export type Database = {
           end_time?: string | null
           id?: string
           is_active?: boolean | null
+          level?: string | null
           max_students?: number | null
+          schedule?: string | null
           schedule_days?: Database["public"]["Enums"]["class_day"][] | null
           stage?: Database["public"]["Enums"]["cambridge_stage"]
           start_date?: string | null
           start_time?: string | null
+          teacher_id?: string | null
           teacher_name?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "classes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "classes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       curriculum: {
         Row: {
@@ -1079,6 +1086,45 @@ export type Database = {
           },
         ]
       }
+      observation_criteria: {
+        Row: {
+          category: string
+          code: string
+          created_at: string | null
+          display_order: number
+          factor: number | null
+          id: string
+          is_pass_fail: boolean | null
+          name: string
+          stage_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          code: string
+          created_at?: string | null
+          display_order: number
+          factor?: number | null
+          id?: string
+          is_pass_fail?: boolean | null
+          name: string
+          stage_name?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string | null
+          display_order?: number
+          factor?: number | null
+          id?: string
+          is_pass_fail?: boolean | null
+          name?: string
+          stage_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       parents: {
         Row: {
           address: string | null
@@ -1357,6 +1403,120 @@ export type Database = {
           },
         ]
       }
+      skill_homework: {
+        Row: {
+          class_id: string
+          created_at: string | null
+          criteria_id: string
+          description: string | null
+          due_date: string | null
+          feedback_date: string | null
+          id: string
+          resource_id: string | null
+          status: string | null
+          student_id: string
+          submission_notes: string | null
+          submitted_at: string | null
+          teacher_feedback: string | null
+          teacher_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string | null
+          criteria_id: string
+          description?: string | null
+          due_date?: string | null
+          feedback_date?: string | null
+          id?: string
+          resource_id?: string | null
+          status?: string | null
+          student_id: string
+          submission_notes?: string | null
+          submitted_at?: string | null
+          teacher_feedback?: string | null
+          teacher_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string | null
+          criteria_id?: string
+          description?: string | null
+          due_date?: string | null
+          feedback_date?: string | null
+          id?: string
+          resource_id?: string | null
+          status?: string | null
+          student_id?: string
+          submission_notes?: string | null
+          submitted_at?: string | null
+          teacher_feedback?: string | null
+          teacher_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_homework_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_homework_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "observation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_homework_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_homework_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_homework_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "skill_homework_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_homework_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "skill_homework_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skills: {
         Row: {
           category: Database["public"]["Enums"]["skill_category"]
@@ -1489,6 +1649,173 @@ export type Database = {
           },
           {
             foreignKeyName: "skills_evaluation_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_notifications: {
+        Row: {
+          created_at: string | null
+          criteria_id: string | null
+          homework_id: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          student_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          criteria_id?: string | null
+          homework_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          student_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          criteria_id?: string | null
+          homework_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          student_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_notifications_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "observation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_notifications_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "skill_homework"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_observation_evaluations: {
+        Row: {
+          class_id: string
+          comments: string | null
+          created_at: string | null
+          criteria_id: string
+          evaluation_date: string
+          id: string
+          max_score: number | null
+          passed: boolean | null
+          score: number | null
+          student_id: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          class_id: string
+          comments?: string | null
+          created_at?: string | null
+          criteria_id: string
+          evaluation_date?: string
+          id?: string
+          max_score?: number | null
+          passed?: boolean | null
+          score?: number | null
+          student_id: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          comments?: string | null
+          created_at?: string | null
+          criteria_id?: string
+          evaluation_date?: string
+          id?: string
+          max_score?: number | null
+          passed?: boolean | null
+          score?: number | null
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_observation_evaluations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "observation_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "active_students_with_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "student_skills_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "student_observation_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -1775,6 +2102,58 @@ export type Database = {
           },
           {
             foreignKeyName: "teacher_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_evaluations: {
+        Row: {
+          admin_id: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          score: number
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          score: number
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          score?: number
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_evaluations_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "teacher_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -2384,6 +2763,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       cambridge_exam: ["starters", "movers", "flyers"],
