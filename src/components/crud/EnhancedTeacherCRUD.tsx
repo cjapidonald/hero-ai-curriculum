@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, DollarSign, Key } from 'lucide-react';
+import { Plus, Edit, Trash2, DollarSign, Key, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { TeacherInsightPanel } from '@/pages/admin/components/TeacherInsightPanel';
 
 interface Teacher {
   id: string;
@@ -40,6 +41,8 @@ export const EnhancedTeacherCRUD = () => {
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [insightOpen, setInsightOpen] = useState(false);
+  const [insightTeacher, setInsightTeacher] = useState<Teacher | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -237,6 +240,7 @@ export const EnhancedTeacherCRUD = () => {
   }
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Teacher Management</h2>
@@ -501,6 +505,17 @@ export const EnhancedTeacherCRUD = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => {
+                        setInsightTeacher(teacher);
+                        setInsightOpen(true);
+                      }}
+                      title="View teacher dashboard"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
                         setSelectedTeacher(teacher);
                         setResetPasswordDialog(true);
                       }}
@@ -530,5 +545,17 @@ export const EnhancedTeacherCRUD = () => {
         </Table>
       </div>
     </div>
+    <TeacherInsightPanel
+        open={insightOpen}
+        teacherId={insightTeacher?.id ?? null}
+        initialTeacher={insightTeacher}
+        onOpenChange={(open) => {
+          setInsightOpen(open);
+          if (!open) {
+            setInsightTeacher(null);
+          }
+        }}
+      />
+    </>
   );
 };
