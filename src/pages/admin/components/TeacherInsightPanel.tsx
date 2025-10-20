@@ -35,15 +35,8 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  AlertCircle,
-  Award,
-  Calendar,
-  CheckCircle2,
-  MessageSquare,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { AlertCircle, Award, Calendar, CheckCircle2, MessageSquare, TrendingUp, Users } from "lucide-react";
+import EvaluationsList from "@/components/teacher/EvaluationsList";
 
 interface TeacherInsightPanelProps {
   open: boolean;
@@ -798,47 +791,7 @@ export const TeacherInsightPanel = ({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {loading ? (
-                  <div className="space-y-3">
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={index} className="h-16 animate-pulse rounded bg-muted/60" />
-                    ))}
-                  </div>
-                ) : evaluations.length ? (
-                  <ScrollArea className="h-[260px] pr-2">
-                    <div className="space-y-3">
-                      {evaluations.map((evaluation) => {
-                        const created = parseISO(evaluation.created_at);
-                        return (
-                          <div
-                            key={evaluation.id}
-                            className="rounded-lg border bg-muted/30 p-3 shadow-sm"
-                          >
-                            <div className="flex items-center justify-between text-sm font-semibold">
-                              <span>Score: {evaluation.score}/100</span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(created, { addSuffix: true })}
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              {evaluation.comment ?? "No comment provided"}
-                            </p>
-                            <p className="mt-3 text-xs uppercase tracking-wide text-muted-foreground/80">
-                              {evaluation.admins
-                                ? `Evaluated by ${evaluation.admins.name ?? ""} ${evaluation.admins.surname ?? ""}`
-                                : "Recorded by admin"}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    <MessageSquare className="h-6 w-6" />
-                    Once evaluations are submitted they will appear here for review.
-                  </div>
-                )}
+                <EvaluationsList mode="admin" teacherId={teacherId} />
               </CardContent>
             </Card>
           </div>

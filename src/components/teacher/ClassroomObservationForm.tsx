@@ -46,61 +46,106 @@ interface Evaluation {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ClassroomObservationFormProps {
-  teacher: {
+  teacher?: {
     id: string;
     name: string;
     surname: string;
     assigned_classes: string[] | null;
   };
-  classes: any[];
+  classes?: any[];
+  evaluationId?: string;
 }
 
-const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ teacher, classes }) => {
+const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ teacher: initialTeacher, classes: initialClasses, evaluationId }) => {
   const { toast } = useToast();
   const auth = useContext(AuthContext);
-  const [evaluation, setEvaluation] = useState<Evaluation>({
-    teacher_name: `${teacher.name} ${teacher.surname}`,
-    evaluator_name: auth?.user ? `${auth.user.name} ${auth.user.surname}` : '',
-    campus: '',
-    position: '',
-    class: '',
-    date: new Date().toISOString().split('T')[0],
-    subject: '',
-    topic_lesson: '',
-    scores: {},
-    highlights_strengths: '',
-    improvements_to_make: '',
-  });
+  const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
+  const [teacher, setTeacher] = useState(initialTeacher);
+  const [classes, setClasses] = useState(initialClasses || []);
   const [rubricItems, setRubricItems] = useState<RubricItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRubric = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
+        const { data: rubricData, error: rubricError } = await supabase
           .from('evaluation_rubric_items')
           .select('*')
           .order('order', { ascending: true });
 
-        if (error) throw error;
+        if (rubricError) throw rubricError;
+        setRubricItems(rubricData || []);
 
-        setRubricItems(data || []);
-        
-        const initialScores = {};
-        (data || []).forEach(item => {
-          initialScores[item.id] = {
-            rubric_item_id: item.id,
-            score: null,
-            evaluator_comment: '',
-          };
-        });
-        setEvaluation(prev => ({ ...prev, scores: initialScores }));
+        if (evaluationId) {
+          // Fetch existing evaluation data
+          const { data: evalData, error: evalError } = await supabase
+            .from('teacher_evaluations')
+            .select('*, teacher:teachers(*)')
+            .eq('id', evaluationId)
+            .single();
+          if (evalError) throw evalError;
+
+          setTeacher(evalData.teacher);
+
+          const { data: classesData, error: classesError } = await supabase.from('classes').select('*');
+          if (classesError) throw classesError;
+          setClasses(classesData || []);
+
+          const { data: scoresData, error: scoresError } = await supabase
+            .from('evaluation_item_scores')
+            .select('*')
+            .eq('evaluation_id', evaluationId);
+          if (scoresError) throw scoresError;
+
+          const scores = {};
+          (scoresData || []).forEach(score => {
+            scores[score.rubric_item_id] = score;
+          });
+
+          setEvaluation({
+            teacher_name: `${evalData.teacher.name} ${evalData.teacher.surname}`,
+            evaluator_name: auth?.user ? `${auth.user.name} ${auth.user.surname}` : '',
+            campus: evalData.campus,
+            position: evalData.position,
+            class: evalData.class_id,
+            date: evalData.evaluation_date,
+            subject: evalData.subject,
+            topic_lesson: evalData.topic_lesson,
+            scores: scores,
+            highlights_strengths: evalData.highlights_strengths,
+            improvements_to_make: evalData.improvements_to_make,
+          });
+
+        } else {
+          // Initialize a new evaluation
+          const initialScores = {};
+          (rubricData || []).forEach(item => {
+            initialScores[item.id] = {
+              rubric_item_id: item.id,
+              score: null,
+              evaluator_comment: '',
+            };
+          });
+          setEvaluation({
+            teacher_name: initialTeacher ? `${initialTeacher.name} ${initialTeacher.surname}` : '',
+            evaluator_name: auth?.user ? `${auth.user.name} ${auth.user.surname}` : '',
+            campus: '',
+            position: '',
+            class: '',
+            date: new Date().toISOString().split('T')[0],
+            subject: '',
+            topic_lesson: '',
+            scores: initialScores,
+            highlights_strengths: '',
+            improvements_to_make: '',
+          });
+        }
 
       } catch (error: any) {
         toast({
-          title: 'Error fetching rubric',
-          description: error.message || 'Could not load evaluation rubric.',
+          title: 'Error fetching data',
+          description: error.message,
           variant: 'destructive',
         });
       } finally {
@@ -108,8 +153,8 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
       }
     };
 
-    fetchRubric();
-  }, [toast]);
+    fetchData();
+  }, [evaluationId, toast, auth?.user, initialTeacher]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -142,32 +187,44 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
   
   const handleSubmit = async () => {
     try {
-      // 1. Save the main evaluation record
-      const { data: evalData, error: evalError } = await supabase
-        .from('teacher_evaluations')
-        .insert({
-          teacher_id: teacher.id,
-          evaluator_id: auth?.user?.id,
-          campus: evaluation.campus,
-          position: evaluation.position,
-          class_id: evaluation.class,
-          evaluation_date: evaluation.date,
-          subject: evaluation.subject,
-          topic_lesson: evaluation.topic_lesson,
-          highlights_strengths: evaluation.highlights_strengths,
-          improvements_to_make: evaluation.improvements_to_make,
-          status: 'submitted_to_teacher',
-        })
-        .select('id')
-        .single();
+      const evaluationData = {
+        teacher_id: teacher.id,
+        evaluator_id: auth?.user?.id,
+        campus: evaluation.campus,
+        position: evaluation.position,
+        class_id: evaluation.class,
+        evaluation_date: evaluation.date,
+        subject: evaluation.subject,
+        topic_lesson: evaluation.topic_lesson,
+        highlights_strengths: evaluation.highlights_strengths,
+        improvements_to_make: evaluation.improvements_to_make,
+        status: 'submitted_to_teacher',
+      };
 
-      if (evalError) throw evalError;
-      const evaluationId = evalData.id;
+      let evaluationIdToUse = evaluationId;
 
-      // 2. Save the scores for each item
+      if (evaluationId) {
+        // Update existing evaluation
+        const { error: evalError } = await supabase
+          .from('teacher_evaluations')
+          .update(evaluationData)
+          .eq('id', evaluationId);
+        if (evalError) throw evalError;
+      } else {
+        // Create new evaluation
+        const { data: evalData, error: evalError } = await supabase
+          .from('teacher_evaluations')
+          .insert(evaluationData)
+          .select('id')
+          .single();
+        if (evalError) throw evalError;
+        evaluationIdToUse = evalData.id;
+      }
+
+      // Upsert scores
       const scoreInsertPromises = Object.values(evaluation.scores).map(score =>
-        supabase.from('evaluation_item_scores').insert({
-          evaluation_id: evaluationId,
+        supabase.from('evaluation_item_scores').upsert({
+          evaluation_id: evaluationIdToUse,
           rubric_item_id: score.rubric_item_id,
           score: score.score,
           evaluator_comment: score.evaluator_comment,
@@ -178,19 +235,17 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
       const scoreErrors = results.map(res => res.error).filter(Boolean);
 
       if (scoreErrors.length > 0) {
-        // Handle partial failure if needed, maybe delete the parent evaluation record
         throw new Error(`Failed to save ${scoreErrors.length} score items.`);
       }
 
       toast({
         title: 'Success',
-        description: 'Evaluation submitted successfully.',
+        description: `Evaluation ${evaluationId ? 'updated' : 'submitted'} successfully.`,
       });
-      // Maybe close the dialog and refresh the parent list
 
     } catch (error: any) {
       toast({
-        title: 'Error submitting evaluation',
+        title: `Error ${evaluationId ? 'updating' : 'submitting'} evaluation`,
         description: error.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
@@ -205,7 +260,7 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
     return acc;
   }, {} as Record<string, RubricItem[]>);
 
-  if (loading) {
+  if (loading || !evaluation) {
     return <div className="text-center py-8">Loading Form...</div>;
   }
 
@@ -218,11 +273,11 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="grid gap-2">
             <Label htmlFor="teacher_name">Teacher's name</Label>
-            <Input id="teacher_name" name="teacher_name" value={evaluation.teacher_name} onChange={handleInputChange} />
+            <Input id="teacher_name" name="teacher_name" value={evaluation.teacher_name} onChange={handleInputChange} disabled />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="evaluator_name">Evaluator's name</Label>
-            <Input id="evaluator_name" name="evaluator_name" value={evaluation.evaluator_name} onChange={handleInputChange} />
+            <Input id="evaluator_name" name="evaluator_name" value={evaluation.evaluator_name} onChange={handleInputChange} disabled />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="campus">Campus</Label>
@@ -240,7 +295,7 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
               </SelectTrigger>
               <SelectContent>
                 {classes
-                  .filter(c => teacher.assigned_classes?.includes(c.name))
+                  .filter(c => teacher?.assigned_classes?.includes(c.name))
                   .map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}

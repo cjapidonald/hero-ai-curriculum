@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { AlertCircle, Clock, DollarSign, TrendingUp, MessageSquare, Award } from "lucide-react";
+import EvaluationsList from "@/components/teacher/EvaluationsList";
 
 type TeacherPayrollRecord = Tables<"teacher_payroll">;
 type TeacherRecord = Tables<"teachers">;
@@ -105,8 +106,6 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
   const [records, setRecords] = useState<TeacherPayrollRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [evaluations, setEvaluations] = useState<TeacherEvaluationRecord[]>([]);
-  const [evaluationError, setEvaluationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!teacherId) return;
@@ -116,7 +115,6 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     const loadData = async () => {
       setLoading(true);
       setError(null);
-      setEvaluationError(null);
 
       const payrollPromise = supabase
         .from("teacher_payroll")
@@ -124,29 +122,8 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
         .eq("teacher_id", teacherId)
         .order("session_date", { ascending: false });
 
-      const evaluationsPromise = supabase
-        .from("teacher_evaluations")
-        .select(
-          `
-            id,
-            teacher_id,
-            admin_id,
-            score,
-            comment,
-            created_at,
-            admins:admins!teacher_evaluations_admin_id_fkey (
-              name,
-              surname
-            )
-          `,
-        )
-        .eq("teacher_id", teacherId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      const [payrollResult, evaluationResult] = await Promise.allSettled([
+      const [payrollResult] = await Promise.allSettled([
         payrollPromise,
-        evaluationsPromise,
       ]);
 
       if (!isMounted) {
@@ -166,26 +143,6 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
         console.error("Unexpected payroll error:", payrollResult.reason);
         setError("Unable to load payroll information right now.");
         setRecords([]);
-      }
-
-      if (evaluationResult.status === "fulfilled") {
-        const { data, error: evalError } = evaluationResult.value;
-        if (evalError) {
-          if (evalError.code === "42P01") {
-            setEvaluationError("Teacher evaluations are not enabled yet. Please contact your administrator.");
-            setEvaluations([]);
-          } else {
-            console.error("Error loading evaluations:", evalError);
-            setEvaluationError("Unable to load evaluations at the moment.");
-            setEvaluations([]);
-          }
-        } else {
-          setEvaluations((data as TeacherEvaluationRecord[]) ?? []);
-        }
-      } else {
-        console.error("Unexpected evaluation error:", evaluationResult.reason);
-        setEvaluationError("Unable to load evaluations at the moment.");
-        setEvaluations([]);
       }
 
       setLoading(false);
@@ -299,225 +256,16 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     };
   }, [records]);
 
-  const evaluationStats = useMemo(() => {
-    if (!evaluations.length) {
-      return {
-        average: 0,
-        latestScore: null as number | null,
-        latestComment: null as string | null,
-        latestAt: null as string | null,
-        delta: null as number | null,
-        trend: [] as { label: string; score: number }[],
-      };
-    }
-
-    const total = evaluations.reduce((acc, record) => acc + (record.score ?? 0), 0);
-    const average = total / evaluations.length;
-    const latest = evaluations[0];
-    const previous = evaluations[1];
-    const delta =
-      previous && typeof previous.score === "number"
-        ? latest.score - previous.score
-        : null;
-
-    const trend = [...evaluations]
-      .reverse()
-      .map((record) => ({
-        label: format(parseISO(record.created_at), "MMM d"),
-        score: record.score,
-      }));
-
-    return {
-      average,
-      latestScore: latest.score,
-      latestComment: latest.comment,
-      latestAt: latest.created_at,
-      delta,
-      trend,
-    };
-  }, [evaluations]);
-
-  const attendanceChartConfig = useMemo<ChartConfig>(() => {
-    const config: ChartConfig = {};
-
-    stats.attendanceBreakdown.forEach((item, index) => {
-      const label = formatStatus(item.status, attendanceStatusLabels);
-      config[label] = {
-        label,
-        color: chartColors[index % chartColors.length],
-      };
-    });
-
-    return config;
-  }, [stats.attendanceBreakdown]);
-
-  const earningsChartConfig = useMemo<ChartConfig>(() => {
-    const config: ChartConfig = {};
-
-    stats.earningsByClass.forEach((item, index) => {
-      config[item.name] = {
-        label: item.name,
-        color: chartColors[index % chartColors.length],
-      };
-    });
-
-    return config;
-  }, [stats.earningsByClass]);
-
-  const attendanceChartData = stats.attendanceBreakdown.map((item) => ({
-    name: formatStatus(item.status, attendanceStatusLabels),
-    value: item.value,
-  }));
-
-  const upcomingSessions = stats.upcomingSessions.slice(0, 5);
-  const evaluationDeltaLabel =
-    evaluationStats.delta === null
-      ? "Awaiting next review"
-      : evaluationStats.delta > 0
-        ? `▲ ${evaluationStats.delta.toFixed(1)} since last`
-        : evaluationStats.delta < 0
-          ? `▼ ${Math.abs(evaluationStats.delta).toFixed(1)} since last`
-          : "No change since last";
-
-  const evaluationLastUpdated = evaluationStats.latestAt
-    ? formatDistanceToNow(parseISO(evaluationStats.latestAt), { addSuffix: true })
-    : null;
-
   const evaluationSection = (
     <Card>
-      <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <CardTitle>Evaluation Feedback</CardTitle>
-          <CardDescription>
-            Scores and notes shared by admin so you can track your teaching impact.
-          </CardDescription>
-        </div>
-        {evaluationLastUpdated ? (
-          <Badge variant="secondary" className="whitespace-nowrap">
-            Updated {evaluationLastUpdated}
-          </Badge>
-        ) : null}
+      <CardHeader>
+        <CardTitle>Evaluation Feedback</CardTitle>
+        <CardDescription>
+          Scores and notes shared by admin so you can track your teaching impact.
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {evaluationError ? (
-          <p className="text-sm text-destructive">{evaluationError}</p>
-        ) : evaluations.length ? (
-          <div className="grid gap-6 lg:grid-cols-5">
-            <div className="space-y-4 rounded-lg border bg-muted/40 p-4 lg:col-span-2">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                  <Award className="h-4 w-4 text-purple-500" />
-                  <span>Average Score</span>
-                </div>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-3xl font-bold">
-                    {evaluationStats.average.toFixed(1)}
-                  </span>
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    / 100
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{evaluationDeltaLabel}</p>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Latest score</span>
-                  <Badge variant="outline">
-                    {evaluationStats.latestScore !== null ? `${evaluationStats.latestScore}/100` : "—"}
-                  </Badge>
-                </div>
-                {evaluationStats.latestComment ? (
-                  <p className="rounded-md border bg-background/80 p-3 leading-relaxed">
-                    “{evaluationStats.latestComment}”
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Latest evaluation did not include written comments.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="space-y-4 lg:col-span-3">
-              <div className="h-[200px] rounded-lg border bg-background/40 p-2">
-                {evaluationStats.trend.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={evaluationStats.trend}>
-                      <defs>
-                        <linearGradient id="teacherEvaluationGradient" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.6} />
-                          <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" />
-                      <YAxis domain={[0, 100]} />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--background))",
-                          borderColor: "hsl(var(--border))",
-                          borderRadius: 12,
-                        }}
-                        formatter={(value: number) => [`${value.toFixed(1)}`, "Score"]}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="score"
-                        stroke="hsl(var(--chart-1))"
-                        strokeWidth={2.5}
-                        fill="url(#teacherEvaluationGradient)"
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                    Complete more evaluations to unlock the trend view.
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                {evaluations.slice(0, 3).map((evaluation) => {
-                  const createdAt = parseISO(evaluation.created_at);
-                  const relative = formatDistanceToNow(createdAt, { addSuffix: true });
-                  const evaluatorName = evaluation.admins
-                    ? `${evaluation.admins.name ?? ""} ${evaluation.admins.surname ?? ""}`.trim()
-                    : "Admin";
-                  return (
-                    <div
-                      key={evaluation.id}
-                      className="rounded-lg border bg-muted/30 p-3"
-                    >
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{relative}</span>
-                        <Badge variant="outline">Score {evaluation.score}</Badge>
-                      </div>
-                      <div className="mt-2 flex items-start gap-2 text-sm">
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <p className="leading-relaxed">
-                          {evaluation.comment ?? "No written comment for this evaluation."}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-xs uppercase tracking-wide text-muted-foreground">
-                        {`By ${evaluatorName}`}
-                      </p>
-                    </div>
-                  );
-                })}
-                {evaluations.length > 3 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Showing the latest feedback. Older evaluations remain available in admin records.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-sm text-muted-foreground">
-            <MessageSquare className="h-6 w-6" />
-            No evaluations yet. Once admin shares feedback, it will appear here.
-          </div>
-        )}
+        <EvaluationsList mode="teacher" />
       </CardContent>
     </Card>
   );

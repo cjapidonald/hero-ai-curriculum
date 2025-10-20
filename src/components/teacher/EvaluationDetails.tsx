@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from '@/components/ui/label';
+import { Link } from 'react-router-dom';
 
 interface EvaluationDetailsProps {
   evaluationId: string;
@@ -101,6 +102,40 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
       });
     }
   };
+
+  const handleSendBackForReevaluation = async () => {
+    try {
+      await supabase
+        .from('teacher_evaluations')
+        .update({ status: 'pending_re_evaluation' })
+        .eq('id', evaluationId);
+
+      toast({ title: 'Success', description: 'Evaluation sent back for re-evaluation.' });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFinalizeEvaluation = async () => {
+    try {
+      await supabase
+        .from('teacher_evaluations')
+        .update({ status: 'finalized' })
+        .eq('id', evaluationId);
+
+      toast({ title: 'Success', description: 'Evaluation has been finalized.' });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
   
   const groupedRubric = rubricItems.reduce((acc, item) => {
     const section = item.section;
@@ -172,12 +207,17 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
       <CardFooter className="flex justify-end gap-4">
         {isTeacher && evaluation.status === 'submitted_to_teacher' && (
           <>
-            <Button variant="outline">Send Back for Re-evaluation</Button>
+            <Button variant="outline" onClick={handleSendBackForReevaluation}>Send Back for Re-evaluation</Button>
             <Button onClick={handleSubmitTeacherComments}>Agree and Submit Comments</Button>
           </>
         )}
         {isEvaluator && evaluation.status === 'teacher_reviewed' && (
-            <Button>Finalize Evaluation</Button>
+            <Button onClick={handleFinalizeEvaluation}>Finalize Evaluation</Button>
+        )}
+        {isEvaluator && evaluation.status === 'pending_re_evaluation' && (
+            <Link to={`/evaluation/${evaluationId}/edit`}>
+                <Button>Edit Evaluation</Button>
+            </Link>
         )}
       </CardFooter>
     </Card>

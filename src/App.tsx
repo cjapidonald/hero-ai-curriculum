@@ -19,47 +19,34 @@ import Login from "./pages/Login";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
-import NotFound from "./pages/NotFound";
+import NotFound from './pages/NotFound';
+import EvaluationPage from './pages/EvaluationPage';
+import EditEvaluationPage from './pages/EditEvaluationPage';
+import Root from './pages/Root';
 
-const queryClient = new QueryClient();
-
-const Layout = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex flex-col min-h-screen">
-    <Navigation />
-    <main className="flex-1 pt-16 md:pt-20">{children}</main>
-    <Footer />
-    <FloatingActions />
-  </div>
-);
-
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Layout><Home /></Layout>} />
-                <Route path="/curriculum" element={<Layout><Curriculum /></Layout>} />
-                <Route path="/fees" element={<Layout><Fees /></Layout>} />
-                <Route path="/about" element={<Layout><About /></Layout>} />
-                <Route path="/events" element={<Layout><Events /></Layout>} />
-                <Route path="/contact" element={<Layout><Contact /></Layout>} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-                <Route path="/student/dashboard" element={<StudentDashboard />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </LanguageProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+function App() {
+  return (
+    <Router>
+      <div className="App">
+        <Navigation />
+        <main className="p-4">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Root />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/curriculum" element={<Curriculum />} />
+            <Route path="/events" element={<Events />} />
+            <Route path="/fees" element={<Fees />} />
+            <Route path="/evaluation/:id" element={<EvaluationPage />} />
+            <Route path="/evaluation/:id/edit" element={<EditEvaluationPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
+    </Router>
+  );
+}
 
 export default App;

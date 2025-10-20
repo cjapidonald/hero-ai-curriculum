@@ -28,6 +28,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import EvaluationsList from "@/components/teacher/EvaluationsList";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -66,7 +67,7 @@ interface LevelDistribution {
   count: number;
 }
 
-type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
+type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit' | 'evaluations';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -595,6 +596,7 @@ export default function AdminDashboard() {
             <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
             <TabsTrigger value="analytics" aria-label="Analytics tab">Analytics</TabsTrigger>
             <TabsTrigger value="audit" aria-label="Audit Log tab">Audit Log</TabsTrigger>
+            <TabsTrigger value="evaluations" aria-label="Evaluations tab">Evaluations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -992,6 +994,18 @@ export default function AdminDashboard() {
 
           <TabsContent value="audit" className="space-y-4">
             <AuditLogViewer />
+          </TabsContent>
+
+          <TabsContent value="evaluations" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Teacher Evaluations</CardTitle>
+                <CardDescription>View and manage all teacher evaluations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EvaluationsList mode="admin" />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
