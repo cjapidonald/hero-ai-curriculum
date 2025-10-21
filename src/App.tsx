@@ -24,28 +24,43 @@ import EvaluationPage from './pages/EvaluationPage';
 import EditEvaluationPage from './pages/EditEvaluationPage';
 import Root from './pages/Root';
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <BrowserRouter>
-      <div className="App">
-        <Navigation />
-        <main className="p-4">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Root />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/curriculum" element={<Curriculum />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/fees" element={<Fees />} />
-            <Route path="/evaluation/:id" element={<EvaluationPage />} />
-            <Route path="/evaluation/:id/edit" element={<EditEvaluationPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <LanguageProvider>
+              <TooltipProvider>
+                <div className="App">
+                  <Navigation />
+                  <main className="p-4">
+                    <Routes>
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/" element={<Root />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/contact" element={<Contact />} />
+                      <Route path="/curriculum" element={<Curriculum />} />
+                      <Route path="/events" element={<Events />} />
+                      <Route path="/fees" element={<Fees />} />
+                      <Route path="/evaluation/:id" element={<EvaluationPage />} />
+                      <Route path="/evaluation/:id/edit" element={<EditEvaluationPage />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                  <Footer />
+                  <FloatingActions />
+                  <Toaster />
+                  <Sonner />
+                </div>
+              </TooltipProvider>
+            </LanguageProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
