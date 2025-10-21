@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +17,7 @@ import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
 import { SkillsManagement } from "@/components/crud/SkillsManagement";
 import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
-import { exportToCSV, formatDateForExport } from "@/lib/export-utils";
+import { exportToCSV } from "@/lib/export-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { QuickTips, adminDashboardTips } from "@/components/QuickTips";
@@ -45,15 +45,6 @@ interface ClassRecord {
   current_students: number | null;
   max_students: number | null;
   is_active: boolean | null;
-}
-
-interface PaymentRecord {
-  id: string;
-  payment_date: string | null;
-  receipt_number: string | null;
-  payment_for: string | null;
-  payment_method: string | null;
-  amount: number | string;
 }
 
 interface EventRecord {
@@ -93,15 +84,12 @@ export default function AdminDashboard() {
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [classesPage, setClassesPage] = useState(1);
-  const [paymentsPage, setPaymentsPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedCalendarTeacherId, setSelectedCalendarTeacherId] = useState<string>('all');
   const classesPerPage = 10;
-  const paymentsPerPage = 10;
 
   // Update URL when tab changes
   useEffect(() => {
@@ -163,6 +151,10 @@ export default function AdminDashboard() {
     }
     fetchAdminData();
 
+    const handleRealtimeUpdate = () => {
+      void fetchAdminData({ silent: true });
+    };
+
     // Set up real-time subscriptions for critical data
     const studentsChannel = supabase
       .channel('admin-students-updates')
@@ -173,9 +165,7 @@ export default function AdminDashboard() {
           schema: 'public',
           table: 'dashboard_students',
         },
-        () => {
-          fetchAdminData();
-        }
+        handleRealtimeUpdate
       )
       .subscribe();
 
@@ -188,9 +178,7 @@ export default function AdminDashboard() {
           schema: 'public',
           table: 'teachers',
         },
-        () => {
-          fetchAdminData();
-        }
+        handleRealtimeUpdate
       )
       .subscribe();
 
@@ -203,9 +191,33 @@ export default function AdminDashboard() {
           schema: 'public',
           table: 'classes',
         },
-        () => {
-          fetchAdminData();
-        }
+        handleRealtimeUpdate
+      )
+      .subscribe();
+
+    const paymentsChannel = supabase
+      .channel('admin-payments-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+        },
+        handleRealtimeUpdate
+      )
+      .subscribe();
+
+    const eventsChannel = supabase
+      .channel('admin-events-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+        },
+        handleRealtimeUpdate
       )
       .subscribe();
 
@@ -213,12 +225,17 @@ export default function AdminDashboard() {
       supabase.removeChannel(studentsChannel);
       supabase.removeChannel(teachersChannel);
       supabase.removeChannel(classesChannel);
+      supabase.removeChannel(paymentsChannel);
+      supabase.removeChannel(eventsChannel);
     };
-  }, [user, navigate]);
+  }, [user, navigate, fetchAdminData]);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch students
@@ -262,7 +279,6 @@ export default function AdminDashboard() {
       setStudents((studentsData ?? []) as DashboardStudent[]);
       setTeachers((teachersData ?? []) as TeacherRecord[]);
       setClasses((classesData ?? []) as ClassRecord[]);
-      setPayments((paymentsData ?? []) as PaymentRecord[]);
       setEvents((eventsData ?? []) as EventRecord[]);
 
       // Calculate stats
@@ -284,9 +300,11 @@ export default function AdminDashboard() {
       console.error("Error fetching admin data:", error);
       setError(error.message);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -369,29 +387,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const exportPaymentsToCSV = () => {
-    try {
-      const paymentsForExport = payments.map((payment) => ({
-        Date: formatDateForExport(payment.payment_date),
-        'Receipt Number': payment.receipt_number || 'N/A',
-        'Payment For': payment.payment_for || 'N/A',
-        Method: payment.payment_method || 'N/A',
-        'Amount (VND)': Number(payment.amount).toLocaleString(),
-      }));
-      exportToCSV(paymentsForExport, `payments-export-${new Date().toISOString().split('T')[0]}.csv`);
-      toast({
-        title: "Export Successful",
-        description: `Exported ${payments.length} payments to CSV`,
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export payments. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
   // Chart data
   const classDistributionData = useMemo(
     () =>
@@ -438,17 +433,6 @@ export default function AdminDashboard() {
         c.stage?.toLowerCase().includes(query)
     );
   }, [classes, searchQuery]);
-
-  const filteredPayments = useMemo(() => {
-    if (!searchQuery) return payments;
-    const query = searchQuery.toLowerCase();
-    return payments.filter(
-      (p) =>
-        p.receipt_number?.toLowerCase().includes(query) ||
-        p.payment_for?.toLowerCase().includes(query) ||
-        p.payment_method?.toLowerCase().includes(query)
-    );
-  }, [payments, searchQuery]);
 
   if (loading) {
     return (
@@ -920,104 +904,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="finance" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Recent Payments</CardTitle>
-                      <CardDescription>
-                        {searchQuery && filteredPayments.length !== payments.length
-                          ? `Showing ${filteredPayments.length} of ${payments.length} payments`
-                          : `Payment transactions (${payments.length} total)`}
-                      </CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={exportPaymentsToCSV}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Export CSV
-                    </Button>
-                  </div>
-                  <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Search receipts, methods, or purposes..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Receipt #</TableHead>
-                      <TableHead>Payment For</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments
-                      .slice((paymentsPage - 1) * paymentsPerPage, paymentsPage * paymentsPerPage)
-                      .map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>{payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : 'N/A'}</TableCell>
-                          <TableCell className="font-mono text-sm">{payment.receipt_number}</TableCell>
-                          <TableCell>{payment.payment_for}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{payment.payment_method}</Badge>
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {Number(payment.amount).toLocaleString()} VND
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-                {filteredPayments.length > paymentsPerPage && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {(paymentsPage - 1) * paymentsPerPage + 1} to{' '}
-                      {Math.min(paymentsPage * paymentsPerPage, filteredPayments.length)} of {filteredPayments.length} payments
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPaymentsPage((p) => Math.max(1, p - 1))}
-                        disabled={paymentsPage === 1}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPaymentsPage((p) => p + 1)}
-                        disabled={paymentsPage * paymentsPerPage >= filteredPayments.length}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {filteredPayments.length === 0 && searchQuery && (
-                  <div className="text-center py-8">
-                    <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No payments found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      No payments match your search query "{searchQuery}"
-                    </p>
-                    <Button variant="outline" onClick={() => setSearchQuery('')}>
-                      Clear Search
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <FinanceDashboard />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">

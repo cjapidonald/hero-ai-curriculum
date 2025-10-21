@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -37,15 +37,7 @@ export const FullCurriculumView = () => {
   const [selectedLesson, setSelectedLesson] = useState<CurriculumLesson | null>(null);
   const [classes, setClasses] = useState<string[]>([]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    filterLessons();
-  }, [searchTerm, classFilter, stageFilter, lessons]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -71,9 +63,9 @@ export const FullCurriculumView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const filterLessons = () => {
+  const filterLessons = useCallback(() => {
     let filtered = [...lessons];
 
     // Search filter
@@ -97,7 +89,34 @@ export const FullCurriculumView = () => {
     }
 
     setFilteredLessons(filtered);
-  };
+  }, [lessons, searchTerm, classFilter, stageFilter]);
+
+  useEffect(() => {
+    void fetchData();
+
+    const channel = supabase
+      .channel('full-curriculum-view-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'curriculum',
+        },
+        () => {
+          void fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
+    filterLessons();
+  }, [filterLessons]);
 
   const getActivityCount = (lesson: CurriculumLesson, prefix: string) => {
     let count = 0;
