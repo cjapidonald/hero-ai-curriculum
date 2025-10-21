@@ -1,15 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
+import { readFileSync } from 'fs';
 
-// Load environment variables from .env.local
-dotenv.config({ path: path.join(__dirname, '.env.local') });
+// Read environment variables from .env
+const envContent = readFileSync('.env', 'utf-8');
+const envVars = envContent.split('\n').reduce((acc, line) => {
+  const [key, ...valueParts] = line.split('=');
+  if (key && valueParts.length > 0) {
+    let value = valueParts.join('=').trim();
+    // Remove quotes if present
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    acc[key.trim()] = value;
+  }
+  return acc;
+}, {} as Record<string, string>);
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = envVars.VITE_SUPABASE_URL;
+const SUPABASE_KEY = envVars.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌ Missing Supabase credentials in .env.local');
+  console.error('❌ Missing Supabase credentials in .env');
   console.error('Please ensure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set');
   process.exit(1);
 }
