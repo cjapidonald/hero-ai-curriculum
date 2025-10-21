@@ -144,6 +144,76 @@ export default function AdminDashboard() {
     },
   ]);
 
+  const fetchAdminData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    try {
+      if (!silent) {
+        setLoading(true);
+      }
+      setError(null);
+
+      const { data: studentsData, error: studentError } = await supabase
+        .from("dashboard_students")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
+
+      const { data: teachersData, error: teacherError } = await supabase
+        .from("teachers")
+        .select("*")
+        .eq("is_active", true);
+      if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
+
+      const { data: classesData, error: classesError } = await supabase
+        .from("classes")
+        .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
+        .eq("is_active", true);
+      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
+
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
+        .order("payment_date", { ascending: false })
+        .limit(10);
+      if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
+
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("events")
+        .select("id, title, event_date, location")
+        .eq("is_published", true)
+        .gte("event_date", new Date().toISOString())
+        .order("event_date", { ascending: true });
+      if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
+
+      setStudents((studentsData ?? []) as DashboardStudent[]);
+      setTeachers((teachersData ?? []) as TeacherRecord[]);
+      setClasses((classesData ?? []) as ClassRecord[]);
+      setEvents((eventsData ?? []) as EventRecord[]);
+
+      const totalRevenue =
+        paymentsData?.reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0) ?? 0;
+      const activeStudents = studentsData?.filter((student) => student.is_active).length ?? 0;
+
+      setStats({
+        totalStudents: studentsData?.length ?? 0,
+        activeStudents,
+        totalTeachers: teachersData?.length ?? 0,
+        totalClasses: classesData?.length ?? 0,
+        totalRevenue,
+        upcomingEvents: eventsData?.length ?? 0,
+      });
+
+      setLastUpdated(new Date());
+    } catch (error: any) {
+      console.error("Error fetching admin data:", error);
+      setError(error.message);
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!user || user.role !== 'admin') {
       navigate('/login');
@@ -229,82 +299,6 @@ export default function AdminDashboard() {
       supabase.removeChannel(eventsChannel);
     };
   }, [user, navigate, fetchAdminData]);
-
-  const fetchAdminData = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? false;
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      setError(null);
-
-      // Fetch students
-      const { data: studentsData, error: studentError } = await supabase
-        .from("dashboard_students")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
-
-      // Fetch teachers
-      const { data: teachersData, error: teacherError } = await supabase
-        .from("teachers")
-        .select("*")
-        .eq("is_active", true);
-      if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
-
-      // Fetch classes
-      const { data: classesData, error: classesError } = await supabase
-        .from("classes")
-        .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
-        .eq("is_active", true);
-      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
-
-      // Fetch payments
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("payments")
-        .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
-        .order("payment_date", { ascending: false })
-        .limit(10);
-      if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
-
-      // Fetch events
-      const { data: eventsData, error: eventsError } = await supabase
-        .from("events")
-        .select("id, title, event_date, location")
-        .eq("is_published", true)
-        .gte("event_date", new Date().toISOString())
-        .order("event_date", { ascending: true });
-      if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
-
-      setStudents((studentsData ?? []) as DashboardStudent[]);
-      setTeachers((teachersData ?? []) as TeacherRecord[]);
-      setClasses((classesData ?? []) as ClassRecord[]);
-      setEvents((eventsData ?? []) as EventRecord[]);
-
-      // Calculate stats
-      const totalRevenue =
-        paymentsData?.reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0) ?? 0;
-      const activeStudents = studentsData?.filter((student) => student.is_active).length ?? 0;
-
-      setStats({
-        totalStudents: studentsData?.length ?? 0,
-        activeStudents,
-        totalTeachers: teachersData?.length ?? 0,
-        totalClasses: classesData?.length ?? 0,
-        totalRevenue,
-        upcomingEvents: eventsData?.length ?? 0,
-      });
-
-      setLastUpdated(new Date());
-    } catch (error: any) {
-      console.error("Error fetching admin data:", error);
-      setError(error.message);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  }, []);
 
   const handleLogout = () => {
     logout();
