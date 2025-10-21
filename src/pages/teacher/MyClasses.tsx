@@ -68,7 +68,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         throw new Error(`Failed to load classes: ${classesError.message}`);
       }
 
-      const teacherClassNames = (teacherClasses || []).map((c: any) => c.name).filter(Boolean);
+      const teacherClassNames = (teacherClasses || []).map((c: any) => c.name || c.class_name).filter(Boolean);
 
       // If teacher has no classes, show empty state
       if (teacherClassNames.length === 0) {
