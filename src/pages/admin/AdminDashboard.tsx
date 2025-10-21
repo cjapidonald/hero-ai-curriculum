@@ -30,6 +30,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import EvaluationsList from "@/components/teacher/EvaluationsList";
+import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
