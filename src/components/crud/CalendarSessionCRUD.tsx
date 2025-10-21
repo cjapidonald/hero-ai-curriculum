@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCalendarSessions, CalendarSession } from '@/hooks/useCalendarSessions';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Plus, Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CalendarSessionCRUDProps {
   teacherId?: string;
@@ -42,9 +44,62 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<CalendarSession>>({} as Partial<CalendarSession>);
+  const [teachers, setTeachers] = useState<{ id: string; name: string; surname: string }[]>([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
+  const showTeacherColumn = isAdmin;
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    let isMounted = true;
+    const fetchTeachers = async () => {
+      try {
+        setLoadingTeachers(true);
+        const { data, error } = await supabase
+          .from('teachers')
+          .select('id, name, surname')
+          .eq('is_active', true)
+          .order('name', { ascending: true });
+
+        if (error) {
+          throw error;
+        }
+
+        if (isMounted) {
+          setTeachers(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching teachers for calendar:', error);
+        toast({
+          title: 'Unable to load teachers',
+          description: 'Teacher list could not be loaded. Try refreshing the page.',
+          variant: 'destructive',
+        });
+      } finally {
+        if (isMounted) {
+          setLoadingTeachers(false);
+        }
+      }
+    };
+
+    fetchTeachers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin, toast]);
+
+  const teacherNames = useMemo(() => {
+    return teachers.reduce<Record<string, string>>((acc, { id, name, surname }) => {
+      acc[id] = `${name} ${surname}`.trim();
+      return acc;
+    }, {});
+  }, [teachers]);
 
   const handleOpenDialog = (session?: CalendarSession) => {
     if (session) {
@@ -53,7 +108,7 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
     } else {
       setEditingSession(null);
       setFormData({
-        teacher_id: teacherId || user?.id || undefined,
+        teacher_id: teacherId || (isTeacher ? user?.id : undefined),
         class_name: '',
         lesson_title: '',
         session_date: new Date().toISOString().split('T')[0],
@@ -68,6 +123,15 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.teacher_id) {
+      toast({
+        title: 'Teacher required',
+        description: 'Please select a teacher for this session.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     if (editingSession) {
       const { error } = await update(editingSession.id, formData);
@@ -142,6 +206,27 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
+                  {isAdmin && (
+                    <div className="col-span-2">
+                      <Label htmlFor="teacher_id">Teacher *</Label>
+                      <Select
+                        value={formData.teacher_id || ''}
+                        onValueChange={(value) => setFormData({ ...formData, teacher_id: value })}
+                        disabled={loadingTeachers || teachers.length === 0}
+                      >
+                        <SelectTrigger id="teacher_id">
+                          <SelectValue placeholder="Select a teacher" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teachers.map((teacher) => (
+                            <SelectItem key={teacher.id} value={teacher.id}>
+                              {teacher.name} {teacher.surname}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <Label htmlFor="class_name">Class Name *</Label>
                     <Input
@@ -226,6 +311,7 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
               <TableHead>Date & Time</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Lesson</TableHead>
+              {showTeacherColumn && <TableHead>Teacher</TableHead>}
               <TableHead>Status</TableHead>
               <TableHead>Attendance</TableHead>
               {showActions && canEdit && <TableHead>Actions</TableHead>}
@@ -254,6 +340,9 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
                     </TableCell>
                     <TableCell className="font-medium">{session.class_name}</TableCell>
                     <TableCell>{session.lesson_title || '-'}</TableCell>
+                    {showTeacherColumn && (
+                      <TableCell>{teacherNames[session.teacher_id] || 'Unassigned'}</TableCell>
+                    )}
                     <TableCell>
                       <Badge className={getStatusColor(session.status || 'scheduled')}>
                         {session.status || 'scheduled'}

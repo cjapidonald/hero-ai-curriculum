@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award, RefreshCw, Download, Search } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -98,6 +99,7 @@ export default function AdminDashboard() {
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [selectedCalendarTeacherId, setSelectedCalendarTeacherId] = useState<string>('all');
   const classesPerPage = 10;
   const paymentsPerPage = 10;
 
@@ -399,6 +401,11 @@ export default function AdminDashboard() {
         capacity: classroom.max_students ?? 0,
       })),
     [classes],
+  );
+
+  const selectedCalendarTeacher = useMemo(
+    () => teachers.find((teacher) => teacher.id === selectedCalendarTeacherId),
+    [teachers, selectedCalendarTeacherId]
   );
 
   const studentLevelData = students.reduce<LevelDistribution[]>((acc, student) => {
@@ -853,10 +860,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="curriculum" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Full Curriculum View</CardTitle>
-                <CardDescription>View and manage all curriculum entries</CardDescription>
-              </CardHeader>
               <CardContent>
                 <FullCurriculumView />
               </CardContent>
@@ -878,11 +881,40 @@ export default function AdminDashboard() {
           <TabsContent value="calendar" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Calendar & Sessions</CardTitle>
-                <CardDescription>Schedule and manage class sessions with real-time sync</CardDescription>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle>Calendar & Sessions</CardTitle>
+                    <CardDescription>
+                      {selectedCalendarTeacher
+                        ? `Viewing schedule for ${selectedCalendarTeacher.name} ${selectedCalendarTeacher.surname}`
+                        : 'Schedule and manage class sessions with real-time sync'}
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                    <span className="text-sm font-medium text-muted-foreground">Filter by teacher</span>
+                    <Select
+                      value={selectedCalendarTeacherId}
+                      onValueChange={(value) => setSelectedCalendarTeacherId(value)}
+                    >
+                      <SelectTrigger className="w-56">
+                        <SelectValue placeholder="All teachers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All teachers</SelectItem>
+                        {teachers.map((teacher) => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {teacher.name} {teacher.surname}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <CalendarSessionCRUD />
+                <CalendarSessionCRUD
+                  teacherId={selectedCalendarTeacherId === 'all' ? undefined : selectedCalendarTeacherId}
+                />
               </CardContent>
             </Card>
           </TabsContent>

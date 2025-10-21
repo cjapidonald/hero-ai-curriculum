@@ -13,6 +13,7 @@ interface Student {
   class: string;
   attendance_rate: number;
   sessions_left: number;
+  enrollment_id?: string | null;
 }
 
 interface MyClassesProps {
@@ -60,7 +61,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       // First, get classes assigned to this teacher
       const { data: teacherClasses, error: classesError } = await supabase
         .from('classes')
-        .select('*')
+        .select('id, class_name, name')
         .eq('teacher_id', teacherId)
         .eq('is_active', true);
 
@@ -68,12 +69,20 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         throw new Error(`Failed to load classes: ${classesError.message}`);
       }
 
-      const teacherClassNames = (teacherClasses || []).map((c: any) => c.name || c.class_name).filter(Boolean);
+      const classMap: Record<string, string> = {};
+      (teacherClasses || []).forEach((classRow: any) => {
+        const displayName = classRow?.name || classRow?.class_name;
+        if (displayName && classRow?.id) {
+          classMap[displayName] = classRow.id;
+        }
+      });
+
+      const teacherClassNames = Object.keys(classMap);
+      setClasses(teacherClassNames);
 
       // If teacher has no classes, show empty state
       if (teacherClassNames.length === 0) {
         setStudents([]);
-        setClasses([]);
         setLoading(false);
         return;
       }
@@ -91,8 +100,45 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         throw new Error(`Failed to load students: ${studentsError.message}`);
       }
 
-      setStudents(data || []);
-      setClasses(teacherClassNames);
+      const studentList = data || [];
+      let enrollmentMap = new Map<string, string>();
+
+      if (studentList.length > 0) {
+        const studentIds = studentList.map((student) => student.id);
+        const classIds = Object.values(classMap);
+
+        if (classIds.length > 0) {
+          const { data: enrollmentData, error: enrollmentError } = await supabase
+            .from('enrollments')
+            .select('id, student_id, class_id')
+            .in('student_id', studentIds)
+            .in('class_id', classIds)
+            .eq('is_active', true);
+
+          if (enrollmentError) {
+            console.error('Error loading enrollments:', enrollmentError);
+          } else if (enrollmentData) {
+            enrollmentMap = new Map(
+              enrollmentData.map((enrollment) => [
+                `${enrollment.student_id}-${enrollment.class_id}`,
+                enrollment.id,
+              ]),
+            );
+          }
+        }
+      }
+
+      const augmentedStudents = studentList.map((student) => {
+        const className = student.class ?? '';
+        const classId = classMap[className];
+        const enrollmentKey = classId ? `${student.id}-${classId}` : '';
+        return {
+          ...student,
+          enrollment_id: enrollmentKey ? enrollmentMap.get(enrollmentKey) ?? null : null,
+        };
+      });
+
+      setStudents(augmentedStudents);
     } catch (err: any) {
       console.error('Error loading students:', err);
       setError(err.message || 'Failed to load your classes. Please try again.');
@@ -327,6 +373,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         open={attendanceDialogOpen}
         onOpenChange={setAttendanceDialogOpen}
         className={selectedClass}
+        teacherId={teacherId}
         students={students.filter((s) => s.class === selectedClass)}
         onAttendanceSaved={handleAttendanceSaved}
       />

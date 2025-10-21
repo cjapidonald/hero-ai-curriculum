@@ -22,12 +22,14 @@ interface Student {
   name: string;
   surname: string;
   sessions_left: number;
+  enrollment_id?: string | null;
 }
 
 interface TakeAttendanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   className: string;
+  teacherId: string;
   students: Student[];
   onAttendanceSaved?: () => void;
 }
@@ -43,6 +45,7 @@ const TakeAttendanceDialog = ({
   open,
   onOpenChange,
   className,
+  teacherId,
   students,
   onAttendanceSaved,
 }: TakeAttendanceDialogProps) => {
@@ -77,26 +80,95 @@ const TakeAttendanceDialog = ({
       return;
     }
 
+    const unmarkedStudents = students.filter((student) => !attendance.has(student.id));
+    if (unmarkedStudents.length > 0) {
+      toast({
+        title: 'Incomplete attendance',
+        description: 'Please mark attendance for all students before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const studentsMissingEnrollment = students.filter(
+      (student) => attendance.has(student.id) && !student.enrollment_id,
+    );
+
+    if (studentsMissingEnrollment.length > 0) {
+      toast({
+        title: 'Missing enrollment records',
+        description: `Unable to save attendance for ${studentsMissingEnrollment
+          .map((student) => student.name)
+          .join(', ')}. Please contact an administrator.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSaving(true);
     try {
-      // Prepare attendance records
-      const attendanceRecords = Array.from(attendance.entries()).map(([studentId, status]) => ({
-        student_id: studentId,
-        class: className,
-        session_date: format(sessionDate, 'yyyy-MM-dd'),
-        status: status,
-      }));
+      const classDate = format(sessionDate, 'yyyy-MM-dd');
+      const attendanceRecords = students.map((student) => {
+        const status = attendance.get(student.id)!;
+        const present = status === 'present' || status === 'late';
+        const late = status === 'late';
 
-      // Insert attendance records (upsert to handle duplicates)
-      const { error } = await supabase.from('attendance' as any).upsert(attendanceRecords, {
-        onConflict: 'student_id,session_date',
+        let note: string | null = null;
+        if (status === 'excused') {
+          note = 'Excused absence';
+        } else if (status === 'late') {
+          note = 'Late arrival';
+        } else if (status === 'absent') {
+          note = 'Absent';
+        }
+
+        return {
+          enrollment_id: student.enrollment_id!,
+          class_date: classDate,
+          present,
+          late,
+          notes: note,
+          recorded_by: teacherId ?? null,
+        };
       });
 
-      if (error) throw error;
+      const { error } = await supabase.from('attendance' as any).upsert(attendanceRecords, {
+        onConflict: 'enrollment_id,class_date',
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      const attendeesToUpdate = students.filter((student) => {
+        const status = attendance.get(student.id);
+        return status === 'present' || status === 'late';
+      });
+
+      if (attendeesToUpdate.length > 0) {
+        await Promise.all(
+          attendeesToUpdate.map((student) => {
+            const currentSessions = student.sessions_left ?? 0;
+            const nextSessions = Math.max(0, currentSessions - 1);
+
+            if (nextSessions === currentSessions) {
+              return Promise.resolve();
+            }
+
+            return supabase
+              .from('dashboard_students')
+              .update({ sessions_left: nextSessions })
+              .eq('id', student.id);
+          }),
+        );
+      }
 
       toast({
         title: 'Attendance saved',
-        description: `Attendance for ${attendance.size} student(s) has been recorded.`,
+        description: `Attendance for ${students.length} student(s) has been recorded for ${format(
+          sessionDate,
+          'PPP',
+        )}.`,
       });
 
       // Reset and close
@@ -307,7 +379,7 @@ const TakeAttendanceDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || attendance.size === 0}>
+          <Button onClick={handleSave} disabled={saving || attendance.size !== students.length}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Attendance ({attendance.size}/{students.length})
           </Button>

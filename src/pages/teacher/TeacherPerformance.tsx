@@ -32,6 +32,11 @@ interface TeacherPerformanceProps {
   teacherProfile?: TeacherRecord | null;
 }
 
+interface TeacherMetricsProps {
+  records: TeacherPayrollRecord[];
+  teacherProfile?: TeacherRecord | null;
+}
+
 interface TeacherEvaluationRecord {
   id: string;
   teacher_id?: string;
@@ -103,59 +108,7 @@ const parseSessionDate = (sessionDate: string | null) => {
 const formatStatus = (status: string | null | undefined, labels: Record<string, string>) =>
   status ? labels[status] ?? status.replace(/_/g, " ") : "Unknown";
 
-const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformanceProps) => {
-  const [records, setRecords] = useState<TeacherPayrollRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!teacherId) return;
-
-    let isMounted = true;
-
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-
-      const payrollPromise = supabase
-        .from("teacher_payroll")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .order("session_date", { ascending: false });
-
-      const [payrollResult] = await Promise.allSettled([
-        payrollPromise,
-      ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (payrollResult.status === "fulfilled") {
-        const { data, error: queryError } = payrollResult.value;
-        if (queryError) {
-          console.error("Error loading teacher payroll:", queryError);
-          setError("Unable to load payroll information right now.");
-          setRecords([]);
-        } else {
-          setRecords((data as TeacherPayrollRecord[]) ?? []);
-        }
-      } else {
-        console.error("Unexpected payroll error:", payrollResult.reason);
-        setError("Unable to load payroll information right now.");
-        setRecords([]);
-      }
-
-      setLoading(false);
-    };
-
-    void loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [teacherId]);
-
+const TeacherMetrics = ({ records, teacherProfile }: TeacherMetricsProps) => {
   const stats = useMemo(() => {
     if (!records.length) {
       return {
@@ -286,98 +239,10 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
   );
 
   const upcomingSessions = stats.upcomingSessions.slice(0, 5);
-
-  const evaluationSection = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Evaluation Feedback</CardTitle>
-        <CardDescription>
-          Scores and notes shared by admin so you can track your teaching impact.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <EvaluationsList mode="teacher" />
-      </CardContent>
-    </Card>
-  );
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Evaluation Feedback</CardTitle>
-            <CardDescription>Loading the latest evaluation insights...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="h-20 animate-pulse rounded-lg bg-muted" />
-              <div className="h-32 animate-pulse rounded-lg bg-muted" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance & Payroll</CardTitle>
-            <CardDescription>Loading your recent payroll information...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-32 animate-pulse rounded-lg bg-muted" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        {evaluationSection}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Performance & Payroll</CardTitle>
-              <CardDescription>Stay updated with your teaching impact and payouts.</CardDescription>
-            </div>
-            <Badge variant="destructive" className="gap-1">
-              <AlertCircle size={14} />
-              Attention
-            </Badge>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-destructive">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!records.length) {
-    return (
-      <div className="space-y-6">
-        {evaluationSection}
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance & Payroll</CardTitle>
-            <CardDescription>Once admin logs your sessions, your payroll details appear here.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              There are no payroll records yet. Please check back after your next class or contact admin if this seems
-              incorrect.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const profile = teacherProfile ?? null;
 
   return (
     <div className="space-y-6">
-      <PerformanceDashboard teacherId={teacherId} />
-      {evaluationSection}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -443,8 +308,8 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-primary/10 text-lg font-semibold text-primary">
-                    {profile.name.charAt(0)}
-                    {profile.surname.charAt(0)}
+                    {profile.name?.charAt(0)}
+                    {profile.surname?.charAt(0)}
                   </div>
                 )}
               </div>
@@ -620,6 +485,153 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
           </Table>
         </CardContent>
       </Card>
+    </div>
+  );
+};
+
+const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformanceProps) => {
+  const [records, setRecords] = useState<TeacherPayrollRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!teacherId) return;
+
+    let isMounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+
+      const payrollPromise = supabase
+        .from("teacher_payroll")
+        .select("*")
+        .eq("teacher_id", teacherId)
+        .order("session_date", { ascending: false });
+
+      const [payrollResult] = await Promise.allSettled([
+        payrollPromise,
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (payrollResult.status === "fulfilled") {
+        const { data, error: queryError } = payrollResult.value;
+        if (queryError) {
+          console.error("Error loading teacher payroll:", queryError);
+          setError("Unable to load payroll information right now.");
+          setRecords([]);
+        } else {
+          setRecords((data as TeacherPayrollRecord[]) ?? []);
+        }
+      } else {
+        console.error("Unexpected payroll error:", payrollResult.reason);
+        setError("Unable to load payroll information right now.");
+        setRecords([]);
+      }
+
+      setLoading(false);
+    };
+
+    void loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [teacherId]);
+
+  const evaluationSection = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Evaluation Feedback</CardTitle>
+        <CardDescription>
+          Scores and notes shared by admin so you can track your teaching impact.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <EvaluationsList mode="teacher" />
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Evaluation Feedback</CardTitle>
+            <CardDescription>Loading the latest evaluation insights...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="h-20 animate-pulse rounded-lg bg-muted" />
+              <div className="h-32 animate-pulse rounded-lg bg-muted" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance & Payroll</CardTitle>
+            <CardDescription>Loading your recent payroll information...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-32 animate-pulse rounded-lg bg-muted" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        {evaluationSection}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Performance & Payroll</CardTitle>
+              <CardDescription>Stay updated with your teaching impact and payouts.</CardDescription>
+            </div>
+            <Badge variant="destructive" className="gap-1">
+              <AlertCircle size={14} />
+              Attention
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-destructive">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!records.length) {
+    return (
+      <div className="space-y-6">
+        {evaluationSection}
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance & Payroll</CardTitle>
+            <CardDescription>Once admin logs your sessions, your payroll details appear here.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              There are no payroll records yet. Please check back after your next class or contact admin if this seems
+              incorrect.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <PerformanceDashboard teacherId={teacherId} />
+      {evaluationSection}
+      <TeacherMetrics records={records} teacherProfile={teacherProfile} />
     </div>
   );
 };

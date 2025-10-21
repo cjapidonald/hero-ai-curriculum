@@ -16,6 +16,28 @@ export function useRealtimeTable<T extends { id: string }>(
   const [error, setError] = useState<string | null>(null);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
+  const matchesFilters = useCallback(
+    (item: T) => {
+      if (!filters || filters.length === 0) {
+        return true;
+      }
+
+      return filters.every(({ column, value }) => {
+        const itemValue = (item as any)[column];
+        if (value === null) {
+          return itemValue === null;
+        }
+        if (Array.isArray(value)) {
+          return Array.isArray(itemValue)
+            ? value.every((val) => itemValue.includes(val))
+            : value.includes(itemValue);
+        }
+        return itemValue === value;
+      });
+    },
+    [filters]
+  );
+
   // Fetch initial data
   const fetchData = useCallback(async () => {
     try {
@@ -62,13 +84,31 @@ export function useRealtimeTable<T extends { id: string }>(
           console.log(`Real-time update on ${tableName}:`, payload);
 
           if (payload.eventType === 'INSERT') {
-            setData((prev) => [...prev, payload.new as T]);
+            setData((prev) => {
+              const newItem = payload.new as T;
+              if (!matchesFilters(newItem)) {
+                return prev;
+              }
+
+              const exists = prev.some((item) => item.id === newItem.id);
+              if (exists) {
+                return prev.map((item) => (item.id === newItem.id ? newItem : item));
+              }
+              return [...prev, newItem];
+            });
           } else if (payload.eventType === 'UPDATE') {
-            setData((prev) =>
-              prev.map((item) =>
-                item.id === (payload.new as T).id ? (payload.new as T) : item
-              )
-            );
+            setData((prev) => {
+              const updatedItem = payload.new as T;
+              if (!matchesFilters(updatedItem)) {
+                return prev.filter((item) => item.id !== updatedItem.id);
+              }
+
+              const exists = prev.some((item) => item.id === updatedItem.id);
+              if (exists) {
+                return prev.map((item) => (item.id === updatedItem.id ? updatedItem : item));
+              }
+              return [...prev, updatedItem];
+            });
           } else if (payload.eventType === 'DELETE') {
             setData((prev) =>
               prev.filter((item) => item.id !== (payload.old as T).id)
@@ -84,7 +124,7 @@ export function useRealtimeTable<T extends { id: string }>(
     return () => {
       realtimeChannel.unsubscribe();
     };
-  }, [tableName, fetchData]);
+  }, [tableName, fetchData, matchesFilters]);
 
   // CRUD operations
   const create = useCallback(

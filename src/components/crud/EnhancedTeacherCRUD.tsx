@@ -255,9 +255,8 @@ export const EnhancedTeacherCRUD = () => {
 
   return (
     <>
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Teacher Management</h2>
+      <div className="space-y-4">
+        <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) resetForm();
