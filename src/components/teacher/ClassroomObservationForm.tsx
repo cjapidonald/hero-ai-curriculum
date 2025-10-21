@@ -96,6 +96,8 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
         context_explanation: contextExplanation,
         overall_score: overallScore,
         class_id: selectedClass || null,
+        status: 'pending_teacher_review',
+        requires_attention: false,
       });
 
       if (error) throw error;

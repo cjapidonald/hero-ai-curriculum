@@ -14,7 +14,6 @@ import MyStudents from './MyStudents';
 import Skills from './Skills';
 import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
-import LessonBuilder from './LessonBuilder';
 import { EnhancedLessonPlanner } from './EnhancedLessonPlanner';
 import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
 import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
@@ -28,6 +27,7 @@ const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType | null;
+  const lessonIdFromUrl = searchParams.get('lessonId') || undefined;
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'performance');
   const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -74,12 +74,14 @@ const TeacherDashboard = () => {
     };
   }, [user?.id]);
 
-  // Update URL when tab changes
+  // Keep the active tab in sync with the URL query string
   useEffect(() => {
-    if (activeTab !== tabFromUrl) {
-      setSearchParams({ tab: activeTab });
+    if (!tabFromUrl) {
+      setActiveTab('performance');
+      return;
     }
-  }, [activeTab, tabFromUrl, setSearchParams]);
+    setActiveTab((current) => (current === tabFromUrl ? current : tabFromUrl));
+  }, [tabFromUrl]);
 
   if (!isTeacher || !user) {
     return <Navigate to="/login" replace />;
@@ -87,7 +89,20 @@ const TeacherDashboard = () => {
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);
-    setSearchParams({ tab: tabId });
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tabId);
+    if (tabId !== 'lessonbuilder') {
+      newParams.delete('lessonId');
+    }
+    setSearchParams(newParams);
+  };
+
+  const handleLessonEdit = (lessonId: string) => {
+    setActiveTab('lessonbuilder');
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', 'lessonbuilder');
+    newParams.set('lessonId', lessonId);
+    setSearchParams(newParams);
   };
 
   const tabs = [
@@ -128,12 +143,18 @@ const TeacherDashboard = () => {
             <div className="bg-background rounded-lg shadow p-6">
               <h2 className="text-xl font-bold mb-4">Manage Curriculum</h2>
               <p className="text-muted-foreground mb-4">Create and edit lessons with resources and materials</p>
-              <CurriculumCRUD teacherId={user.id} />
+              <CurriculumCRUD teacherId={user.id} onEditLesson={handleLessonEdit} />
             </div>
           </div>
         );
       case 'lessonbuilder':
-        return <EnhancedLessonPlanner teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
+        return (
+          <EnhancedLessonPlanner
+            teacherId={user.id}
+            teacherName={`${user.name} ${user.surname}`}
+            lessonId={lessonIdFromUrl}
+          />
+        );
       case 'students':
         return (
           <div className="space-y-4">

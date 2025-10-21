@@ -31,6 +31,7 @@ import {
 interface CurriculumCRUDProps {
   teacherId?: string;
   showActions?: boolean;
+  onEditLesson?: (lessonId: string) => void;
 }
 
 interface Activity {
@@ -74,7 +75,7 @@ const flattenActivities = (activities: Activity[], prefix: string, limit: number
   return flat;
 };
 
-export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUDProps) {
+export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: CurriculumCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
   const filters = teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined;
   const { data: lessons, loading, create, update, remove } = useCurriculum(filters);
@@ -96,6 +97,10 @@ export function CurriculumCRUD({ teacherId, showActions = true }: CurriculumCRUD
 
   const handleOpenDialog = (lesson?: Curriculum) => {
     if (lesson) {
+      if (onEditLesson) {
+        onEditLesson(lesson.id);
+        return;
+      }
       setEditingLesson(lesson);
       setFormData({
         ...lesson,

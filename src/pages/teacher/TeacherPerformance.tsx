@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { AlertCircle, Clock, DollarSign, TrendingUp, MessageSquare, Award } from "lucide-react";
 import EvaluationsList from "@/components/teacher/EvaluationsList";
+import PerformanceDashboard from "@/components/teacher/PerformanceDashboard";
 
 type TeacherPayrollRecord = Tables<"teacher_payroll">;
 type TeacherRecord = Tables<"teachers">;
@@ -256,6 +257,36 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     };
   }, [records]);
 
+  const attendanceChartData = stats.attendanceBreakdown.map((item) => ({
+    name: formatStatus(item.status, attendanceStatusLabels),
+    value: item.value,
+  }));
+
+  const attendanceChartConfig: ChartConfig = stats.attendanceBreakdown.reduce(
+    (acc, item, index) => {
+      const key = formatStatus(item.status, attendanceStatusLabels);
+      acc[key] = {
+        label: key,
+        color: chartColors[index % chartColors.length],
+      };
+      return acc;
+    },
+    {} as ChartConfig,
+  );
+
+  const earningsChartConfig: ChartConfig = stats.earningsByClass.reduce(
+    (acc, item, index) => {
+      acc[item.name] = {
+        label: item.name,
+        color: chartColors[index % chartColors.length],
+      };
+      return acc;
+    },
+    {} as ChartConfig,
+  );
+
+  const upcomingSessions = stats.upcomingSessions.slice(0, 5);
+
   const evaluationSection = (
     <Card>
       <CardHeader>
@@ -345,6 +376,7 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
 
   return (
     <div className="space-y-6">
+      <PerformanceDashboard teacherId={teacherId} />
       {evaluationSection}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

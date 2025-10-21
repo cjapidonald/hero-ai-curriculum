@@ -46,6 +46,7 @@ export const EnhancedTeacherCRUD = () => {
   const [insightTeacher, setInsightTeacher] = useState<Teacher | null>(null);
   const [evaluationDialogOpen, setEvaluationDialogOpen] = useState(false);
   const [evaluatingTeacher, setEvaluatingTeacher] = useState<Teacher | null>(null);
+  const [pendingReviews, setPendingReviews] = useState<Record<string, boolean>>({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -69,13 +70,23 @@ export const EnhancedTeacherCRUD = () => {
     try {
       setLoading(true);
 
-      const [teachersRes, classesRes] = await Promise.all([
+      const [teachersRes, classesRes, evaluationsRes] = await Promise.all([
         supabase.from('teachers').select('*').order('created_at', { ascending: false }),
         supabase.from('classes').select('*').eq('is_active', true),
+        supabase.from('teacher_evaluations').select('teacher_id, requires_attention').eq('requires_attention', true),
       ]);
 
       if (teachersRes.data) setTeachers(teachersRes.data as unknown as Teacher[]);
       if (classesRes.data) setClasses(classesRes.data);
+
+      // Build a map of teacher IDs that have pending reviews
+      if (evaluationsRes.data) {
+        const reviewMap: Record<string, boolean> = {};
+        evaluationsRes.data.forEach((evaluation: any) => {
+          reviewMap[evaluation.teacher_id] = true;
+        });
+        setPendingReviews(reviewMap);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -451,7 +462,7 @@ export const EnhancedTeacherCRUD = () => {
 
       {/* Evaluation Dialog */}
       <Dialog open={evaluationDialogOpen} onOpenChange={setEvaluationDialogOpen}>
-        <DialogContent className="max-w-6xl">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           {evaluatingTeacher && (
             <ClassroomObservationForm
               teacher={evaluatingTeacher}
@@ -529,15 +540,19 @@ export const EnhancedTeacherCRUD = () => {
                       <BarChart3 className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant="ghost"
+                      variant={pendingReviews[teacher.id] ? "destructive" : "ghost"}
                       size="sm"
                       onClick={() => {
                         setEvaluatingTeacher(teacher);
                         setEvaluationDialogOpen(true);
                       }}
-                      title="Evaluate Teacher"
+                      title={pendingReviews[teacher.id] ? "Teacher has responded - Review Required!" : "Evaluate Teacher"}
+                      className={pendingReviews[teacher.id] ? "animate-pulse" : ""}
                     >
                       <ClipboardCheck className="h-4 w-4" />
+                      {pendingReviews[teacher.id] && (
+                        <span className="ml-1 text-xs">!</span>
+                      )}
                     </Button>
                     <Button
                       variant="ghost"

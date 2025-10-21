@@ -59,29 +59,33 @@ interface EnhancedLessonPlannerProps {
   onSave?: () => void;
 }
 
+const createEmptyLessonPlan = (teacherId: string, teacherName?: string): LessonPlan => ({
+  teacher_id: teacherId,
+  teacher_name: teacherName || '',
+  class: '',
+  school: 'HeroSchool',
+  subject: 'English',
+  lesson_title: '',
+  lesson_date: new Date().toISOString().split('T')[0],
+  lesson_skills: '',
+  success_criteria: '',
+  curriculum_stage: '',
+  warmup_activities: [],
+  main_activities: [],
+  assessment_activities: [],
+  homework_activities: [],
+  printable_activities: [],
+});
+
 export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave }: EnhancedLessonPlannerProps) => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState<any[]>([]);
   const lessonPlanRef = useRef<HTMLDivElement>(null);
 
-  const [lessonPlan, setLessonPlan] = useState<LessonPlan>({
-    teacher_id: teacherId,
-    teacher_name: teacherName || '',
-    class: '',
-    school: 'HeroSchool',
-    subject: 'English',
-    lesson_title: '',
-    lesson_date: new Date().toISOString().split('T')[0],
-    lesson_skills: '',
-    success_criteria: '',
-    curriculum_stage: '',
-    warmup_activities: [],
-    main_activities: [],
-    assessment_activities: [],
-    homework_activities: [],
-    printable_activities: [],
-  });
+  const [lessonPlan, setLessonPlan] = useState<LessonPlan>(() =>
+    createEmptyLessonPlan(teacherId, teacherName)
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -95,8 +99,10 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
     fetchClasses();
     if (lessonId) {
       fetchLesson();
+    } else {
+      setLessonPlan(createEmptyLessonPlan(teacherId, teacherName));
     }
-  }, [lessonId]);
+  }, [lessonId, teacherId, teacherName]);
 
   const fetchClasses = async () => {
     try {

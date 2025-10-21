@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CLASSROOM_OBSERVATION_RUBRIC } from '@/lib/rubric';
+import { AlertCircle, Eye, MessageSquare } from 'lucide-react';
+import TeacherEvaluationReview from './TeacherEvaluationReview';
 
 interface EvaluationsListProps {
   mode: 'teacher' | 'admin';
@@ -20,6 +22,8 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
   const auth = useContext(AuthContext);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth?.user) return;
@@ -96,64 +100,114 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Overall Score</TableHead>
               <TableHead>Evaluator</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {evaluations.map(evaluation => (
-              <TableRow key={evaluation.id}>
-                <TableCell>{new Date(evaluation.evaluation_date).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  <Badge className="text-lg">{evaluation.overall_score}</Badge>
-                </TableCell>
-                <TableCell>{evaluation.evaluator?.email || 'N/A'}</TableCell>
-                <TableCell>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">View Details</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Evaluation Details - {new Date(evaluation.evaluation_date).toLocaleDateString()}</DialogTitle>
-                      </DialogHeader>
-                      <div>
-                        <div className="mb-4">
-                            <h4 className="font-semibold">Overall Context & Reflection:</h4>
-                            <p className="text-sm text-muted-foreground p-2 bg-slate-50 rounded-md">{evaluation.context_explanation || "No overall comment provided."}</p>
-                        </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Criterion</TableHead>
-                                    <TableHead>Score</TableHead>
-                                    <TableHead>Comment</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {CLASSROOM_OBSERVATION_RUBRIC.map(category => (
-                                    <React.Fragment key={category.category}>
-                                        <TableRow className="bg-muted/50">
-                                            <TableCell colSpan={3} className="font-bold text-primary">{category.category}</TableCell>
-                                        </TableRow>
-                                        {category.criteria.map(criterion => (
-                                            <TableRow key={criterion.id}>
-                                                <TableCell>{criterion.name}</TableCell>
-                                                <TableCell><Badge>{evaluation.rubric_scores[criterion.id]?.score || 'N/A'}</Badge></TableCell>
-                                                <TableCell>{evaluation.rubric_scores[criterion.id]?.comment || '-'}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </React.Fragment>
-                                ))}
-                            </TableBody>
-                        </Table>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </TableCell>
-              </TableRow>
-            ))}
+            {evaluations.map(evaluation => {
+              const needsTeacherReview = mode === 'teacher' && evaluation.status === 'pending_teacher_review';
+              const needsAdminAttention = mode === 'admin' && evaluation.requires_attention;
+
+              return (
+                <TableRow key={evaluation.id} className={needsAdminAttention ? 'bg-red-50 dark:bg-red-950' : ''}>
+                  <TableCell>{new Date(evaluation.evaluation_date).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={
+                      evaluation.status === 'completed' ? 'default' :
+                      evaluation.status === 'pending_admin_review' ? 'destructive' :
+                      'secondary'
+                    }>
+                      {needsAdminAttention && <AlertCircle className="h-3 w-3 mr-1" />}
+                      {evaluation.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="text-lg">{evaluation.overall_score}</Badge>
+                  </TableCell>
+                  <TableCell>{evaluation.evaluator?.email || 'N/A'}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {needsTeacherReview ? (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedEvaluationId(evaluation.id);
+                            setReviewDialogOpen(true);
+                          }}
+                        >
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          Review & Respond
+                        </Button>
+                      ) : (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View Details
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Evaluation Details - {new Date(evaluation.evaluation_date).toLocaleDateString()}</DialogTitle>
+                            </DialogHeader>
+                            <div>
+                              <div className="mb-4">
+                                  <h4 className="font-semibold">Overall Context & Reflection:</h4>
+                                  <p className="text-sm text-muted-foreground p-2 bg-slate-50 rounded-md">{evaluation.context_explanation || "No overall comment provided."}</p>
+                              </div>
+                              <Table>
+                                  <TableHeader>
+                                      <TableRow>
+                                          <TableHead>Criterion</TableHead>
+                                          <TableHead>Admin Score</TableHead>
+                                          <TableHead>Admin Comment</TableHead>
+                                          {evaluation.teacher_reviewed_at && (
+                                            <>
+                                              <TableHead>Teacher Score</TableHead>
+                                              <TableHead>Teacher Comment</TableHead>
+                                            </>
+                                          )}
+                                      </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                      {CLASSROOM_OBSERVATION_RUBRIC.map(category => (
+                                          <React.Fragment key={category.category}>
+                                              <TableRow className="bg-muted/50">
+                                                  <TableCell colSpan={evaluation.teacher_reviewed_at ? 5 : 3} className="font-bold text-primary">{category.category}</TableCell>
+                                              </TableRow>
+                                              {category.criteria.map(criterion => {
+                                                const rubricScore = evaluation.rubric_scores?.[criterion.id] || {};
+                                                return (
+                                                  <TableRow key={criterion.id}>
+                                                      <TableCell>{criterion.name}</TableCell>
+                                                      <TableCell><Badge>{rubricScore.score || 'N/A'}</Badge></TableCell>
+                                                      <TableCell>{rubricScore.comment || '-'}</TableCell>
+                                                      {evaluation.teacher_reviewed_at && (
+                                                        <>
+                                                          <TableCell><Badge variant="outline">{rubricScore.teacher_score || 'N/A'}</Badge></TableCell>
+                                                          <TableCell className="text-sm">{rubricScore.teacher_comment || '-'}</TableCell>
+                                                        </>
+                                                      )}
+                                                  </TableRow>
+                                                );
+                                              })}
+                                          </React.Fragment>
+                                      ))}
+                                  </TableBody>
+                              </Table>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
              {evaluations.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={4} className="text-center text-muted-foreground">
@@ -164,6 +218,23 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Teacher Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          {selectedEvaluationId && (
+            <TeacherEvaluationReview
+              evaluationId={selectedEvaluationId}
+              onClose={() => {
+                setReviewDialogOpen(false);
+                setSelectedEvaluationId(null);
+                // Refresh evaluations list
+                window.location.reload();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
