@@ -172,7 +172,7 @@ export const CLASSROOM_OBSERVATION_RUBRIC = [
         {
             "id": "5.3",
             "name": "Follow-up activities (homework, further support, extension tasks, etc.)",
-            "type": "scale",. 
+            "type": "scale",
             "levels": {
                 "1": "The teacher finished the lesson without offering further guidance to students. Students did not receive instructions for any reflection activity or follow-up assignments.",
                 "2": "The teacher offered students simple or irrelevant reflection activity or assignments. The teacher asked students to practice what they had learned at a basic level.",
