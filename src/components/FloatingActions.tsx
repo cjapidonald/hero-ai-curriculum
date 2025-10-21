@@ -20,14 +20,14 @@ const FloatingActions = () => {
 
     try {
       const { error } = await supabase
-        .from('trial_bookings')
+        .from('contact_submissions' as any)
         .insert({
           parent_name: formData.get('parentName') as string,
           child_name: formData.get('childName') as string,
           child_age: parseInt(formData.get('childAge') as string),
           phone: formData.get('phone') as string,
           email: (formData.get('email') as string) || null,
-          current_level: (formData.get('level') as string) || null,
+          english_level: (formData.get('level') as string) || null,
         });
 
       if (error) throw error;

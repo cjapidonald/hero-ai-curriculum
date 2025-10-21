@@ -124,7 +124,7 @@ export function AnalyticsDashboard() {
 
       // Class performance
       const classPerf = classes?.slice(0, 8).map(c => ({
-        name: c.name,
+        name: c.class_name || 'Unnamed Class',
         students: c.current_students || 0,
         capacity: c.max_students || 12,
         fillRate: Math.round(((c.current_students || 0) / (c.max_students || 12)) * 100),

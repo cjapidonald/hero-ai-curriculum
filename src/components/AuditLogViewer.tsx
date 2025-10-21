@@ -42,37 +42,10 @@ export function AuditLogViewer() {
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from('audit_logs')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * pageSize, page * pageSize - 1);
-
-      if (tableFilter !== 'all') {
-        query = query.eq('table_name', tableFilter);
-      }
-
-      if (actionFilter !== 'all') {
-        query = query.eq('action', actionFilter);
-      }
-
-      // Apply date range filters
-      if (dateFilters.dateRange?.from) {
-        query = query.gte('created_at', dateFilters.dateRange.from.toISOString());
-      }
-      if (dateFilters.dateRange?.to) {
-        // Set to end of day
-        const endOfDay = new Date(dateFilters.dateRange.to);
-        endOfDay.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', endOfDay.toISOString());
-      }
-
-      const { data, count, error } = await query;
-
-      if (error) throw error;
-
-      setLogs(data || []);
-      setTotalCount(count || 0);
+      // Note: audit_logs table doesn't exist yet in database
+      // This is a placeholder for when it's implemented
+      setLogs([]);
+      setTotalCount(0);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {

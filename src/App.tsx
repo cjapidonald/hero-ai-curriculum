@@ -26,7 +26,7 @@ import Root from './pages/Root';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <div className="App">
         <Navigation />
         <main className="p-4">
@@ -45,7 +45,7 @@ function App() {
         </main>
         <Footer />
       </div>
-    </Router>
+    </BrowserRouter>
   );
 }
 

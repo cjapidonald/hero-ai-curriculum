@@ -49,7 +49,14 @@ export function AssignmentCRUD({ teacherId, studentId, classFilter, showActions 
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Assignment>>({});
+  const [formData, setFormData] = useState<Partial<Assignment>>({
+    teacher_id: '',
+    title: '',
+    description: '',
+    assignment_type: 'homework',
+    target_type: 'class',
+    target_class: '',
+  });
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));

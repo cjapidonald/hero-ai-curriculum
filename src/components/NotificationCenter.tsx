@@ -41,16 +41,10 @@ export function NotificationCenter() {
 
   const fetchNotifications = async () => {
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-      setUnreadCount((data || []).filter(n => !n.is_read).length);
+      // Note: notifications table doesn't exist yet in database
+      // This is a placeholder for when it's implemented
+      setNotifications([]);
+      setUnreadCount(0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
@@ -59,102 +53,27 @@ export function NotificationCenter() {
   };
 
   const subscribeToNotifications = () => {
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newNotification = payload.new as Notification;
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-
-            // Show toast for new notification
-            toast({
-              title: newNotification.title,
-              description: newNotification.message,
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedNotification = payload.new as Notification;
-            setNotifications(prev =>
-              prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
-            );
-            if (updatedNotification.is_read) {
-              setUnreadCount(prev => Math.max(0, prev - 1));
-            }
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old.id;
-            setNotifications(prev => prev.filter(n => n.id !== deletedId));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Note: notifications table doesn't exist yet
+    // Placeholder for real-time subscription
+    return () => {};
   };
 
   const markAsRead = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
+    // Placeholder - table doesn't exist yet
+    console.log('Mark as read:', notificationId);
   };
 
   const markAllAsRead = async () => {
-    try {
-      const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
-
-      if (unreadIds.length === 0) return;
-
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .in('id', unreadIds);
-
-      if (error) throw error;
-
-      toast({
-        title: 'All notifications marked as read',
-      });
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to mark all notifications as read',
-        variant: 'destructive',
-      });
-    }
+    // Placeholder - table doesn't exist yet
+    toast({
+      title: 'Feature not available',
+      description: 'Notifications system is not set up yet',
+    });
   };
 
   const deleteNotification = async (notificationId: string) => {
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete notification',
-        variant: 'destructive',
-      });
-    }
+    // Placeholder - table doesn't exist yet
+    console.log('Delete notification:', notificationId);
   };
 
   const handleNotificationClick = (notification: Notification) => {

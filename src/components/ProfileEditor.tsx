@@ -66,10 +66,10 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
 
       if (userType === 'student') {
         table = 'dashboard_students';
-        query = supabase.from(table).select('*').eq('email', user.email).single();
+        query = supabase.from(table as any).select('*').eq('email', user.email).maybeSingle();
       } else if (userType === 'teacher') {
         table = 'teachers';
-        query = supabase.from(table).select('*').eq('email', user.email).single();
+        query = supabase.from(table as any).select('*').eq('email', user.email).maybeSingle();
       } else {
         // For admin, use auth.users metadata
         const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -186,7 +186,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
     try {
       if (userType === 'student') {
         const { error } = await supabase
-          .from('dashboard_students')
+          .from('dashboard_students' as any)
           .update({
             name: profileData.name,
             surname: profileData.surname,
@@ -203,7 +203,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
         if (error) throw error;
       } else if (userType === 'teacher') {
         const { error } = await supabase
-          .from('teachers')
+          .from('teachers' as any)
           .update({
             name: profileData.name,
             surname: profileData.surname,

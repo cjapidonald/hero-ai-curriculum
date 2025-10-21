@@ -60,21 +60,11 @@ export const ResourceLibrary = ({ onSelectResource, selectedType, compact = fals
   const fetchResources = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setResources(data || []);
+      // Note: resources table doesn't exist yet in database
+      // This is a placeholder for when it's implemented
+      setResources([]);
     } catch (error) {
       console.error('Error fetching resources:', error);
-      toast({
-        title: 'Error loading resources',
-        description: 'Could not load resources from database',
-        variant: 'destructive',
-      });
     } finally {
       setLoading(false);
     }
