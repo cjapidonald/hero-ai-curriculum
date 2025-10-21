@@ -88,7 +88,7 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
     try {
       const overallScore = parseFloat(calculateOverallScore());
 
-      const { error } = await supabase.from('teacher_evaluations').insert({
+      const { error } = await supabase.from('teacher_evaluations' as any).insert({
         teacher_id: teacher.id,
         evaluator_id: auth.user.id,
         evaluation_date: new Date().toISOString(),

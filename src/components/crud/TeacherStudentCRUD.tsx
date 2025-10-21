@@ -159,8 +159,8 @@ export function TeacherStudentCRUD({ teacherId }: TeacherStudentCRUDProps) {
     try {
       if (editingStudent) {
         const { error } = await supabase
-          .from('dashboard_students')
-          .update(formData)
+          .from('dashboard_students' as any)
+          .update(formData as any)
           .eq('id', editingStudent.id);
 
         if (error) throw error;
@@ -171,8 +171,8 @@ export function TeacherStudentCRUD({ teacherId }: TeacherStudentCRUDProps) {
         });
       } else {
         const { error } = await supabase
-          .from('dashboard_students')
-          .insert([formData]);
+          .from('dashboard_students' as any)
+          .insert([formData as any]);
 
         if (error) throw error;
 

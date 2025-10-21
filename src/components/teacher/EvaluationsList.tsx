@@ -31,12 +31,12 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
     const fetchEvaluations = async () => {
       try {
         setLoading(true);
-        let query = supabase
-          .from('teacher_evaluations')
-          .select('*, evaluator:users(email)') // Simplified join
+      let query = supabase
+        .from('teacher_evaluations' as any)
+        .select('*, evaluator:users(email)') // Simplified join
 
-        if (mode === 'teacher') {
-          const { data: teacherData, error: teacherError } = await supabase.from('teachers').select('id').eq('user_id', auth.user.id).single();
+      if (mode === 'teacher') {
+        const { data: teacherData, error: teacherError } = await supabase.from('teachers' as any).select('id').eq('user_id', auth.user.id).single();
           if (teacherError) throw teacherError;
           query = query.eq('teacher_id', teacherData.id);
         } else if (teacherId) {

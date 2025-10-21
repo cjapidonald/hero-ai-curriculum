@@ -72,8 +72,8 @@ export const EnhancedTeacherCRUD = () => {
 
       const [teachersRes, classesRes, evaluationsRes] = await Promise.all([
         supabase.from('teachers').select('*').order('created_at', { ascending: false }),
-        supabase.from('classes').select('*').eq('is_active', true),
-        supabase.from('teacher_evaluations').select('teacher_id, requires_attention').eq('requires_attention', true),
+        supabase.from('classes' as any).select('*').eq('is_active', true),
+        supabase.from('teacher_evaluations' as any).select('teacher_id, requires_attention').eq('requires_attention', true),
       ]);
 
       if (teachersRes.data) setTeachers(teachersRes.data as unknown as Teacher[]);

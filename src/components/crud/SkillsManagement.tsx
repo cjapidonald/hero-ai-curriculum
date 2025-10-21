@@ -142,7 +142,7 @@ export const SkillsManagement = () => {
 
     try {
       const { error } = await supabase
-        .from('skills_master')
+        .from('skills_master' as any)
         .delete()
         .eq('id', id);
 

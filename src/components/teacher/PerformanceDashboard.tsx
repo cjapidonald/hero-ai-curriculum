@@ -75,7 +75,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ teacherId }
     const cutoffDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
 
     return evaluations.filter(
-      eval => new Date(eval.evaluation_date) >= cutoffDate
+      e => new Date(e.evaluation_date) >= cutoffDate
     );
   };
 
@@ -83,7 +83,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ teacherId }
     const filtered = getFilteredEvaluations();
     if (filtered.length === 0) return 0;
 
-    const totalScore = filtered.reduce((sum, eval) => sum + (eval.overall_score || 0), 0);
+    const totalScore = filtered.reduce((sum, e) => sum + (e.overall_score || 0), 0);
     const avgScore = totalScore / filtered.length;
 
     // Convert to percentage (assuming max score is 5)
@@ -98,30 +98,30 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ teacherId }
   const prepareOverallTrendData = () => {
     const filtered = getFilteredEvaluations();
 
-    return filtered.map(eval => ({
-      date: new Date(eval.evaluation_date).toLocaleDateString('en-US', {
+    return filtered.map(e => ({
+      date: new Date(e.evaluation_date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric'
       }),
-      score: eval.overall_score || 0,
-      fullDate: eval.evaluation_date,
+      score: e.overall_score || 0,
+      fullDate: e.evaluation_date,
     }));
   };
 
   const prepareCriterionTrendData = (criterionId: string) => {
     const filtered = getFilteredEvaluations();
 
-    return filtered.map(eval => {
-      const rubricScores = eval.rubric_scores || {};
+    return filtered.map(e => {
+      const rubricScores = e.rubric_scores || {};
       const criterionScore = rubricScores[criterionId]?.score || 0;
 
       return {
-        date: new Date(eval.evaluation_date).toLocaleDateString('en-US', {
+        date: new Date(e.evaluation_date).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric'
         }),
         score: criterionScore,
-        fullDate: eval.evaluation_date,
+        fullDate: e.evaluation_date,
       };
     });
   };

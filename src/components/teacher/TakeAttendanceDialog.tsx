@@ -88,7 +88,7 @@ const TakeAttendanceDialog = ({
       }));
 
       // Insert attendance records (upsert to handle duplicates)
-      const { error } = await supabase.from('attendance').upsert(attendanceRecords, {
+      const { error } = await supabase.from('attendance' as any).upsert(attendanceRecords, {
         onConflict: 'student_id,session_date',
       });
 
