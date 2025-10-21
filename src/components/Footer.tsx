@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Facebook, Youtube } from "lucide-react";
-import { useLanguage } from "@/contexts/language-context";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Footer = () => {
   const { t } = useLanguage();
