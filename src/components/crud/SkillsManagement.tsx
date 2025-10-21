@@ -52,11 +52,11 @@ export const SkillsManagement = () => {
       setLoading(true);
 
       const [skillsRes, classesRes] = await Promise.all([
-        supabase.from('skills_master').select('*').order('created_at', { ascending: false }),
+        supabase.from('skills_master' as any).select('*').order('created_at', { ascending: false }),
         supabase.from('classes').select('*').eq('is_active', true),
       ]);
 
-      if (skillsRes.data) setSkills(skillsRes.data);
+      if (skillsRes.data) setSkills(skillsRes.data as any);
       if (classesRes.data) setClasses(classesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -84,7 +84,7 @@ export const SkillsManagement = () => {
 
       if (editingSkill) {
         const { error } = await supabase
-          .from('skills_master')
+          .from('skills_master' as any)
           .update(dataToSave)
           .eq('id', editingSkill.id);
 
@@ -96,7 +96,7 @@ export const SkillsManagement = () => {
         });
       } else {
         const { error } = await supabase
-          .from('skills_master')
+          .from('skills_master' as any)
           .insert([dataToSave]);
 
         if (error) throw error;

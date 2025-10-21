@@ -74,7 +74,7 @@ export const EnhancedTeacherCRUD = () => {
         supabase.from('classes').select('*').eq('is_active', true),
       ]);
 
-      if (teachersRes.data) setTeachers(teachersRes.data);
+      if (teachersRes.data) setTeachers(teachersRes.data as unknown as Teacher[]);
       if (classesRes.data) setClasses(classesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);

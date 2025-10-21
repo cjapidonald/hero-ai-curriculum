@@ -41,7 +41,7 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
   const [editingSession, setEditingSession] = useState<CalendarSession | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<CalendarSession>>({});
+  const [formData, setFormData] = useState<Partial<CalendarSession>>({} as Partial<CalendarSession>);
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));

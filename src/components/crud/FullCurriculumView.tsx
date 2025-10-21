@@ -56,10 +56,10 @@ export const FullCurriculumView = () => {
 
       if (error) throw error;
 
-      setLessons(data || []);
+      setLessons((data || []) as unknown as CurriculumLesson[]);
 
       // Extract unique classes
-      const uniqueClasses = Array.from(new Set(data?.map(l => l.class).filter(Boolean))) as string[];
+      const uniqueClasses = Array.from(new Set(data?.map(l => (l as any).class).filter(Boolean))) as string[];
       setClasses(uniqueClasses);
     } catch (error) {
       console.error('Error fetching curriculum:', error);

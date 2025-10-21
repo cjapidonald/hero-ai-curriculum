@@ -64,7 +64,7 @@ export function TeacherStudentCRUD({ teacherId }: TeacherStudentCRUDProps) {
           return;
         }
 
-        const classNames = (classes || []).map(c => c.name).filter(Boolean);
+        const classNames = (classes || []).map(c => (c as any).class_name || '').filter(Boolean);
         setTeacherClasses(classNames);
       } catch (err) {
         console.error('Error loading teacher classes:', err);

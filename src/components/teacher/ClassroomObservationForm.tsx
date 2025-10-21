@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment, useContext } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { AuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/auth-context';
 
 // Define TypeScript interfaces for our data structures
 interface RubricItem {
@@ -70,12 +70,12 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
       try {
         setLoading(true);
         const { data: rubricData, error: rubricError } = await supabase
-          .from('evaluation_rubric_items')
+          .from('evaluation_rubric_items' as any)
           .select('*')
-          .order('order', { ascending: true });
+          .order('order', { ascending: true});
 
         if (rubricError) throw rubricError;
-        setRubricItems(rubricData || []);
+        setRubricItems(rubricData as any || []);
 
         if (evaluationId) {
           // Fetch existing evaluation data
@@ -86,13 +86,14 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
             .single();
           if (evalError) throw evalError;
 
-          setTeacher(evalData.teacher);
+          setTeacher(evalData.teacher as any);
 
           const { data: classesData, error: classesError } = await supabase.from('classes').select('*');
           if (classesError) throw classesError;
           setClasses(classesData || []);
 
           const { data: scoresData, error: scoresError } = await supabase
+            .from('evaluation_item_scores' as any)
             .from('evaluation_item_scores')
             .select('*')
             .eq('evaluation_id', evaluationId);
