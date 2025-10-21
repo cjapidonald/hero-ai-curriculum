@@ -2322,6 +2322,137 @@ export type Database = {
           },
         ]
       }
+      teacher_standard_progress: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          evidence_name: string | null
+          evidence_size: number | null
+          evidence_storage_path: string | null
+          evidence_type: string | null
+          evidence_uploaded_at: string | null
+          evidence_url: string | null
+          id: string
+          notes: string | null
+          standard_id: string
+          status: string
+          submitted_at: string | null
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          evidence_name?: string | null
+          evidence_size?: number | null
+          evidence_storage_path?: string | null
+          evidence_type?: string | null
+          evidence_uploaded_at?: string | null
+          evidence_url?: string | null
+          id?: string
+          notes?: string | null
+          standard_id: string
+          status?: string
+          submitted_at?: string | null
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          evidence_name?: string | null
+          evidence_size?: number | null
+          evidence_storage_path?: string | null
+          evidence_type?: string | null
+          evidence_uploaded_at?: string | null
+          evidence_url?: string | null
+          id?: string
+          notes?: string | null
+          standard_id?: string
+          status?: string
+          submitted_at?: string | null
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_standard_progress_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "admins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_standard_progress_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_standards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_standard_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "teacher_standard_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_standards: {
+        Row: {
+          created_at: string | null
+          domain: string
+          focus_area_name: string
+          focus_area_number: string
+          graduate_descriptor: string
+          highly_accomplished_descriptor: string
+          id: string
+          lead_descriptor: string
+          proficient_descriptor: string
+          standard_name: string
+          standard_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          focus_area_name: string
+          focus_area_number: string
+          graduate_descriptor: string
+          highly_accomplished_descriptor: string
+          id?: string
+          lead_descriptor: string
+          proficient_descriptor: string
+          standard_name: string
+          standard_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          focus_area_name?: string
+          focus_area_number?: string
+          graduate_descriptor?: string
+          highly_accomplished_descriptor?: string
+          id?: string
+          lead_descriptor?: string
+          proficient_descriptor?: string
+          standard_name?: string
+          standard_number?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       teachers: {
         Row: {
           assigned_classes: string[] | null

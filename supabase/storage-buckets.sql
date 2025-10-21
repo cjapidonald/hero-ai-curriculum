@@ -174,3 +174,49 @@ USING (
 --       ├── homework/
 --       ├── projects/
 --       └── assessments/
+
+-- =============================================
+-- 4. TEACHER STANDARDS EVIDENCE BUCKET
+-- =============================================
+-- Bucket name: teacher-standards
+-- Public: false (private evidence shared between teacher and admin)
+-- File size limit: 25MB
+-- Allowed MIME types: application/pdf, image/*, video/*, audio/*
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'teacher-standards',
+  'teacher-standards',
+  false,
+  26214400, -- 25MB in bytes
+  ARRAY['application/pdf', 'image/*', 'video/*', 'audio/*']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = false,
+  file_size_limit = 26214400,
+  allowed_mime_types = ARRAY['application/pdf', 'image/*', 'video/*', 'audio/*'];
+
+CREATE POLICY "Teachers and admins view teacher standards files"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'teacher-standards' );
+
+CREATE POLICY "Authenticated users can upload teacher standards files"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'teacher-standards' AND
+  auth.role() = 'authenticated'
+);
+
+CREATE POLICY "Owners can update teacher standards files"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'teacher-standards' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);
+
+CREATE POLICY "Owners can delete teacher standards files"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'teacher-standards' AND
+  auth.uid()::text = (storage.foldername(name))[1]
+);

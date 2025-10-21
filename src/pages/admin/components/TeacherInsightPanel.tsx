@@ -4,6 +4,9 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,7 +14,6 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import {
@@ -23,7 +25,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -31,12 +32,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Slider } from "@/components/ui/slider";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, Award, Calendar, CheckCircle2, MessageSquare, TrendingUp, Users } from "lucide-react";
 import EvaluationsList from "@/components/teacher/EvaluationsList";
+import TeacherStandardsBoard from "@/components/teacher/TeacherStandardsBoard";
 
 interface TeacherInsightPanelProps {
   open: boolean;
@@ -133,7 +134,6 @@ export const TeacherInsightPanel = ({
   initialTeacher,
 }: TeacherInsightPanelProps) => {
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
   const { isDark } = useTheme();
   const chartTheme = useChartTheme(isDark);
   const tooltipStyles = getTooltipStyles(isDark);
@@ -144,9 +144,6 @@ export const TeacherInsightPanel = ({
   const [sessions, setSessions] = useState<CalendarSession[]>([]);
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
   const [evaluations, setEvaluations] = useState<TeacherEvaluationRecord[]>([]);
-  const [scoreValue, setScoreValue] = useState<number[]>([80]);
-  const [comment, setComment] = useState("");
-  const [savingEvaluation, setSavingEvaluation] = useState(false);
   const initialTeacherAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -156,8 +153,6 @@ export const TeacherInsightPanel = ({
       setSessions([]);
       setAssignments([]);
       setEvaluations([]);
-      setScoreValue([80]);
-      setComment("");
       initialTeacherAppliedRef.current = false;
       return;
     }
@@ -357,79 +352,29 @@ export const TeacherInsightPanel = ({
     };
   }, [evaluations]);
 
-  const handleEvaluationSubmit = async () => {
-    if (!teacherId || !isAdmin) {
-      return;
+  const evaluationDonutData = useMemo(
+    () => [
+      {
+        name: "Achieved",
+        value: Math.min(Math.max(evaluationStats.average ?? 0, 0), 100),
+      },
+      {
+        name: "Remaining",
+        value: Math.max(0, 100 - (evaluationStats.average ?? 0)),
+      },
+    ],
+    [evaluationStats.average],
+  );
+
+  const latestReviewRelative = useMemo(() => {
+    if (!evaluationStats.latestAt) {
+      return null;
     }
 
-    try {
-      setSavingEvaluation(true);
-      const payload = {
-        teacher_id: teacherId,
-        admin_id: user?.id ?? null,
-        score: scoreValue[0],
-        comment: comment.trim() ? comment.trim() : null,
-      };
-
-      const { error } = await supabase.from("teacher_evaluations").insert(payload);
-
-      if (error) {
-        if (error.code === "42P01") {
-          toast({
-            title: "Evaluation table missing",
-            description:
-              "Please run the latest database migrations to enable teacher evaluations.",
-            variant: "destructive",
-          });
-        } else {
-          throw error;
-        }
-        return;
-      }
-
-      toast({
-        title: "Evaluation saved",
-        description: "Your feedback has been shared with the teacher.",
-      });
-
-      setComment("");
-      setScoreValue([80]);
-
-      const { data, error: refreshError } = await supabase
-        .from("teacher_evaluations")
-        .select(
-          `
-          id,
-          teacher_id,
-          admin_id,
-          score,
-          comment,
-          created_at,
-          admins:admins!teacher_evaluations_admin_id_fkey (
-            name,
-            surname
-          )
-        `,
-        )
-        .eq("teacher_id", teacherId)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (!refreshError && data) {
-        setEvaluations(data as TeacherEvaluationRecord[]);
-      }
-    } catch (error) {
-      console.error("Error saving evaluation:", error);
-      toast({
-        title: "Unable to save evaluation",
-        description:
-          "Please double-check your connection and try submitting the evaluation again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingEvaluation(false);
-    }
-  };
+    return formatDistanceToNow(parseISO(evaluationStats.latestAt), {
+      addSuffix: true,
+    });
+  }, [evaluationStats.latestAt]);
 
   if (!teacherId) {
     return null;
@@ -471,9 +416,9 @@ export const TeacherInsightPanel = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Teacher Dashboard Overview</DialogTitle>
+          <DialogTitle>Professional Development</DialogTitle>
           <DialogDescription>
-            Detailed performance, scheduling, and evaluation insights for {fullName}.
+            Monitor evaluations, scheduling insights, and professional standards progress for {fullName}.
           </DialogDescription>
         </DialogHeader>
 
@@ -605,196 +550,223 @@ export const TeacherInsightPanel = ({
             </Card>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Evaluation Trend</CardTitle>
-                <CardDescription>
-                  Track feedback momentum and overall sentiment for this teacher.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[260px]">
-                {evaluationStats.trend.length ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={evaluationStats.trend}>
-                      <defs>
-                        <linearGradient id="evaluationGradient" x1="0" x2="0" y1="0" y2="1">
-                          <stop
-                            offset="0%"
-                            stopColor={chartTheme.primary}
-                            stopOpacity={0.6}
+          <Tabs defaultValue="evaluation" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 md:w-auto">
+              <TabsTrigger value="evaluation">Evaluation</TabsTrigger>
+              <TabsTrigger value="standards">Teacher Standards</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="evaluation" className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Evaluation Trend</CardTitle>
+                    <CardDescription>
+                      Track feedback momentum and overall sentiment for this teacher.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[260px]">
+                    {evaluationStats.trend.length ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={evaluationStats.trend}>
+                          <defs>
+                            <linearGradient id="evaluationGradient" x1="0" x2="0" y1="0" y2="1">
+                              <stop
+                                offset="0%"
+                                stopColor={chartTheme.primary}
+                                stopOpacity={0.6}
+                              />
+                              <stop
+                                offset="100%"
+                                stopColor={chartTheme.primary}
+                                stopOpacity={0.05}
+                              />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
+                          <XAxis
+                            dataKey="label"
+                            stroke={chartTheme.axis}
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={{ stroke: chartTheme.grid }}
                           />
-                          <stop
-                            offset="100%"
-                            stopColor={chartTheme.primary}
-                            stopOpacity={0.05}
+                          <YAxis
+                            stroke={chartTheme.axis}
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={{ stroke: chartTheme.grid }}
+                            domain={[0, 100]}
                           />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} />
-                      <XAxis
-                        dataKey="label"
-                        stroke={chartTheme.axis}
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={{ stroke: chartTheme.grid }}
-                      />
-                      <YAxis
-                        stroke={chartTheme.axis}
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={{ stroke: chartTheme.grid }}
-                        domain={[0, 100]}
-                      />
-                      <Tooltip {...tooltipStyles} />
-                      <Area
-                        type="monotone"
-                        dataKey="score"
-                        stroke={chartTheme.primary}
-                        fill="url(#evaluationGradient)"
-                        strokeWidth={2.5}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 4.5 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
-                    <AlertCircle className="mb-3 h-8 w-8 text-muted-foreground/80" />
-                    No evaluations yet. Be the first to share feedback for this teacher.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                          <Tooltip {...tooltipStyles} />
+                          <Area
+                            type="monotone"
+                            dataKey="score"
+                            stroke={chartTheme.primary}
+                            fill="url(#evaluationGradient)"
+                            strokeWidth={2.5}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 4.5 }}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
+                        <AlertCircle className="mb-3 h-8 w-8 text-muted-foreground/80" />
+                        No evaluations yet. Once feedback is submitted the trend view will update automatically.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Evaluate Teacher</CardTitle>
-                <CardDescription>
-                  Assign a score and explain the context so the teacher can reflect.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
-                    <span>Score</span>
-                    <span>{scoreValue[0]} / 100</span>
-                  </div>
-                  <div className="pt-3">
-                    <Slider
-                      value={scoreValue}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onValueChange={setScoreValue}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Why does this score fit?
-                  </label>
-                  <Textarea
-                    value={comment}
-                    onChange={(event) => setComment(event.target.value)}
-                    placeholder="Highlight standout moments, key achievements, or areas of growth."
-                    rows={4}
-                  />
-                </div>
-
-                <Button
-                  className="w-full"
-                  onClick={handleEvaluationSubmit}
-                  disabled={!isAdmin || savingEvaluation}
-                >
-                  {savingEvaluation ? "Saving..." : "Evaluate Teacher"}
-                </Button>
-                {!isAdmin ? (
-                  <p className="text-xs text-muted-foreground">
-                    Only administrators can submit official evaluations.
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Schedule</CardTitle>
-                <CardDescription>
-                  Snapshot of the teacher&apos;s next confirmed sessions.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-4">
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <div key={index} className="h-12 animate-pulse rounded bg-muted/60" />
-                    ))}
-                  </div>
-                ) : sessions.length ? (
-                  <ScrollArea className="h-[260px] pr-2">
-                    <div className="space-y-3">
-                      {sessions.map((session) => (
-                        <div
-                          key={session.id}
-                          className="rounded-lg border bg-muted/30 p-3 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between gap-2 text-sm font-semibold">
-                            <span>{session.class_name ?? "Unassigned class"}</span>
-                            <Badge variant="outline" className="capitalize">
-                              {session.status ?? "scheduled"}
-                            </Badge>
-                          </div>
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-3.5 w-3.5" />
-                              <span>
-                                {session.session_date
-                                  ? format(parseISO(session.session_date), "PPP")
-                                  : "Date pending"}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Score Overview</CardTitle>
+                    <CardDescription>
+                      Visualise the average evaluation score compared to the mastery goal.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[320px]">
+                    {evaluationStats.latestScore !== null ? (
+                      <div className="flex h-full flex-col">
+                        <div className="relative flex-1">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={evaluationDonutData}
+                                dataKey="value"
+                                startAngle={90}
+                                endAngle={-270}
+                                innerRadius="60%"
+                                outerRadius="80%"
+                                paddingAngle={2}
+                                stroke="none"
+                              >
+                                {evaluationDonutData.map((entry, index) => (
+                                  <Cell
+                                    key={`slice-${index}`}
+                                    fill={index === 0 ? chartTheme.accent : chartTheme.secondary}
+                                  />
+                                ))}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <span className="text-4xl font-semibold">
+                              {evaluationStats.average.toFixed(1)}
+                            </span>
+                            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                              Average Score
+                            </span>
+                            {latestReviewRelative ? (
+                              <span className="mt-2 text-xs text-muted-foreground">
+                                Last review {latestReviewRelative}
                               </span>
-                            </div>
-                            <div className="mt-1 flex items-center gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>
-                                {session.start_time ?? "??:??"} – {session.end_time ?? "??:??"}
-                              </span>
-                            </div>
-                            {session.lesson_title ? (
-                              <div className="mt-1 flex items-center gap-2">
-                                <MessageSquare className="h-3.5 w-3.5" />
-                                <span>{session.lesson_title}</span>
-                              </div>
                             ) : null}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    <Calendar className="h-6 w-6" />
-                    No upcoming sessions scheduled.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        {evaluationStats.latestComment ? (
+                          <div className="mt-4 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+                            "{evaluationStats.latestComment}"
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center text-center text-sm text-muted-foreground">
+                        <AlertCircle className="mb-3 h-8 w-8 text-muted-foreground/80" />
+                        No evaluations yet. Once feedback is submitted the score overview will appear here.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Evaluation History</CardTitle>
-                <CardDescription>
-                  Feedback shared with the teacher appears instantly on their dashboard.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <EvaluationsList mode="admin" teacherId={teacherId} />
-              </CardContent>
-            </Card>
-          </div>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upcoming Schedule</CardTitle>
+                    <CardDescription>
+                      Snapshot of the teacher&apos;s next confirmed sessions.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {loading ? (
+                      <div className="space-y-4">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <div key={index} className="h-12 animate-pulse rounded bg-muted/60" />
+                        ))}
+                      </div>
+                    ) : sessions.length ? (
+                      <ScrollArea className="h-[260px] pr-2">
+                        <div className="space-y-3">
+                          {sessions.map((session) => (
+                            <div
+                              key={session.id}
+                              className="rounded-lg border bg-muted/30 p-3 shadow-sm"
+                            >
+                              <div className="flex items-center justify-between gap-2 text-sm font-semibold">
+                                <span>{session.class_name ?? "Unassigned class"}</span>
+                                <Badge variant="outline" className="capitalize">
+                                  {session.status ?? "scheduled"}
+                                </Badge>
+                              </div>
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span>
+                                    {session.session_date
+                                      ? format(parseISO(session.session_date), "PPP")
+                                      : "Date pending"}
+                                  </span>
+                                </div>
+                                <div className="mt-1 flex items-center gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>
+                                    {session.start_time ?? "??:??"} – {session.end_time ?? "??:??"}
+                                  </span>
+                                </div>
+                                {session.lesson_title ? (
+                                  <div className="mt-1 flex items-center gap-2">
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span>{session.lesson_title}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                        <Calendar className="h-6 w-6" />
+                        No upcoming sessions scheduled.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Evaluation History</CardTitle>
+                    <CardDescription>
+                      Feedback shared with the teacher appears instantly on their dashboard.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <EvaluationsList mode="admin" teacherId={teacherId} />
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="standards" className="space-y-6">
+              <TeacherStandardsBoard
+                mode="admin"
+                teacherId={teacherId}
+                teacherName={fullName}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
     </Dialog>

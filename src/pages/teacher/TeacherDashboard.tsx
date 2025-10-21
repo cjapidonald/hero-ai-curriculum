@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
+import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3, Blocks, Target } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -20,8 +20,9 @@ import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
 import { StudentCRUD } from '@/components/crud/StudentCRUD';
 import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
+import TeacherStandardsBoard from '@/components/teacher/TeacherStandardsBoard';
 
-type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assignments' | 'skills';
+type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assignments' | 'standards' | 'skills';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
@@ -113,6 +114,7 @@ const TeacherDashboard = () => {
     { id: 'lessonbuilder' as TabType, label: 'Lesson Builder', icon: Blocks },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
     { id: 'assignments' as TabType, label: 'Assignments', icon: FileText },
+    { id: 'standards' as TabType, label: 'Teacher Standards', icon: Target },
     { id: 'skills' as TabType, label: 'Skills', icon: Award },
   ];
 
@@ -170,6 +172,22 @@ const TeacherDashboard = () => {
               <h2 className="text-xl font-bold mb-4">Manage Assignments</h2>
               <p className="text-muted-foreground mb-4">Create and manage assignments for your classes</p>
               <AssignmentCRUD teacherId={user.id} />
+            </div>
+          </div>
+        );
+      case 'standards':
+        return (
+          <div className="space-y-4">
+            <div className="bg-background rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold mb-4">Professional Standards Progress</h2>
+              <p className="text-muted-foreground mb-4">
+                Upload evidence, review approvals, and track your professional growth milestones.
+              </p>
+              <TeacherStandardsBoard
+                mode="teacher"
+                teacherId={user.id}
+                teacherName={`${user.name} ${user.surname}`}
+              />
             </div>
           </div>
         );
