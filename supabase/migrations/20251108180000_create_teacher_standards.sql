@@ -35,9 +35,14 @@ BEGIN
       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
     ALTER TABLE public.teacher_standards ENABLE ROW LEVEL SECURITY;
-    CREATE POLICY IF NOT EXISTS "Authenticated users can read teacher standards"
-      ON public.teacher_standards FOR SELECT
-      USING (true);
+    BEGIN
+      CREATE POLICY "Authenticated users can read teacher standards"
+        ON public.teacher_standards FOR SELECT
+        USING (true);
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
   END IF;
 
   IF NOT EXISTS (
@@ -146,16 +151,31 @@ BEGIN
       FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
     ALTER TABLE public.teacher_standard_progress ENABLE ROW LEVEL SECURITY;
-    CREATE POLICY IF NOT EXISTS "Authenticated users can view standard progress"
-      ON public.teacher_standard_progress FOR SELECT
-      USING (auth.role() = 'authenticated');
-    CREATE POLICY IF NOT EXISTS "Authenticated users can insert standard progress"
-      ON public.teacher_standard_progress FOR INSERT
-      WITH CHECK (auth.role() = 'authenticated');
-    CREATE POLICY IF NOT EXISTS "Authenticated users can update standard progress"
-      ON public.teacher_standard_progress FOR UPDATE
-      USING (auth.role() = 'authenticated')
-      WITH CHECK (auth.role() = 'authenticated');
+    BEGIN
+      CREATE POLICY "Authenticated users can view standard progress"
+        ON public.teacher_standard_progress FOR SELECT
+        USING (auth.role() = 'authenticated');
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
+    BEGIN
+      CREATE POLICY "Authenticated users can insert standard progress"
+        ON public.teacher_standard_progress FOR INSERT
+        WITH CHECK (auth.role() = 'authenticated');
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
+    BEGIN
+      CREATE POLICY "Authenticated users can update standard progress"
+        ON public.teacher_standard_progress FOR UPDATE
+        USING (auth.role() = 'authenticated')
+        WITH CHECK (auth.role() = 'authenticated');
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
   END IF;
 
   IF NOT EXISTS (
