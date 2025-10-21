@@ -7,6 +7,10 @@
 -- 3. Creating sample students
 -- =============================================
 
+-- Ensure classes table has teacher_id column required for linking
+ALTER TABLE classes
+  ADD COLUMN IF NOT EXISTS teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL;
+
 -- =============================================
 -- 1. Ensure teacher Xhoana exists and get her ID
 -- =============================================
@@ -14,7 +18,15 @@ DO $$
 DECLARE
   v_teacher_id UUID;
   v_class_id UUID;
+  v_has_name_column BOOLEAN;
 BEGIN
+  -- Check if the classes table still has a legacy `name` column
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'classes' AND column_name = 'name'
+  ) INTO v_has_name_column;
+
   -- Get or create Xhoana
   SELECT id INTO v_teacher_id
   FROM teachers
@@ -52,9 +64,16 @@ BEGIN
   -- =============================================
 
   -- Check if Alvin class exists (check both class_name and name fields)
-  SELECT id INTO v_class_id
-  FROM classes
-  WHERE class_name = 'Alvin' OR name = 'Alvin';
+  IF v_has_name_column THEN
+    EXECUTE 'SELECT id FROM classes WHERE class_name = $1 OR name = $1 LIMIT 1'
+      INTO v_class_id
+      USING 'Alvin';
+  ELSE
+    SELECT id INTO v_class_id
+    FROM classes
+    WHERE class_name = 'Alvin'
+    LIMIT 1;
+  END IF;
 
   IF v_class_id IS NOT NULL THEN
     -- Update existing class to link with teacher
@@ -69,27 +88,61 @@ BEGIN
     RAISE NOTICE 'Updated Alvin class with ID: % and linked to teacher', v_class_id;
   ELSE
     -- Create new class if it doesn't exist
-    INSERT INTO classes (
-      class_name,
-      name,
-      stage,
-      teacher_name,
-      teacher_id,
-      max_students,
-      classroom_location,
-      is_active,
-      start_date
-    ) VALUES (
-      'Alvin',
-      'Alvin',
-      'stage_1'::cambridge_stage,
-      'Xhoana Strand',
-      v_teacher_id,
-      15,
-      'Room A1',
-      true,
-      CURRENT_DATE
-    );
+    IF v_has_name_column THEN
+      EXECUTE '
+        INSERT INTO classes (
+          class_name,
+          name,
+          stage,
+          teacher_name,
+          teacher_id,
+          max_students,
+          classroom_location,
+          is_active,
+          start_date
+        ) VALUES (
+          $1,
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          true,
+          CURRENT_DATE
+        )
+        RETURNING id
+      '
+      INTO v_class_id
+      USING
+        'Alvin',
+        'stage_1'::cambridge_stage,
+        'Xhoana Strand',
+        v_teacher_id,
+        15,
+        'Room A1';
+    ELSE
+      INSERT INTO classes (
+        class_name,
+        stage,
+        teacher_name,
+        teacher_id,
+        max_students,
+        classroom_location,
+        is_active,
+        start_date
+      ) VALUES (
+        'Alvin',
+        'stage_1'::cambridge_stage,
+        'Xhoana Strand',
+        v_teacher_id,
+        15,
+        'Room A1',
+        true,
+        CURRENT_DATE
+      )
+      RETURNING id INTO v_class_id;
+    END IF;
 
     RAISE NOTICE 'Created new Alvin class';
   END IF;
@@ -150,9 +203,23 @@ BEGIN
   FROM teachers
   WHERE email = 'xhoana.strand@heroschool.com';
 
-  SELECT name INTO v_class_name
-  FROM classes
-  WHERE name = 'Alvin' OR class_name = 'Alvin';
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'classes' AND column_name = 'name'
+  ) THEN
+    SELECT COALESCE(name, class_name) INTO v_class_name
+    FROM classes
+    WHERE (name = 'Alvin' OR class_name = 'Alvin')
+    ORDER BY updated_at DESC, created_at DESC
+    LIMIT 1;
+  ELSE
+    SELECT class_name INTO v_class_name
+    FROM classes
+    WHERE class_name = 'Alvin'
+    ORDER BY updated_at DESC, created_at DESC
+    LIMIT 1;
+  END IF;
 
   RAISE NOTICE '========================================';
   RAISE NOTICE 'ALVIN CLASS SETUP COMPLETE';

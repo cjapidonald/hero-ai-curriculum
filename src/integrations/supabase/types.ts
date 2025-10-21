@@ -2324,11 +2324,15 @@ export type Database = {
       }
       teachers: {
         Row: {
+          assigned_classes: string[] | null
           bio: string | null
           created_at: string | null
           email: string
+          hourly_rate: number | null
           id: string
           is_active: boolean | null
+          last_login: string | null
+          monthly_earnings: number | null
           name: string
           password: string | null
           phone: string | null
@@ -2336,13 +2340,18 @@ export type Database = {
           subject: string | null
           surname: string
           updated_at: string | null
+          username: string | null
         }
         Insert: {
+          assigned_classes?: string[] | null
           bio?: string | null
           created_at?: string | null
           email: string
+          hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          last_login?: string | null
+          monthly_earnings?: number | null
           name: string
           password?: string | null
           phone?: string | null
@@ -2350,13 +2359,18 @@ export type Database = {
           subject?: string | null
           surname: string
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
+          assigned_classes?: string[] | null
           bio?: string | null
           created_at?: string | null
           email?: string
+          hourly_rate?: number | null
           id?: string
           is_active?: boolean | null
+          last_login?: string | null
+          monthly_earnings?: number | null
           name?: string
           password?: string | null
           phone?: string | null
@@ -2364,6 +2378,7 @@ export type Database = {
           subject?: string | null
           surname?: string
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: []
       }

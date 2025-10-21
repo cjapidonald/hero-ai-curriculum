@@ -451,11 +451,14 @@ export const EnhancedTeacherCRUD = () => {
 
       {/* Evaluation Dialog */}
       <Dialog open={evaluationDialogOpen} onOpenChange={setEvaluationDialogOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Classroom Observation Form</DialogTitle>
-          </DialogHeader>
-          {evaluatingTeacher && <ClassroomObservationForm teacher={evaluatingTeacher} classes={classes} />}
+        <DialogContent className="max-w-6xl">
+          {evaluatingTeacher && (
+            <ClassroomObservationForm
+              teacher={evaluatingTeacher}
+              classes={classes}
+              onClose={() => setEvaluationDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

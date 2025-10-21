@@ -176,3 +176,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
+
+export { AuthContext } from "@/contexts/auth-context";
+export { useAuth } from "@/contexts/auth-context";
+export type { AuthContextType, AuthUser, UserRole } from "@/contexts/auth-context";
