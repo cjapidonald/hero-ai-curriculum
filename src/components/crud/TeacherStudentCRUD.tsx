@@ -55,7 +55,7 @@ export function TeacherStudentCRUD({ teacherId }: TeacherStudentCRUDProps) {
       try {
         const { data: classes, error } = await supabase
           .from('classes')
-          .select('name')
+          .select('class_name')
           .eq('teacher_id', teacherId)
           .eq('is_active', true);
 
@@ -64,7 +64,7 @@ export function TeacherStudentCRUD({ teacherId }: TeacherStudentCRUDProps) {
           return;
         }
 
-        const classNames = (classes || []).map(c => (c as any).class_name || '').filter(Boolean);
+        const classNames = classes?.map(({ class_name }) => class_name) ?? [];
         setTeacherClasses(classNames);
       } catch (err) {
         console.error('Error loading teacher classes:', err);
