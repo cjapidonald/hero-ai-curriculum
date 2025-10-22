@@ -304,20 +304,19 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
         </div>
       )}
 
-      <div className="-mx-6">
-        <div className="border-t border-b overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">Date & Time</TableHead>
-                <TableHead className="whitespace-nowrap">Class</TableHead>
-                <TableHead className="whitespace-nowrap">Lesson</TableHead>
-                {showTeacherColumn && <TableHead className="whitespace-nowrap">Teacher</TableHead>}
-                <TableHead className="whitespace-nowrap">Status</TableHead>
-                <TableHead className="whitespace-nowrap">Attendance</TableHead>
-                {showActions && canEdit && <TableHead className="whitespace-nowrap">Actions</TableHead>}
-              </TableRow>
-            </TableHeader>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="text-sm">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="whitespace-nowrap">Date & Time</TableHead>
+              <TableHead className="whitespace-nowrap">Class</TableHead>
+              <TableHead className="whitespace-nowrap">Lesson</TableHead>
+              {showTeacherColumn && <TableHead className="whitespace-nowrap">Teacher</TableHead>}
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Attendance</TableHead>
+              {showActions && canEdit && <TableHead className="whitespace-nowrap">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {sessions.length === 0 ? (
               <TableRow>
@@ -380,8 +379,7 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
                 ))
             )}
           </TableBody>
-          </Table>
-        </div>
+        </Table>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

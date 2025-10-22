@@ -472,22 +472,21 @@ export const EnhancedTeacherCRUD = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="-mx-6">
-        <div className="border-t border-b overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">Name</TableHead>
-                <TableHead className="whitespace-nowrap">Username</TableHead>
-                <TableHead className="whitespace-nowrap">Email</TableHead>
-                <TableHead className="whitespace-nowrap">Subject</TableHead>
-                <TableHead className="whitespace-nowrap">Classes</TableHead>
-                <TableHead className="whitespace-nowrap">Rate</TableHead>
-                <TableHead className="whitespace-nowrap">Monthly Earnings</TableHead>
-                <TableHead className="whitespace-nowrap">Status</TableHead>
-                <TableHead className="whitespace-nowrap">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="text-sm">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="whitespace-nowrap">Name</TableHead>
+              <TableHead className="whitespace-nowrap">Username</TableHead>
+              <TableHead className="whitespace-nowrap">Email</TableHead>
+              <TableHead className="whitespace-nowrap">Subject</TableHead>
+              <TableHead className="whitespace-nowrap">Classes</TableHead>
+              <TableHead className="whitespace-nowrap">Rate</TableHead>
+              <TableHead className="whitespace-nowrap">Monthly Earnings</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {teachers.map((teacher) => (
               <TableRow key={teacher.id}>
@@ -584,8 +583,7 @@ export const EnhancedTeacherCRUD = () => {
               </TableRow>
             ))}
           </TableBody>
-          </Table>
-        </div>
+        </Table>
       </div>
       <TeacherInsightPanel
         open={insightOpen}

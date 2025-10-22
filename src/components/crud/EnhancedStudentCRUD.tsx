@@ -459,22 +459,21 @@ export const EnhancedStudentCRUD = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="-mx-6">
-        <div className="border-t border-b overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">Name</TableHead>
-                <TableHead className="whitespace-nowrap">Email</TableHead>
-                <TableHead className="whitespace-nowrap">Class</TableHead>
-                <TableHead className="whitespace-nowrap">Level</TableHead>
-                <TableHead className="whitespace-nowrap">Parent</TableHead>
-                <TableHead className="whitespace-nowrap">Sessions</TableHead>
-                <TableHead className="whitespace-nowrap">Attendance</TableHead>
-                <TableHead className="whitespace-nowrap">Status</TableHead>
-                <TableHead className="whitespace-nowrap">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <Table className="text-sm">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="whitespace-nowrap">Name</TableHead>
+              <TableHead className="whitespace-nowrap">Email</TableHead>
+              <TableHead className="whitespace-nowrap">Class</TableHead>
+              <TableHead className="whitespace-nowrap">Level</TableHead>
+              <TableHead className="whitespace-nowrap">Parent</TableHead>
+              <TableHead className="whitespace-nowrap">Sessions</TableHead>
+              <TableHead className="whitespace-nowrap">Attendance</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {students.map((student) => (
               <TableRow key={student.id}>
@@ -523,8 +522,7 @@ export const EnhancedStudentCRUD = () => {
               </TableRow>
             ))}
           </TableBody>
-          </Table>
-        </div>
+        </Table>
       </div>
       <div className="flex justify-between items-center mt-4 px-0">
         <div>
