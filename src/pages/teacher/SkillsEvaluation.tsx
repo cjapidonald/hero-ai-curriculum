@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import {
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
+import { Badge } from "@/components/ui/badge";
 
 interface Class {
   id: string;
@@ -41,6 +42,7 @@ interface Skill {
   skill_code: string;
   skill_name: string;
   subject: string;
+  category: string | null;
   strand: string;
   substrand: string;
 }
@@ -52,14 +54,30 @@ interface Evaluation {
   text_feedback: string;
 }
 
+interface SkillEvaluationRecord {
+  id: string;
+  student_id: string;
+  skill_id: string;
+  score: number | null;
+  text_feedback: string | null;
+  created_at: string;
+  skills: Skill | null;
+}
+
 export default function SkillsEvaluation() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("ESL");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [evaluations, setEvaluations] = useState<Map<string, Evaluation>>(new Map());
   const teacherId = user?.id ?? "";
+
+  useEffect(() => {
+    setEvaluations(new Map());
+  }, [selectedClass, selectedSubject, selectedCategory]);
 
   // Fetch classes
   const {
@@ -124,6 +142,127 @@ export default function SkillsEvaluation() {
     enabled: !!selectedSubject,
   });
 
+  const { data: evaluationHistory, isLoading: isLoadingEvaluations } = useQuery({
+    queryKey: ["skill-evaluations-history", selectedClass, selectedSubject],
+    queryFn: async () => {
+      if (!selectedClass) return [];
+
+      const { data, error } = await supabase
+        .from("skill_evaluations")
+        .select(`
+          id,
+          student_id,
+          skill_id,
+          score,
+          text_feedback,
+          created_at,
+          skills:skill_id (
+            id,
+            skill_code,
+            skill_name,
+            subject,
+            category,
+            strand,
+            substrand
+          )
+        `)
+        .eq("class_id", selectedClass)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return data as SkillEvaluationRecord[];
+    },
+    enabled: !!selectedClass,
+  });
+
+  const getSkillCategory = (skill: Skill) => skill.category || skill.strand || skill.subject;
+
+  const availableCategories = useMemo(() => {
+    if (!skills) return [];
+    const unique = new Set<string>();
+    skills.forEach((skill) => {
+      const category = getSkillCategory(skill);
+      if (category) {
+        unique.add(category);
+      }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [skills]);
+
+  const filteredSkills = useMemo(() => {
+    if (!skills) return [];
+    if (!selectedCategory || selectedCategory === "all") return skills;
+    return skills.filter((skill) => getSkillCategory(skill) === selectedCategory);
+  }, [skills, selectedCategory]);
+
+  const relevantSkillIds = useMemo(() => new Set(filteredSkills.map((skill) => skill.id)), [filteredSkills]);
+
+  const evaluationHistoryBySkill = useMemo(() => {
+    const map = new Map<string, SkillEvaluationRecord[]>();
+    if (!evaluationHistory) return map;
+
+    evaluationHistory.forEach((record) => {
+      if (!relevantSkillIds.has(record.skill_id)) return;
+      if (
+        record.skills?.subject !== selectedSubject &&
+        record.skills?.category !== selectedSubject
+      ) {
+        return;
+      }
+
+      const key = `${record.student_id}-${record.skill_id}`;
+      const existing = map.get(key) ?? [];
+      existing.push(record);
+      map.set(key, existing);
+    });
+
+    map.forEach((records, key) => {
+      records.sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
+
+    return map;
+  }, [evaluationHistory, relevantSkillIds, selectedSubject]);
+
+  const latestSavedEvaluations = useMemo(() => {
+    const map = new Map<string, Evaluation>();
+    evaluationHistoryBySkill.forEach((records, key) => {
+      const latestRecord = records[records.length - 1];
+      map.set(key, {
+        student_id: latestRecord.student_id,
+        skill_id: latestRecord.skill_id,
+        score: latestRecord.score,
+        text_feedback: latestRecord.text_feedback ?? "",
+      });
+    });
+    return map;
+  }, [evaluationHistoryBySkill]);
+
+  const getExistingEvaluation = (
+    studentId: string,
+    skillId: string,
+    fallback?: Evaluation
+  ) => {
+    const key = `${studentId}-${skillId}`;
+    const existing = evaluations.get(key);
+    if (existing) return existing;
+    if (fallback) {
+      return {
+        student_id: fallback.student_id,
+        skill_id: fallback.skill_id,
+        score: fallback.score,
+        text_feedback: fallback.text_feedback,
+      };
+    }
+    return {
+      student_id: studentId,
+      skill_id: skillId,
+      score: null,
+      text_feedback: "",
+    };
+  };
+
   // Save evaluation mutation
   const saveEvaluationMutation = useMutation({
     mutationFn: async (evaluation: Evaluation) => {
@@ -146,10 +285,19 @@ export default function SkillsEvaluation() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast({
         title: "Evaluation saved",
         description: "Student skill evaluation has been recorded",
+      });
+      setEvaluations((prev) => {
+        const next = new Map(prev);
+        const key = `${variables.student_id}-${variables.skill_id}`;
+        next.delete(key);
+        return next;
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["skill-evaluations-history", selectedClass, selectedSubject],
       });
     },
     onError: (error: Error) => {
@@ -165,33 +313,33 @@ export default function SkillsEvaluation() {
     const key = `${studentId}-${skillId}`;
     const score = value ? parseFloat(value) : null;
 
-    const existing = evaluations.get(key) || {
-      student_id: studentId,
-      skill_id: skillId,
-      score: null,
-      text_feedback: "",
-    };
+    const fallback = latestSavedEvaluations.get(key);
+    const existing = getExistingEvaluation(studentId, skillId, fallback);
 
-    setEvaluations(new Map(evaluations.set(key, {
-      ...existing,
-      score,
-    })));
+    setEvaluations(
+      new Map(
+        evaluations.set(key, {
+          ...existing,
+          score,
+        })
+      )
+    );
   };
 
   const handleFeedbackChange = (studentId: string, skillId: string, value: string) => {
     const key = `${studentId}-${skillId}`;
 
-    const existing = evaluations.get(key) || {
-      student_id: studentId,
-      skill_id: skillId,
-      score: null,
-      text_feedback: "",
-    };
+    const fallback = latestSavedEvaluations.get(key);
+    const existing = getExistingEvaluation(studentId, skillId, fallback);
 
-    setEvaluations(new Map(evaluations.set(key, {
-      ...existing,
-      text_feedback: value,
-    })));
+    setEvaluations(
+      new Map(
+        evaluations.set(key, {
+          ...existing,
+          text_feedback: value,
+        })
+      )
+    );
   };
 
   const handleSubmit = (studentId: string, skillId: string) => {
@@ -217,6 +365,14 @@ export default function SkillsEvaluation() {
     }
 
     saveEvaluationMutation.mutate(evaluation);
+  };
+
+  const formatMilestoneLabel = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    });
   };
 
   if (isLoadingClasses) {
@@ -267,7 +423,7 @@ export default function SkillsEvaluation() {
           <CardTitle>Select Class and Subject</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Class</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
@@ -298,31 +454,51 @@ export default function SkillsEvaluation() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label>Skill Focus</Label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All skills" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Skills</SelectItem>
+                  {availableCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {selectedClass && students && students.length > 0 && skills && skills.length > 0 && (
+      {selectedClass && students && students.length > 0 && filteredSkills && filteredSkills.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Evaluation Grid</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Enter scores (0-100) or text feedback for each student-skill combination. Click Submit after each entry.
+              Enter scores (milestones) or text feedback for each student-skill combination. Each submission creates a new milestone for that skill.
             </p>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="max-h-[600px] overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="sticky left-0 bg-background z-10 min-w-[150px]">
                       Student
                     </TableHead>
-                    {skills?.slice(0, 5).map((skill) => (
-                      <TableHead key={skill.id} className="min-w-[200px]">
+                    {filteredSkills.map((skill) => (
+                      <TableHead key={skill.id} className="min-w-[200px] align-top">
                         <div className="flex flex-col">
                           <span className="font-mono text-xs">{skill.skill_code}</span>
                           <span className="text-xs truncate">{skill.skill_name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {getSkillCategory(skill)}
+                          </span>
                         </div>
                       </TableHead>
                     ))}
@@ -334,9 +510,15 @@ export default function SkillsEvaluation() {
                       <TableCell className="sticky left-0 bg-background z-10 font-medium">
                         {student.name} {student.surname}
                       </TableCell>
-                      {skills?.slice(0, 5).map((skill) => {
+                      {filteredSkills.map((skill) => {
                         const key = `${student.id}-${skill.id}`;
-                        const evaluation = evaluations.get(key);
+                        const draftEvaluation = evaluations.get(key);
+                        const latestEvaluation = latestSavedEvaluations.get(key);
+                        const history = evaluationHistoryBySkill.get(key) ?? [];
+                        const scoreValue =
+                          draftEvaluation?.score ?? latestEvaluation?.score ?? "";
+                        const feedbackValue =
+                          draftEvaluation?.text_feedback ?? latestEvaluation?.text_feedback ?? "";
 
                         return (
                           <TableCell key={skill.id}>
@@ -344,15 +526,14 @@ export default function SkillsEvaluation() {
                               <Input
                                 type="number"
                                 min="0"
-                                max="100"
-                                placeholder="Score"
-                                value={evaluation?.score ?? ""}
+                                placeholder="Milestone"
+                                value={scoreValue}
                                 onChange={(e) => handleScoreChange(student.id, skill.id, e.target.value)}
                                 className="w-full"
                               />
                               <Textarea
                                 placeholder="Feedback"
-                                value={evaluation?.text_feedback ?? ""}
+                                value={feedbackValue}
                                 onChange={(e) => handleFeedbackChange(student.id, skill.id, e.target.value)}
                                 rows={2}
                                 className="w-full text-sm"
@@ -366,6 +547,15 @@ export default function SkillsEvaluation() {
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Submit
                               </Button>
+                              {history.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {history.slice(-4).map((entry) => (
+                                    <Badge key={entry.id} variant="outline" className="text-[10px] font-normal">
+                                      {entry.score ?? "—"} · {formatMilestoneLabel(entry.created_at)}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                         );
@@ -375,11 +565,22 @@ export default function SkillsEvaluation() {
                 </TableBody>
               </Table>
             </div>
-            {skills && skills.length > 5 && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Showing 5 of {skills.length} skills. Scroll horizontally to see more or filter by strand.
-              </p>
+            {isLoadingEvaluations && (
+              <p className="text-sm text-muted-foreground mt-4">Loading previous milestones…</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedClass && filteredSkills.length === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>No Skills Available</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              No skills match the selected subject and category. Try choosing a different focus area.
+            </p>
           </CardContent>
         </Card>
       )}
