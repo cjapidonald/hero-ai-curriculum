@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +39,93 @@ export default function StudentDashboard() {
   const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
   const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
+  const fetchStudentData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      if (!user?.email) {
+        throw new Error("Missing user email");
+      }
+
+      const { data, error: studentError } = await supabase
+        .from("dashboard_students")
+        .select("*")
+        .eq("email", user.email)
+        .single();
+
+      if (studentError) throw new Error(`Failed to fetch student profile: ${studentError.message}`);
+      if (!data) {
+        setStudentData(null);
+        setLoading(false);
+        return;
+      }
+
+      const student = data as DashboardStudent;
+      setStudentData(student);
+
+      const { data: skillsData, error: skillsError } = await supabase
+        .from("skills_evaluation")
+        .select("*")
+        .eq("student_id", student.id)
+        .order("evaluation_date", { ascending: false })
+        .limit(20);
+
+      if (skillsError) {
+        console.error('Error loading skills:', skillsError);
+        setError(`Warning: Could not load skills data. ${skillsError.message}`);
+      }
+
+      if (skillsData) {
+        const typedSkills = skillsData as SkillsEvaluationRecord[];
+        setRecentSkills(typedSkills);
+
+        const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
+          if (!skill.skill_category) {
+            return acc;
+          }
+
+          const categoryKey = skill.skill_category;
+          if (!acc[categoryKey]) {
+            acc[categoryKey] = { total: 0, count: 0 };
+          }
+
+          acc[categoryKey].total += skill.average_score ?? 0;
+          acc[categoryKey].count += 1;
+          return acc;
+        }, {});
+
+        const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
+          subject: category,
+          score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
+          fullMark: 5,
+        }));
+        setSkillsRadarData(radarData);
+      }
+
+      const { data: assessmentsData, error: assessmentsError } = await supabase
+        .from("assessment")
+        .select("*")
+        .eq("student_id", student.id)
+        .eq("published", true)
+        .order("assessment_date", { ascending: false })
+        .limit(5);
+
+      if (assessmentsError) {
+        console.error('Error loading assessments:', assessmentsError);
+        setError(`Warning: Could not load assessment data. ${assessmentsError.message}`);
+      }
+
+      if (assessmentsData) {
+        setRecentAssessments(assessmentsData as AssessmentRecord[]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching student data:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!user || user.role !== "student") {
       navigate("/login");
@@ -49,96 +136,14 @@ export default function StudentDashboard() {
       return;
     }
 
-    const fetchStudentData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        if (!user?.email) {
-          throw new Error("Missing user email");
-        }
-
-        const { data, error: studentError } = await supabase
-          .from("dashboard_students")
-          .select("*")
-          .eq("email", user.email)
-          .single();
-
-        if (studentError) throw new Error(`Failed to fetch student profile: ${studentError.message}`);
-        if (!data) {
-          setStudentData(null);
-          setLoading(false);
-          return;
-        }
-
-        const student = data as DashboardStudent;
-        setStudentData(student);
-
-        const { data: skillsData, error: skillsError } = await supabase
-          .from("skills_evaluation")
-          .select("*")
-          .eq("student_id", student.id)
-          .order("evaluation_date", { ascending: false })
-          .limit(20);
-
-        if (skillsError) {
-          console.error('Error loading skills:', skillsError);
-          setError(`Warning: Could not load skills data. ${skillsError.message}`);
-        }
-
-        if (skillsData) {
-          const typedSkills = skillsData as SkillsEvaluationRecord[];
-          setRecentSkills(typedSkills);
-
-          const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
-            if (!skill.skill_category) {
-              return acc;
-            }
-
-            const categoryKey = skill.skill_category;
-            if (!acc[categoryKey]) {
-              acc[categoryKey] = { total: 0, count: 0 };
-            }
-
-            acc[categoryKey].total += skill.average_score ?? 0;
-            acc[categoryKey].count += 1;
-            return acc;
-          }, {});
-
-          const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
-            subject: category,
-            score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-            fullMark: 5,
-          }));
-          setSkillsRadarData(radarData);
-        }
-
-        const { data: assessmentsData, error: assessmentsError } = await supabase
-          .from("assessment")
-          .select("*")
-          .eq("student_id", student.id)
-          .eq("published", true)
-          .order("assessment_date", { ascending: false })
-          .limit(5);
-
-        if (assessmentsError) {
-          console.error('Error loading assessments:', assessmentsError);
-          setError(`Warning: Could not load assessment data. ${assessmentsError.message}`);
-        }
-
-        if (assessmentsData) {
-          setRecentAssessments(assessmentsData as AssessmentRecord[]);
-        }
-      } catch (error: any) {
-        console.error("Error fetching student data:", error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void fetchStudentData();
+  }, [fetchStudentData, navigate, studentId, user]);
 
-    // Set up real-time subscriptions
+  useEffect(() => {
+    if (!studentData?.id) {
+      return;
+    }
+
     const skillsChannel = supabase
       .channel('student-skills-updates')
       .on(
@@ -147,7 +152,7 @@ export default function StudentDashboard() {
           event: '*',
           schema: 'public',
           table: 'skills_evaluation',
-          filter: `student_id=eq.${studentId}`,
+          filter: `student_id=eq.${studentData.id}`,
         },
         () => {
           void fetchStudentData();
@@ -163,7 +168,7 @@ export default function StudentDashboard() {
           event: '*',
           schema: 'public',
           table: 'assessment',
-          filter: `student_id=eq.${studentId}`,
+          filter: `student_id=eq.${studentData.id}`,
         },
         () => {
           void fetchStudentData();
@@ -175,7 +180,7 @@ export default function StudentDashboard() {
       supabase.removeChannel(skillsChannel);
       supabase.removeChannel(assessmentChannel);
     };
-  }, [navigate, studentId, user]);
+  }, [fetchStudentData, studentData?.id]);
 
   const averageAssessmentScore = useMemo(() => {
     if (!recentAssessments.length) return 0;
