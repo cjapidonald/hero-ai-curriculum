@@ -23,14 +23,14 @@ interface RubricScores {
   [criterionId: string]: Score;
 }
 
-type ObservationClass = {
+export type ObservationClass = {
   id: string;
   name?: string | null;
   class_name?: string | null;
   [key: string]: any;
 };
 
-interface ClassroomObservationFormProps {
+export interface ClassroomObservationFormProps {
   teacher: {
     id: string;
     name: string;
