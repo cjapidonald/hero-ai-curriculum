@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -28,10 +28,33 @@ interface Skill {
   created_at: string;
 }
 
+interface CurriculumSkill {
+  id: string;
+  skill_name?: string | null;
+  description?: string | null;
+  skill_code?: string | null;
+  subject?: string | null;
+  strand?: string | null;
+  substrand?: string | null;
+  curriculum_id?: string | null;
+  curriculum?: {
+    id: string;
+    lesson_title: string | null;
+  } | null;
+}
+
+interface CurriculumOption {
+  id: string;
+  lesson_title: string | null;
+}
+
 export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) => {
   const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
+  const [curriculumSkills, setCurriculumSkills] = useState<CurriculumSkill[]>([]);
+  const [curriculums, setCurriculums] = useState<CurriculumOption[]>([]);
+  const [selectedCurriculum, setSelectedCurriculum] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
@@ -55,13 +78,26 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
     try {
       setLoading(true);
 
-      const [skillsRes, classesRes] = await Promise.all([
+      const [skillsRes, classesRes, curriculumSkillsRes, curriculumsRes] = await Promise.all([
         supabase.from('skills_master' as any).select('*').order('created_at', { ascending: false }),
         supabase.from('classes').select('*').eq('is_active', true),
+        supabase
+          .from('skills' as any)
+          .select('id, skill_name, description, skill_code, subject, strand, substrand, curriculum_id, curriculum:curriculum(id, lesson_title)')
+          .order('subject', { ascending: true })
+          .order('skill_code', { ascending: true }),
+        supabase.from('curriculum').select('id, lesson_title').order('lesson_title', { ascending: true }),
       ]);
+
+      if (skillsRes.error) throw skillsRes.error;
+      if (classesRes.error) throw classesRes.error;
+      if (curriculumSkillsRes.error) throw curriculumSkillsRes.error;
+      if (curriculumsRes.error) throw curriculumsRes.error;
 
       if (skillsRes.data) setSkills(skillsRes.data as any);
       if (classesRes.data) setClasses(classesRes.data);
+      if (curriculumSkillsRes.data) setCurriculumSkills(curriculumSkillsRes.data as any);
+      if (curriculumsRes.data) setCurriculums(curriculumsRes.data as any);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -215,6 +251,20 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
         return 'bg-gray-100 text-gray-700';
     }
   };
+
+  const curriculumNameMap = useMemo(() => {
+    return curriculums.reduce((acc, curriculum) => {
+      acc[curriculum.id] = curriculum.lesson_title || 'Untitled curriculum';
+      return acc;
+    }, {} as Record<string, string>);
+  }, [curriculums]);
+
+  const filteredCurriculumSkills = useMemo(() => {
+    if (selectedCurriculum === 'all') {
+      return curriculumSkills;
+    }
+    return curriculumSkills.filter((skill) => skill.curriculum_id === selectedCurriculum);
+  }, [curriculumSkills, selectedCurriculum]);
 
   if (loading) {
     return <div className="text-center py-8">Loading skills...</div>;
@@ -472,6 +522,79 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-semibold">Curriculum Skills Library</h3>
+          <p className="text-sm text-muted-foreground">
+            Browse all skills linked to each curriculum, including the Alvin curriculum.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:w-72 space-y-1">
+            <Label className="text-sm font-medium">Filter by curriculum</Label>
+            <Select value={selectedCurriculum} onValueChange={setSelectedCurriculum}>
+              <SelectTrigger>
+                <SelectValue placeholder="All curriculums" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All curriculums</SelectItem>
+                {curriculums.map((curriculum) => (
+                  <SelectItem key={curriculum.id} value={curriculum.id}>
+                    {curriculum.lesson_title || 'Untitled curriculum'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Showing {filteredCurriculumSkills.length} of {curriculumSkills.length} skills
+          </div>
+        </div>
+
+        <div className="border rounded-lg">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Curriculum</TableHead>
+                  <TableHead>Skill</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Strand</TableHead>
+                  <TableHead>Substrand</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCurriculumSkills.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      No skills found for the selected curriculum.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredCurriculumSkills.map((skill) => (
+                    <TableRow key={skill.id}>
+                      <TableCell>
+                        {skill.curriculum?.lesson_title || (skill.curriculum_id ? curriculumNameMap[skill.curriculum_id] : 'Unassigned')}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {skill.skill_name || skill.description || 'Untitled skill'}
+                      </TableCell>
+                      <TableCell>{skill.skill_code || '-'}</TableCell>
+                      <TableCell>{skill.subject || '-'}</TableCell>
+                      <TableCell>{skill.strand || '-'}</TableCell>
+                      <TableCell>{skill.substrand || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </div>
     </div>
   );
