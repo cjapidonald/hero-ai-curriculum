@@ -155,41 +155,51 @@ export default function AdminDashboard() {
       }
       setError(null);
 
-      const { data: studentsData, error: studentError } = await supabase
-        .from("dashboard_students")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
-
-      const { data: teachersData, error: teacherError } = await supabase
+      const teacherRequest = supabase
         .from("teachers")
         .select("*")
         .eq("is_active", true);
-      if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
 
-      const { data: classesData, error: classesError } = await supabase
+      const studentsRequest = supabase
+        .from("dashboard_students")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const classesRequest = supabase
         .from("classes")
         .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
         .eq("is_active", true);
-      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
 
-      const { data: paymentsData, error: paymentsError } = await supabase
+      const paymentsRequest = supabase
         .from("payments")
         .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
         .order("payment_date", { ascending: false })
         .limit(10);
-      if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
 
-      const { data: eventsData, error: eventsError } = await supabase
+      const eventsRequest = supabase
         .from("events")
         .select("id, title, event_date, location")
         .eq("is_published", true)
         .gte("event_date", new Date().toISOString())
         .order("event_date", { ascending: true });
+
+      const { data: teachersData, error: teacherError } = await teacherRequest;
+      if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
+      setTeachers((teachersData ?? []) as TeacherRecord[]);
+
+      const [
+        { data: studentsData, error: studentError },
+        { data: classesData, error: classesError },
+        { data: paymentsData, error: paymentsError },
+        { data: eventsData, error: eventsError },
+      ] = await Promise.all([studentsRequest, classesRequest, paymentsRequest, eventsRequest]);
+
+      if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
+      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
+      if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
       if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
 
       setStudents((studentsData ?? []) as DashboardStudent[]);
-      setTeachers((teachersData ?? []) as TeacherRecord[]);
       setClasses((classesData ?? []) as ClassRecord[]);
       setEvents((eventsData ?? []) as EventRecord[]);
 
