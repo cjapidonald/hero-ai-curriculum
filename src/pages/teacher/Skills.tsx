@@ -1,17 +1,27 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Award, Plus, Pencil, Trash2, Eye } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Award, TrendingUp, Layers } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface SkillsProps {
@@ -20,486 +30,394 @@ interface SkillsProps {
 
 type DashboardStudentOption = Pick<Tables<"dashboard_students">, "id" | "name" | "surname" | "class">;
 
-interface SkillEvaluation {
+interface SkillMeta {
   id: string;
-  student_id: string;
-  student_name: string;
-  class: string | null;
-  skill_name: string;
-  skill_category: string;
-  e1: number | null;
-  e2: number | null;
-  e3: number | null;
-  e4: number | null;
-  e5: number | null;
-  e6: number | null;
-  average_score: number | null;
-  evaluation_date: string;
-  notes: string | null;
+  skill_name: string | null;
+  skill_code: string | null;
+  subject: string | null;
+  strand: string | null;
+  substrand: string | null;
+}
+
+interface SkillEvaluationRow {
+  id: string;
+  score: number | null;
+  text_feedback: string | null;
+  evaluation_date: string | null;
+  student_id: string | null;
+  class_id: string | null;
+  skill: SkillMeta | null;
+  student: DashboardStudentOption | null;
 }
 
 const Skills = ({ teacherId }: SkillsProps) => {
-  const [skills, setSkills] = useState<SkillEvaluation[]>([]);
-  const [students, setStudents] = useState<DashboardStudentOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<SkillEvaluation | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
   const { toast } = useToast();
+  const [evaluations, setEvaluations] = useState<SkillEvaluationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
 
-  const [formData, setFormData] = useState({
-    student_id: '',
-    skill_name: '',
-    skill_category: 'Writing',
-    e1: 0,
-    e2: 0,
-    e3: 0,
-    e4: 0,
-    e5: 0,
-    e6: 0,
-    evaluation_date: new Date().toISOString().split('T')[0],
-    notes: '',
-  });
-
-  const fetchSkills = useCallback(async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from("skills_evaluation")
-        .select("*")
-        .eq("teacher_id", teacherId)
-        .order("evaluation_date", { ascending: false });
-
-      if (filterCategory !== 'all') {
-        query = query.eq("skill_category", filterCategory);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setSkills((data ?? []) as SkillEvaluation[]);
-    } catch (error) {
-      console.error('Error fetching skills:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load skills evaluations',
-        variant: 'destructive',
-      });
-    } finally {
+  const fetchEvaluations = useCallback(async () => {
+    if (!teacherId) {
+      setEvaluations([]);
       setLoading(false);
-    }
-  }, [filterCategory, teacherId, toast]);
-
-  const fetchStudents = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("dashboard_students")
-        .select("id, name, surname, class")
-        .order("name");
-
-      if (error) throw error;
-      setStudents((data ?? []) as DashboardStudentOption[]);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchSkills();
-  }, [fetchSkills]);
-
-  useEffect(() => {
-    void fetchStudents();
-  }, [fetchStudents]);
-
-  const calculateAverage = () => {
-    const { e1, e2, e3, e4, e5, e6 } = formData;
-    const scores = [e1, e2, e3, e4, e5, e6].filter(score => score > 0);
-    if (scores.length === 0) return 0;
-    return scores.reduce((a, b) => a + b, 0) / scores.length;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.student_id || !formData.skill_name) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields',
-        variant: 'destructive',
-      });
       return;
     }
 
     try {
-      const student = students.find(s => s.id === formData.student_id);
-      const average = calculateAverage();
-
-      const skillData = {
-        teacher_id: teacherId,
-        student_id: formData.student_id,
-        student_name: `${student?.name} ${student?.surname}`,
-        class: student?.class,
-        skill_name: formData.skill_name,
-        skill_category: formData.skill_category,
-        e1: formData.e1,
-        e2: formData.e2,
-        e3: formData.e3,
-        e4: formData.e4,
-        e5: formData.e5,
-        e6: formData.e6,
-        average_score: average,
-        evaluation_date: formData.evaluation_date,
-        notes: formData.notes,
-      };
-
-      if (editingSkill) {
-        const { error } = await supabase
-          .from('skills_evaluation')
-          .update(skillData)
-          .eq('id', editingSkill.id);
-
-        if (error) throw error;
-
-        toast({
-          title: 'Success',
-          description: 'Skill evaluation updated successfully',
-        });
-      } else {
-        const { error } = await supabase
-          .from('skills_evaluation')
-          .insert(skillData);
-
-        if (error) throw error;
-
-        toast({
-          title: 'Success',
-          description: 'Skill evaluation created successfully',
-        });
-      }
-
-      setIsDialogOpen(false);
-      resetForm();
-      await fetchSkills();
-    } catch (error) {
-      console.error('Error saving skill evaluation:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save skill evaluation',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleEdit = (skill: SkillEvaluation) => {
-    setEditingSkill(skill);
-    setFormData({
-      student_id: skill.student_id,
-      skill_name: skill.skill_name,
-      skill_category: skill.skill_category,
-      e1: skill.e1 || 0,
-      e2: skill.e2 || 0,
-      e3: skill.e3 || 0,
-      e4: skill.e4 || 0,
-      e5: skill.e5 || 0,
-      e6: skill.e6 || 0,
-      evaluation_date: skill.evaluation_date,
-      notes: skill.notes || '',
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this skill evaluation?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('skills_evaluation')
-        .delete()
-        .eq('id', id);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("skill_evaluations")
+        .select(
+          `
+            id,
+            score,
+            text_feedback,
+            evaluation_date,
+            student_id,
+            class_id,
+            skill:skill_id (
+              id,
+              skill_name,
+              skill_code,
+              subject,
+              strand,
+              substrand
+            )
+          `
+        )
+        .eq("teacher_id", teacherId)
+        .order("evaluation_date", { ascending: false })
+        .limit(100);
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Skill evaluation deleted successfully',
-      });
+      const rows = (data ?? []) as Array<{
+        id: string;
+        score: number | null;
+        text_feedback: string | null;
+        evaluation_date: string | null;
+        student_id: string | null;
+        class_id: string | null;
+        skill: SkillMeta | null;
+      }>;
 
-      await fetchSkills();
+      const studentIds = Array.from(
+        new Set(rows.map((row) => row.student_id).filter((id): id is string => Boolean(id)))
+      );
+
+      let studentLookup = new Map<string, DashboardStudentOption>();
+      if (studentIds.length) {
+        const { data: studentData, error: studentError } = await supabase
+          .from("dashboard_students")
+          .select("id, name, surname, class")
+          .in("id", studentIds);
+
+        if (studentError) throw studentError;
+
+        studentLookup = new Map(
+          (studentData ?? []).map((student) => [student.id, student as DashboardStudentOption])
+        );
+      }
+
+      const typedRows: SkillEvaluationRow[] = rows.map((row) => ({
+        id: row.id,
+        score: row.score,
+        text_feedback: row.text_feedback,
+        evaluation_date: row.evaluation_date,
+        student_id: row.student_id,
+        class_id: row.class_id,
+        skill: row.skill ?? null,
+        student: row.student_id ? studentLookup.get(row.student_id) ?? null : null,
+      }));
+
+      setEvaluations(typedRows);
     } catch (error) {
-      console.error('Error deleting skill evaluation:', error);
+      console.error("Error loading skill evaluations:", error);
       toast({
-        title: 'Error',
-        description: 'Failed to delete skill evaluation',
-        variant: 'destructive',
+        title: "Error loading skill evaluations",
+        description:
+          error instanceof Error ? error.message : "Unexpected error retrieving evaluations.",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [teacherId, toast]);
 
-  const resetForm = () => {
-    setFormData({
-      student_id: '',
-      skill_name: '',
-      skill_category: 'Writing',
-      e1: 0,
-      e2: 0,
-      e3: 0,
-      e4: 0,
-      e5: 0,
-      e6: 0,
-      evaluation_date: new Date().toISOString().split('T')[0],
-      notes: '',
+  useEffect(() => {
+    void fetchEvaluations();
+  }, [fetchEvaluations]);
+
+  useEffect(() => {
+    if (!teacherId) return;
+
+    const channel = supabase
+      .channel(`teacher-skill-evaluations-${teacherId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'skill_evaluations',
+          filter: `teacher_id=eq.${teacherId}`,
+        },
+        () => {
+          void fetchEvaluations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvaluations, teacherId]);
+
+  const subjectOptions = useMemo(() => {
+    const subjects = new Set<string>();
+    evaluations.forEach((evaluation) => {
+      const subject = evaluation.skill?.subject || "General";
+      subjects.add(subject);
     });
-    setEditingSkill(null);
-  };
+    return Array.from(subjects).sort();
+  }, [evaluations]);
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'Writing': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'Reading': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'Listening': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
-      case 'Speaking': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+  useEffect(() => {
+    if (subjectFilter !== "all" && !subjectOptions.includes(subjectFilter)) {
+      setSubjectFilter("all");
     }
+  }, [subjectFilter, subjectOptions]);
+
+  const filteredEvaluations = useMemo(() => {
+    if (subjectFilter === "all") {
+      return evaluations;
+    }
+
+    return evaluations.filter((evaluation) => {
+      const subject = evaluation.skill?.subject || "General";
+      return subject === subjectFilter;
+    });
+  }, [evaluations, subjectFilter]);
+
+  const summary = useMemo(() => {
+    if (!evaluations.length) {
+      return {
+        totalEvaluations: 0,
+        scoredEvaluations: 0,
+        averageScore: 0,
+        topSubject: undefined as string | undefined,
+        topSubjectScore: undefined as number | undefined,
+      };
+    }
+
+    const scoredEvaluations = evaluations.filter(
+      (evaluation) => typeof evaluation.score === "number" && !Number.isNaN(Number(evaluation.score))
+    );
+
+    const averageScore = scoredEvaluations.length
+      ? scoredEvaluations.reduce((sum, evaluation) => sum + Number(evaluation.score ?? 0), 0) /
+        scoredEvaluations.length
+      : 0;
+
+    const subjectAggregate = new Map<string, { total: number; count: number }>();
+    scoredEvaluations.forEach((evaluation) => {
+      const subject = evaluation.skill?.subject || "General";
+      const bucket = subjectAggregate.get(subject) ?? { total: 0, count: 0 };
+      bucket.total += Number(evaluation.score ?? 0);
+      bucket.count += 1;
+      subjectAggregate.set(subject, bucket);
+    });
+
+    const subjects = Array.from(subjectAggregate.entries()).map(([subject, bucket]) => ({
+      subject,
+      average: bucket.count ? bucket.total / bucket.count : 0,
+    }));
+
+    subjects.sort((a, b) => b.average - a.average);
+    const topSubject = subjects[0];
+
+    return {
+      totalEvaluations: evaluations.length,
+      scoredEvaluations: scoredEvaluations.length,
+      averageScore,
+      topSubject: topSubject?.subject,
+      topSubjectScore: topSubject?.average,
+    };
+  }, [evaluations]);
+
+  const renderEvaluationDate = (dateString: string | null) => {
+    if (!dateString) {
+      return "—";
+    }
+
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return "—";
+    }
+
+    return format(date, "PP");
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-3xl font-bold mb-2">Skills Evaluation</h2>
-          <p className="text-muted-foreground">
-            Track student skills across Writing, Reading, Listening, and Speaking
-          </p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Evaluation
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingSkill ? 'Edit' : 'Add'} Skill Evaluation</DialogTitle>
-              <DialogDescription>
-                Evaluate student skills with scores from 0-20 for each criterion
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="student">Student *</Label>
-                  <Select
-                    value={formData.student_id}
-                    onValueChange={(value) => setFormData({ ...formData, student_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.name} {student.surname} ({student.class})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.skill_category}
-                    onValueChange={(value) => setFormData({ ...formData, skill_category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Writing">Writing</SelectItem>
-                      <SelectItem value="Reading">Reading</SelectItem>
-                      <SelectItem value="Listening">Listening</SelectItem>
-                      <SelectItem value="Speaking">Speaking</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="skill_name">Skill Name *</Label>
-                <Input
-                  id="skill_name"
-                  value={formData.skill_name}
-                  onChange={(e) => setFormData({ ...formData, skill_name: e.target.value })}
-                  placeholder="e.g., Essay Writing, Comprehension, etc."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="evaluation_date">Evaluation Date *</Label>
-                <Input
-                  id="evaluation_date"
-                  type="date"
-                  value={formData.evaluation_date}
-                  onChange={(e) => setFormData({ ...formData, evaluation_date: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((num) => (
-                  <div key={num} className="space-y-2">
-                    <Label htmlFor={`e${num}`}>E{num} (0-20)</Label>
-                    <Input
-                      id={`e${num}`}
-                      type="number"
-                      min="0"
-                      max="20"
-                      value={formData[`e${num}` as keyof typeof formData]}
-                      onChange={(e) => setFormData({ ...formData, [`e${num}`]: Number(e.target.value) })}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-muted/50 p-3 rounded-lg">
-                <p className="text-sm text-muted-foreground">Average Score</p>
-                <p className="text-2xl font-bold">{calculateAverage().toFixed(2)}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Additional comments or observations..."
-                  rows={3}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingSkill ? 'Update' : 'Create'} Evaluation
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h2 className="text-3xl font-bold mb-2">Skills Evaluation</h2>
+        <p className="text-muted-foreground">
+          Monitor recent skill evaluations, review feedback, and keep track of subject progress across your classes.
+        </p>
       </div>
 
-      {/* Filter */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <Label>Filter by Category:</Label>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Writing">Writing</SelectItem>
-                <SelectItem value="Reading">Reading</SelectItem>
-                <SelectItem value="Listening">Listening</SelectItem>
-                <SelectItem value="Speaking">Speaking</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+          <SelectTrigger className="w-full md:w-56">
+            <SelectValue placeholder="Filter by subject" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Subjects</SelectItem>
+            {subjectOptions.map((subject) => (
+              <SelectItem key={subject} value={subject}>
+                {subject}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      {/* Skills Table */}
+        <Button asChild>
+          <Link to="/teacher/skills-evaluation">
+            Record New Evaluation
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Evaluations</CardTitle>
+            <Award className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{summary.totalEvaluations}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {summary.scoredEvaluations} with recorded scores
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+            <TrendingUp className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {summary.scoredEvaluations ? summary.averageScore.toFixed(1) : "—"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Across scored evaluations</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Top Subject</CardTitle>
+            <Layers className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {summary.topSubject ? (
+                <>
+                  {summary.topSubject}
+                  {typeof summary.topSubjectScore === "number" && (
+                    <span className="ml-1 text-base text-muted-foreground">
+                      ({summary.topSubjectScore.toFixed(1)})
+                    </span>
+                  )}
+                </>
+              ) : (
+                "—"
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {subjectOptions.length} subject{subjectOptions.length === 1 ? "" : "s"} tracked
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Skill Evaluations</CardTitle>
-          <CardDescription>Manage and track student skill assessments</CardDescription>
+          <CardTitle>Recent Evaluations</CardTitle>
+          <CardDescription>
+            Showing {filteredEvaluations.length} of {evaluations.length} recorded evaluations
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : skills.length > 0 ? (
+          ) : filteredEvaluations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+              <p className="text-lg font-semibold">No skill evaluations found</p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Once you record evaluations, they will appear here along with student feedback and subject trends.
+              </p>
+              <Button asChild>
+                <Link to="/teacher/skills-evaluation">Record your first evaluation</Link>
+              </Button>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Skill</TableHead>
-                    <TableHead>E1</TableHead>
-                    <TableHead>E2</TableHead>
-                    <TableHead>E3</TableHead>
-                    <TableHead>E4</TableHead>
-                    <TableHead>E5</TableHead>
-                    <TableHead>E6</TableHead>
-                    <TableHead>Average</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Student</TableHead>
+                    <TableHead className="whitespace-nowrap">Class</TableHead>
+                    <TableHead className="whitespace-nowrap">Skill</TableHead>
+                    <TableHead className="whitespace-nowrap">Subject</TableHead>
+                    <TableHead className="whitespace-nowrap">Score</TableHead>
+                    <TableHead className="w-[320px]">Feedback</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {skills.map((skill) => (
-                    <TableRow key={skill.id}>
-                      <TableCell className="font-medium">{skill.student_name}</TableCell>
-                      <TableCell>{skill.class}</TableCell>
-                      <TableCell>
-                        <Badge className={getCategoryColor(skill.skill_category)}>
-                          {skill.skill_category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{skill.skill_name}</TableCell>
-                      <TableCell>{skill.e1 || '-'}</TableCell>
-                      <TableCell>{skill.e2 || '-'}</TableCell>
-                      <TableCell>{skill.e3 || '-'}</TableCell>
-                      <TableCell>{skill.e4 || '-'}</TableCell>
-                      <TableCell>{skill.e5 || '-'}</TableCell>
-                      <TableCell>{skill.e6 || '-'}</TableCell>
-                      <TableCell className="font-bold">
-                        {skill.average_score !== null && skill.average_score !== undefined ? skill.average_score.toFixed(1) : '-'}
-                      </TableCell>
-                      <TableCell>{format(new Date(skill.evaluation_date), 'MMM dd, yyyy')}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(skill)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(skill.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredEvaluations.map((evaluation) => {
+                    const subject = evaluation.skill?.subject || "General";
+                    const skillName = evaluation.skill?.skill_name || "Unnamed skill";
+                    const skillCode = evaluation.skill?.skill_code;
+                    return (
+                      <TableRow key={evaluation.id}>
+                        <TableCell className="whitespace-nowrap text-sm font-medium">
+                          {renderEvaluationDate(evaluation.evaluation_date)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {evaluation.student
+                            ? `${evaluation.student.name} ${evaluation.student.surname}`
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {evaluation.student?.class || "—"}
+                        </TableCell>
+                        <TableCell className="min-w-[200px] text-sm">
+                          <div className="font-medium">{skillName}</div>
+                          {skillCode && (
+                            <p className="text-xs text-muted-foreground">Code: {skillCode}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          <Badge variant="secondary">{subject}</Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm font-medium">
+                          {typeof evaluation.score === "number"
+                            ? evaluation.score.toFixed(1)
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {evaluation.text_feedback ? evaluation.text_feedback : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Award className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Skills Evaluations Yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Start tracking student skills by adding your first evaluation
-              </p>
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add First Evaluation
-              </Button>
             </div>
           )}
         </CardContent>

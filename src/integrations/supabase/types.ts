@@ -1590,137 +1590,126 @@ export type Database = {
         Row: {
           category: Database["public"]["Enums"]["skill_category"]
           created_at: string | null
+          curriculum_id: string | null
           description: string | null
           id: string
           is_active: boolean | null
           skill_code: string
           skill_name: string
+          strand: string | null
+          subject: string | null
+          substrand: string | null
           target_stage: Database["public"]["Enums"]["cambridge_stage"][] | null
           updated_at: string | null
         }
         Insert: {
           category: Database["public"]["Enums"]["skill_category"]
           created_at?: string | null
+          curriculum_id?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           skill_code: string
           skill_name: string
+          strand?: string | null
+          subject?: string | null
+          substrand?: string | null
           target_stage?: Database["public"]["Enums"]["cambridge_stage"][] | null
           updated_at?: string | null
         }
         Update: {
           category?: Database["public"]["Enums"]["skill_category"]
           created_at?: string | null
+          curriculum_id?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           skill_code?: string
           skill_name?: string
+          strand?: string | null
+          subject?: string | null
+          substrand?: string | null
           target_stage?: Database["public"]["Enums"]["cambridge_stage"][] | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      skills_evaluation: {
-        Row: {
-          average_score: number | null
-          class: string | null
-          created_at: string | null
-          e1: string | null
-          e1_score: number | null
-          e2: string | null
-          e2_score: number | null
-          e3: string | null
-          e3_score: number | null
-          e4: string | null
-          e4_score: number | null
-          e5: string | null
-          e5_score: number | null
-          e6: string | null
-          e6_score: number | null
-          evaluation_date: string | null
-          id: string
-          notes: string | null
-          skill_category: string | null
-          skill_name: string
-          student_id: string | null
-          student_name: string
-          teacher_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          average_score?: number | null
-          class?: string | null
-          created_at?: string | null
-          e1?: string | null
-          e1_score?: number | null
-          e2?: string | null
-          e2_score?: number | null
-          e3?: string | null
-          e3_score?: number | null
-          e4?: string | null
-          e4_score?: number | null
-          e5?: string | null
-          e5_score?: number | null
-          e6?: string | null
-          e6_score?: number | null
-          evaluation_date?: string | null
-          id?: string
-          notes?: string | null
-          skill_category?: string | null
-          skill_name: string
-          student_id?: string | null
-          student_name: string
-          teacher_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          average_score?: number | null
-          class?: string | null
-          created_at?: string | null
-          e1?: string | null
-          e1_score?: number | null
-          e2?: string | null
-          e2_score?: number | null
-          e3?: string | null
-          e3_score?: number | null
-          e4?: string | null
-          e4_score?: number | null
-          e5?: string | null
-          e5_score?: number | null
-          e6?: string | null
-          e6_score?: number | null
-          evaluation_date?: string | null
-          id?: string
-          notes?: string | null
-          skill_category?: string | null
-          skill_name?: string
-          student_id?: string | null
-          student_name?: string
-          teacher_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "skills_evaluation_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "skills_curriculum_id_fkey"
+            columns: ["curriculum_id"]
             isOneToOne: false
-            referencedRelation: "dashboard_students"
+            referencedRelation: "curriculum"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skill_evaluations: {
+        Row: {
+          class_id: string | null
+          created_at: string | null
+          evaluation_date: string | null
+          id: string
+          score: number | null
+          skill_id: string | null
+          student_id: string | null
+          teacher_id: string | null
+          text_feedback: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string | null
+          evaluation_date?: string | null
+          id?: string
+          score?: number | null
+          skill_id?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          text_feedback?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string | null
+          evaluation_date?: string | null
+          id?: string
+          score?: number | null
+          skill_id?: string | null
+          student_id?: string | null
+          teacher_id?: string | null
+          text_feedback?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_evaluations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "skills_evaluation_teacher_id_fkey"
-            columns: ["teacher_id"]
+            foreignKeyName: "skill_evaluations_skill_id_fkey"
+            columns: ["skill_id"]
             isOneToOne: false
-            referencedRelation: "teacher_dashboard_view"
-            referencedColumns: ["teacher_id"]
+            referencedRelation: "skills"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "skills_evaluation_teacher_id_fkey"
+            foreignKeyName: "skill_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
