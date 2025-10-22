@@ -789,10 +789,79 @@ export type Database = {
             foreignKeyName: "event_registrations_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "students"
+          referencedRelation: "students"
+          referencedColumns: ["id"]
+        },
+      ]
+      }
+      evaluation_item_scores: {
+        Row: {
+          evaluation_id: string
+          evaluator_comment: string | null
+          id: string
+          rubric_item_id: number
+          score: number | null
+          teacher_comment: string | null
+        }
+        Insert: {
+          evaluation_id: string
+          evaluator_comment?: string | null
+          id?: string
+          rubric_item_id: number
+          score?: number | null
+          teacher_comment?: string | null
+        }
+        Update: {
+          evaluation_id?: string
+          evaluator_comment?: string | null
+          id?: string
+          rubric_item_id?: number
+          score?: number | null
+          teacher_comment?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_item_scores_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_evaluations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "evaluation_item_scores_rubric_item_id_fkey"
+            columns: ["rubric_item_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_rubric_items"
+            referencedColumns: ["id"]
+          }
         ]
+      }
+      evaluation_rubric_items: {
+        Row: {
+          criteria: string
+          factor: number | null
+          id: number
+          order: number
+          score_type: string
+          section: string
+        }
+        Insert: {
+          criteria: string
+          factor?: number | null
+          id?: number
+          order: number
+          score_type: string
+          section: string
+        }
+        Update: {
+          criteria?: string
+          factor?: number | null
+          id?: number
+          order?: number
+          score_type?: string
+          section?: string
+        }
+        Relationships: []
       }
       events: {
         Row: {
@@ -2111,38 +2180,78 @@ export type Database = {
       }
       teacher_evaluations: {
         Row: {
-          admin_id: string | null
-          comment: string | null
+          campus: string | null
+          class_id: string | null
           created_at: string
+          evaluator_id: string | null
+          evaluator_signature_at: string | null
+          evaluation_date: string
+          highlights_strengths: string | null
           id: string
-          score: number
+          improvements_to_make: string | null
+          position: string | null
+          ranking: string | null
+          status: string
+          subject: string | null
           teacher_id: string
+          teacher_signature_at: string | null
+          topic_lesson: string | null
+          total_score: number | null
           updated_at: string
         }
         Insert: {
-          admin_id?: string | null
-          comment?: string | null
+          campus?: string | null
+          class_id?: string | null
           created_at?: string
+          evaluator_id?: string | null
+          evaluator_signature_at?: string | null
+          evaluation_date?: string
+          highlights_strengths?: string | null
           id?: string
-          score: number
+          improvements_to_make?: string | null
+          position?: string | null
+          ranking?: string | null
+          status?: string
+          subject?: string | null
           teacher_id: string
+          teacher_signature_at?: string | null
+          topic_lesson?: string | null
+          total_score?: number | null
           updated_at?: string
         }
         Update: {
-          admin_id?: string | null
-          comment?: string | null
+          campus?: string | null
+          class_id?: string | null
           created_at?: string
+          evaluator_id?: string | null
+          evaluator_signature_at?: string | null
+          evaluation_date?: string
+          highlights_strengths?: string | null
           id?: string
-          score?: number
+          improvements_to_make?: string | null
+          position?: string | null
+          ranking?: string | null
+          status?: string
+          subject?: string | null
           teacher_id?: string
+          teacher_signature_at?: string | null
+          topic_lesson?: string | null
+          total_score?: number | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "teacher_evaluations_admin_id_fkey"
-            columns: ["admin_id"]
+            foreignKeyName: "teacher_evaluations_class_id_fkey"
+            columns: ["class_id"]
             isOneToOne: false
-            referencedRelation: "admins"
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_evaluations_evaluator_id_fkey"
+            columns: ["evaluator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -2158,7 +2267,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "teachers"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
       teacher_notes: {
