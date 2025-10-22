@@ -262,26 +262,31 @@ export function ClassDetailDialog({
         })) ?? [];
       setScoreTrend(timeline);
 
-      const { data: skillsData, error: skillsError } = await supabase
-        .from("skills_evaluation")
-        .select("skill_name, skill_category, average_score")
-        .eq("class", classRecord.class_name);
+      const { data: skillsData, error: skillsError } = await supabase.rpc(
+        "get_class_skill_overview",
+        {
+          p_class_id: classRecord.id,
+        }
+      );
 
       if (skillsError) throw skillsError;
 
-      const skillMap = new Map<string, { total: number; count: number }>();
-      (skillsData || []).forEach((row) => {
-        const key = row.skill_name || row.skill_category || "Unspecified";
-        if (!row.average_score) return;
-        const bucket = skillMap.get(key) ?? { total: 0, count: 0 };
+      const subjectMap = new Map<string, { total: number; count: number }>();
+      (skillsData ?? []).forEach((row: any) => {
+        const subjectLabel = row.subject || row.skill_name || "Unspecified";
+        if (row.average_score === null || row.average_score === undefined) {
+          return;
+        }
+
+        const bucket = subjectMap.get(subjectLabel) ?? { total: 0, count: 0 };
         bucket.total += Number(row.average_score);
         bucket.count += 1;
-        skillMap.set(key, bucket);
+        subjectMap.set(subjectLabel, bucket);
       });
 
-      const breakdown = Array.from(skillMap.entries()).map(([skill, bucket]) => ({
-        skill,
-        average: Number((bucket.total / bucket.count).toFixed(1)),
+      const breakdown = Array.from(subjectMap.entries()).map(([label, bucket]) => ({
+        skill: label,
+        average: bucket.count ? Number((bucket.total / bucket.count).toFixed(1)) : 0,
       }));
 
       breakdown.sort((a, b) => b.average - a.average);

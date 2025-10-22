@@ -14,13 +14,30 @@ import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadius
 import type { Tables } from "@/integrations/supabase/types";
 
 type DashboardStudent = Tables<"dashboard_students">;
-type SkillsEvaluationRecord = Tables<"skills_evaluation">;
 type AssessmentRecord = Tables<"assessment">;
 
 interface RadarDataPoint {
   subject: string;
   score: number;
   fullMark: number;
+}
+
+interface SkillEvaluationProgress {
+  skill_id: string;
+  skill_name: string;
+  skill_code: string;
+  subject: string | null;
+  strand: string | null;
+  substrand: string | null;
+  latest_score: number | null;
+  average_score: number | null;
+  evaluation_count: number;
+  evaluations: Array<{
+    score: number | null;
+    text_feedback: string | null;
+    evaluation_date: string;
+    teacher_id: string;
+  }> | null;
 }
 
 interface StudentDashboardViewerProps {
@@ -30,7 +47,7 @@ interface StudentDashboardViewerProps {
 export default function StudentDashboardViewer({ studentId }: StudentDashboardViewerProps) {
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recentSkills, setRecentSkills] = useState<SkillsEvaluationRecord[]>([]);
+  const [skillsProgress, setSkillsProgress] = useState<SkillEvaluationProgress[]>([]);
   const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
   const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
@@ -56,38 +73,49 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
         const student = data as DashboardStudent;
         setStudentData(student);
 
-        const { data: skillsData, error: skillsError } = await supabase
-          .from("skills_evaluation")
-          .select("*")
-          .eq("student_id", student.id)
-          .order("evaluation_date", { ascending: false })
-          .limit(20);
+        const { data: skillsData, error: skillsError } = await supabase.rpc(
+          "get_student_skill_progress",
+          {
+            p_student_id: student.id,
+          }
+        );
 
-        if (!skillsError && skillsData) {
-          const typedSkills = skillsData as SkillsEvaluationRecord[];
-          setRecentSkills(typedSkills);
+        if (skillsError) {
+          console.error("Error loading skill progress:", skillsError);
+          setSkillsProgress([]);
+          setSkillsRadarData([]);
+        } else {
+          const typedSkills = (skillsData ?? []) as SkillEvaluationProgress[];
+          setSkillsProgress(typedSkills);
 
-          const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
-            if (!skill.skill_category) {
+          if (typedSkills.length) {
+            const categoryAverages = typedSkills.reduce<
+              Record<string, { total: number; count: number }>
+            >((acc, skill) => {
+              const subjectKey = skill.subject || "General";
+              if (!acc[subjectKey]) {
+                acc[subjectKey] = { total: 0, count: 0 };
+              }
+
+              acc[subjectKey].total += Number(skill.average_score ?? skill.latest_score ?? 0);
+              acc[subjectKey].count += 1;
               return acc;
-            }
+            }, {});
 
-            const categoryKey = skill.skill_category;
-            if (!acc[categoryKey]) {
-              acc[categoryKey] = { total: 0, count: 0 };
-            }
+            const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(
+              ([subject, aggregate]) => ({
+                subject,
+                score: aggregate.count
+                  ? Number((aggregate.total / aggregate.count).toFixed(2))
+                  : 0,
+                fullMark: 5,
+              })
+            );
 
-            acc[categoryKey].total += skill.average_score ?? 0;
-            acc[categoryKey].count += 1;
-            return acc;
-          }, {});
-
-          const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
-            subject: category,
-            score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-            fullMark: 5,
-          }));
-          setSkillsRadarData(radarData);
+            setSkillsRadarData(radarData);
+          } else {
+            setSkillsRadarData([]);
+          }
         }
 
         const { data: assessmentsData, error: assessmentsError } = await supabase
@@ -110,6 +138,62 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
     void fetchStudentData();
   }, [studentId]);
+
+  const skillHighlights = useMemo(() => {
+    if (!skillsProgress.length) {
+      return null;
+    }
+
+    const overallAverage =
+      skillsProgress.reduce((sum, skill) => sum + Number(skill.average_score ?? 0), 0) /
+      skillsProgress.length;
+
+    const totalEvaluations = skillsProgress.reduce(
+      (sum, skill) => sum + Number(skill.evaluation_count ?? 0),
+      0
+    );
+
+    const subjectAggregate = skillsProgress.reduce(
+      (acc, skill) => {
+        const subject = skill.subject || "General";
+        if (!acc[subject]) {
+          acc[subject] = { total: 0, count: 0 };
+        }
+
+        acc[subject].total += Number(skill.average_score ?? skill.latest_score ?? 0);
+        acc[subject].count += 1;
+        return acc;
+      },
+      {} as Record<string, { total: number; count: number }>
+    );
+
+    const topSubjectEntry = Object.entries(subjectAggregate).sort(
+      (a, b) =>
+        (b[1].count ? b[1].total / b[1].count : 0) -
+        (a[1].count ? a[1].total / a[1].count : 0)
+    )[0];
+
+    const latestEvaluationTimestamp = skillsProgress
+      .flatMap((skill) => (skill.evaluations ?? []).map((evaluation) => evaluation?.evaluation_date))
+      .filter(Boolean)
+      .map((dateString) => new Date(dateString as string).getTime())
+      .filter((timestamp): timestamp is number => !Number.isNaN(timestamp));
+
+    const latestEvaluationDate = latestEvaluationTimestamp.length
+      ? new Date(Math.max(...latestEvaluationTimestamp)).toISOString()
+      : undefined;
+
+    return {
+      overallAverage,
+      totalEvaluations,
+      topSubject: topSubjectEntry ? topSubjectEntry[0] : undefined,
+      topSubjectScore:
+        topSubjectEntry && topSubjectEntry[1].count
+          ? topSubjectEntry[1].total / topSubjectEntry[1].count
+          : undefined,
+      latestEvaluationDate,
+    };
+  }, [skillsProgress]);
 
   const averageAssessmentScore = useMemo(() => {
     if (!recentAssessments.length) return 0;
@@ -292,14 +376,62 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
                 className="mt-2 h-2"
               />
               <p className="text-xs text-muted-foreground mt-2">average assessment score</p>
-            </CardContent>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Placement Test Results */}
+      {skillHighlights && (
         <Card>
           <CardHeader>
-            <CardTitle>Placement Test Results</CardTitle>
+            <CardTitle>Skill Progress Highlights</CardTitle>
+            <CardDescription>Latest insights from recorded skill evaluations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Average Skill Score</p>
+                <p className="text-2xl font-semibold">
+                  {skillHighlights.overallAverage ? skillHighlights.overallAverage.toFixed(1) : "0.0"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Evaluations</p>
+                <p className="text-2xl font-semibold">{skillHighlights.totalEvaluations}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Top Subject</p>
+                <p className="text-2xl font-semibold">
+                  {skillHighlights.topSubject ? (
+                    <>
+                      {skillHighlights.topSubject}
+                      {typeof skillHighlights.topSubjectScore === "number" && (
+                        <span className="ml-1 text-base text-muted-foreground">
+                          ({skillHighlights.topSubjectScore.toFixed(1)})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Latest Evaluation</p>
+                <p className="text-2xl font-semibold">
+                  {skillHighlights.latestEvaluationDate
+                    ? new Date(skillHighlights.latestEvaluationDate).toLocaleDateString()
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Placement Test Results */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Placement Test Results</CardTitle>
             <CardDescription>Initial assessment scores across key skill areas</CardDescription>
           </CardHeader>
           <CardContent>

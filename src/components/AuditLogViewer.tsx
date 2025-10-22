@@ -112,7 +112,7 @@ export function AuditLogViewer() {
                 <SelectItem value="classes">Classes</SelectItem>
                 <SelectItem value="payments">Payments</SelectItem>
                 <SelectItem value="assessment">Assessments</SelectItem>
-                <SelectItem value="skills_evaluation">Skills</SelectItem>
+                <SelectItem value="skill_evaluations">Skills</SelectItem>
               </SelectContent>
             </Select>
 
