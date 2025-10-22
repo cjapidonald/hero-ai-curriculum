@@ -499,11 +499,14 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
                 <SelectValue placeholder="Select class" />
               </SelectTrigger>
               <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.name}>
-                    {cls.name}
-                  </SelectItem>
-                ))}
+                {classes.map((cls) => {
+                  const className = cls.name ?? cls.class_name ?? 'Unnamed class';
+                  return (
+                    <SelectItem key={cls.id} value={className}>
+                      {className}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
