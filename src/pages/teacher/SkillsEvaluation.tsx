@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +21,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Save, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Class {
   id: string;
@@ -53,24 +54,12 @@ interface Evaluation {
 
 export default function SkillsEvaluation() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("ESL");
   const [evaluations, setEvaluations] = useState<Map<string, Evaluation>>(new Map());
-  const [teacherId, setTeacherId] = useState<string>("");
-
-  // Get current teacher ID
-  useQuery({
-    queryKey: ["current-teacher"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setTeacherId(user.id);
-      }
-      return user;
-    },
-  });
+  const teacherId = user?.id ?? "";
 
   // Fetch classes
   const { data: classes } = useQuery({
@@ -134,6 +123,10 @@ export default function SkillsEvaluation() {
   // Save evaluation mutation
   const saveEvaluationMutation = useMutation({
     mutationFn: async (evaluation: Evaluation) => {
+      if (!teacherId) {
+        throw new Error("Teacher authentication is required to save evaluations.");
+      }
+
       const { data, error } = await supabase
         .from("skill_evaluations")
         .insert({
@@ -205,6 +198,15 @@ export default function SkillsEvaluation() {
       toast({
         title: "No data to save",
         description: "Please enter a score or feedback",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!teacherId) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in as a teacher before submitting evaluations.",
         variant: "destructive",
       });
       return;
