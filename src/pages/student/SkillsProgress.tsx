@@ -77,10 +77,10 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
   const selectedSkill = skillsProgress?.find(s => s.skill_id === selectedSkillId);
 
   // Data for line chart (skill progress over time)
-  const lineChartData = selectedSkill?.evaluations?.map((eval, index) => ({
+  const lineChartData = selectedSkill?.evaluations?.map((evaluation, index) => ({
     name: `Attempt ${index + 1}`,
-    score: eval.score,
-    date: new Date(eval.evaluation_date).toLocaleDateString(),
+    score: evaluation.score,
+    date: new Date(evaluation.evaluation_date).toLocaleDateString(),
   })) || [];
 
   // Group skills by subject for display
@@ -273,17 +273,17 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
               <div>
                 <h3 className="text-lg font-semibold mb-4">Recent Feedback</h3>
                 <div className="space-y-3">
-                  {selectedSkill.evaluations?.slice(0, 3).map((eval, index) => (
+                  {selectedSkill.evaluations?.slice(0, 3).map((evaluation, index) => (
                     <Card key={index}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-semibold">Score: {eval.score}%</span>
+                          <span className="font-semibold">Score: {evaluation.score}%</span>
                           <span className="text-sm text-muted-foreground">
-                            {new Date(eval.evaluation_date).toLocaleDateString()}
+                            {new Date(evaluation.evaluation_date).toLocaleDateString()}
                           </span>
                         </div>
-                        {eval.text_feedback && (
-                          <p className="text-sm text-muted-foreground">{eval.text_feedback}</p>
+                        {evaluation.text_feedback && (
+                          <p className="text-sm text-muted-foreground">{evaluation.text_feedback}</p>
                         )}
                       </CardContent>
                     </Card>
