@@ -203,11 +203,14 @@ const FormativeAssessment = ({ teacherId }: FormativeAssessmentProps) => {
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>
                 <SelectContent>
-                  {classes.map(cls => (
-                    <SelectItem key={cls.id} value={cls.id}>
-                      {cls.name}
-                    </SelectItem>
-                  ))}
+                  {classes.map(cls => {
+                    const className = cls.name ?? cls.class_name ?? 'Unnamed class';
+                    return (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {className}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

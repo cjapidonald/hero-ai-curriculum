@@ -369,31 +369,34 @@ export const EnhancedTeacherCRUD = () => {
               <div>
                 <Label>Assigned Classes</Label>
                 <div className="border rounded-lg p-4 space-y-2">
-                  {classes.map((cls) => (
-                    <div key={cls.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`class-${cls.id}`}
-                        checked={formData.assigned_classes.includes(cls.name)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              assigned_classes: [...formData.assigned_classes, cls.name],
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              assigned_classes: formData.assigned_classes.filter((c) => c !== cls.name),
-                            });
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`class-${cls.id}`}>
-                        {cls.name} - {cls.level} ({cls.stage})
-                      </Label>
-                    </div>
-                  ))}
+                  {classes.map((cls) => {
+                    const className = cls.name ?? cls.class_name ?? 'Unnamed class';
+                    return (
+                      <div key={cls.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`class-${cls.id}`}
+                          checked={formData.assigned_classes.includes(className)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                assigned_classes: [...formData.assigned_classes, className],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                assigned_classes: formData.assigned_classes.filter((c) => c !== className),
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`class-${cls.id}`}>
+                          {className} - {cls.level} ({cls.stage})
+                        </Label>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

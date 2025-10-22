@@ -23,6 +23,13 @@ interface RubricScores {
   [criterionId: string]: Score;
 }
 
+type ObservationClass = {
+  id: string;
+  name?: string | null;
+  class_name?: string | null;
+  [key: string]: any;
+};
+
 interface ClassroomObservationFormProps {
   teacher: {
     id: string;
@@ -30,7 +37,7 @@ interface ClassroomObservationFormProps {
     surname: string;
     assigned_classes: string[] | null;
   };
-  classes?: any[];
+  classes?: ObservationClass[];
   onClose: () => void;
 }
 
@@ -41,6 +48,19 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
   const [contextExplanation, setContextExplanation] = useState('');
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getClassName = (cls: ObservationClass | undefined) =>
+    cls?.name ?? cls?.class_name ?? '';
+
+  useEffect(() => {
+    const availableClass = classes.find((cls) =>
+      teacher?.assigned_classes?.includes(getClassName(cls))
+    );
+
+    if (availableClass && !selectedClass) {
+      setSelectedClass(availableClass.id);
+    }
+  }, [classes, teacher, selectedClass]);
 
   useEffect(() => {
     // Initialize scores state from the rubric constant
@@ -88,9 +108,11 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
     try {
       const overallScore = parseFloat(calculateOverallScore());
 
+      const evaluatorId = auth.user.role === 'admin' ? null : auth.user.id;
+
       const { error } = await supabase.from('teacher_evaluations' as any).insert({
         teacher_id: teacher.id,
-        evaluator_id: auth.user.id,
+        evaluator_id: evaluatorId,
         evaluation_date: new Date().toISOString(),
         rubric_scores: rubricScores,
         context_explanation: contextExplanation,
@@ -130,10 +152,18 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
             </SelectTrigger>
             <SelectContent>
               {classes
-                .filter(c => teacher?.assigned_classes?.includes(c.name))
-                .map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
+                .filter((c) => {
+                  const className = getClassName(c);
+                  return className && teacher?.assigned_classes?.includes(className);
+                })
+                .map((c) => {
+                  const className = getClassName(c) || 'Unnamed class';
+                  return (
+                    <SelectItem key={c.id} value={c.id}>
+                      {className}
+                    </SelectItem>
+                  );
+                })}
             </SelectContent>
           </Select>
         </div>
