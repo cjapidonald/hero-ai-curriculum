@@ -157,6 +157,10 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
   const isTeacher = auth?.user?.id === evaluation.teacher_id;
   const isEvaluator = auth?.user?.id === evaluation.evaluator_id;
 
+  const isTeacherReviewStatus =
+    evaluation.status === 'submitted_to_teacher' ||
+    evaluation.status === 'pending_teacher_review';
+
   return (
     <Card className="w-full max-w-4xl mx-auto my-8">
       <CardHeader>
@@ -191,7 +195,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
                         placeholder="Your comment..."
                         value={teacherComments[item.id] || ''}
                         onChange={e => handleCommentChange(item.id, e.target.value)}
-                        disabled={!isTeacher || evaluation.status !== 'submitted_to_teacher'}
+                        disabled={!isTeacher || !isTeacherReviewStatus}
                       />
                     </div>
                   </div>
@@ -205,7 +209,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
 
       </CardContent>
       <CardFooter className="flex justify-end gap-4">
-        {isTeacher && evaluation.status === 'submitted_to_teacher' && (
+        {isTeacher && isTeacherReviewStatus && (
           <>
             <Button variant="outline" onClick={handleSendBackForReevaluation}>Send Back for Re-evaluation</Button>
             <Button onClick={handleSubmitTeacherComments}>Agree and Submit Comments</Button>
