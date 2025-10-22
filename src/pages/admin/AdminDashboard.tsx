@@ -18,6 +18,7 @@ import { SkillsManagement } from "@/components/crud/SkillsManagement";
 import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
 import { ClassesCRUD } from "@/components/crud/ClassesCRUD";
+import { CurriculumCRUD } from "@/components/crud/CurriculumCRUD";
 import { exportToCSV } from "@/lib/export-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -747,6 +748,22 @@ export default function AdminDashboard() {
 
           <TabsContent value="curriculum" className="space-y-4">
             <Card>
+              <CardHeader>
+                <CardTitle>Curriculum Management</CardTitle>
+                <CardDescription>Assign lessons to teachers and classes, and manage full curriculum content</CardDescription>
+              </CardHeader>
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <CurriculumCRUD enableTeacherSelection enableClassSelection />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Curriculum Library</CardTitle>
+                <CardDescription>Detailed view of every lesson with activity breakdowns</CardDescription>
+              </CardHeader>
               <CardContent className="px-0">
                 <div className="px-6">
                   <FullCurriculumView />

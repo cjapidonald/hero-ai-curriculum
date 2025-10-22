@@ -11,6 +11,10 @@ import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 
+interface SkillsManagementProps {
+  showHeader?: boolean;
+}
+
 interface Skill {
   id: string;
   skill_name: string;
@@ -24,7 +28,7 @@ interface Skill {
   created_at: string;
 }
 
-export const SkillsManagement = () => {
+export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) => {
   const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
@@ -218,13 +222,15 @@ export const SkillsManagement = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Skills Management</h2>
-          <p className="text-sm text-muted-foreground">
-            Create and manage skills that can be assigned to classes
-          </p>
-        </div>
+      <div className={showHeader ? 'flex justify-between items-center' : 'flex justify-end'}>
+        {showHeader && (
+          <div>
+            <h2 className="text-2xl font-bold">Skills Management</h2>
+            <p className="text-sm text-muted-foreground">
+              Create and manage skills that can be assigned to classes
+            </p>
+          </div>
+        )}
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) resetForm();

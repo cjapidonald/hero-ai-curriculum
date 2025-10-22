@@ -30,11 +30,12 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { ClassDetailDialog } from "@/pages/admin/components/ClassDetailDialog";
 
 interface ClassRecord {
   id: string;
   class_name: string;
-  teacher_name: string | null;
+  teacher_id: string | null;
   stage: string | null;
   schedule_days: string[] | null;
   start_time: string | null;
@@ -58,9 +59,12 @@ export function ClassesCRUD() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [editingClass, setEditingClass] = useState<ClassRecord | null>(null);
   const [formData, setFormData] = useState({
     class_name: '',
+    teacher_id: '',
     teacher_name: '',
     stage: 'stage_1',
     schedule_days: [] as string[],
@@ -80,7 +84,18 @@ export function ClassesCRUD() {
     { value: 'stage_6', label: 'Stage 6' },
   ];
 
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayOptions = [
+    { value: 'monday', label: 'Monday', short: 'Mon' },
+    { value: 'tuesday', label: 'Tuesday', short: 'Tue' },
+    { value: 'wednesday', label: 'Wednesday', short: 'Wed' },
+    { value: 'thursday', label: 'Thursday', short: 'Thu' },
+    { value: 'friday', label: 'Friday', short: 'Fri' },
+    { value: 'saturday', label: 'Saturday', short: 'Sat' },
+    { value: 'sunday', label: 'Sunday', short: 'Sun' },
+  ] as const;
+
+  const getDayLabel = (value: string) =>
+    dayOptions.find((option) => option.value === value)?.label ?? value;
 
   useEffect(() => {
     fetchClasses();
@@ -167,19 +182,8 @@ export function ClassesCRUD() {
   };
 
   const handleEdit = (classItem: ClassRecord) => {
-    setEditingClass(classItem);
-    setFormData({
-      class_name: classItem.class_name,
-      teacher_name: classItem.teacher_name || '',
-      stage: classItem.stage || 'stage_1',
-      schedule_days: classItem.schedule_days || [],
-      start_time: classItem.start_time || '',
-      end_time: classItem.end_time || '',
-      max_students: classItem.max_students || 15,
-      classroom_location: classItem.classroom_location || '',
-      is_active: classItem.is_active !== false,
-    });
-    setIsDialogOpen(true);
+    setSelectedClassId(classItem.id);
+    setIsDetailDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -212,7 +216,7 @@ export function ClassesCRUD() {
     setEditingClass(null);
     setFormData({
       class_name: '',
-      teacher_name: '',
+      teacher_id: '',
       stage: 'stage_1',
       schedule_days: [],
       start_time: '',
@@ -232,11 +236,19 @@ export function ClassesCRUD() {
     }));
   };
 
-  const filteredClasses = classes.filter(c =>
-    c.class_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.teacher_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.stage?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getTeacherName = (teacherId: string) => {
+    const teacher = teachers.find(t => t.id === teacherId);
+    return teacher ? `${teacher.name} ${teacher.surname}` : 'Unassigned';
+  };
+
+  const filteredClasses = classes.filter(c => {
+    const teacherName = c.teacher_id ? getTeacherName(c.teacher_id) : '';
+    return (
+      c.class_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      teacherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.stage?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   if (loading) {
     return <div className="text-center py-8">Loading classes...</div>;
@@ -286,17 +298,17 @@ export function ClassesCRUD() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="teacher_name">Teacher</Label>
+                  <Label htmlFor="teacher_id">Teacher</Label>
                   <Select
-                    value={formData.teacher_name}
-                    onValueChange={(value) => setFormData({ ...formData, teacher_name: value })}
+                    value={formData.teacher_id}
+                    onValueChange={(value) => setFormData({ ...formData, teacher_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select teacher" />
                     </SelectTrigger>
                     <SelectContent>
                       {teachers.map((teacher) => (
-                        <SelectItem key={teacher.id} value={`${teacher.name} ${teacher.surname}`}>
+                        <SelectItem key={teacher.id} value={teacher.id}>
                           {teacher.name} {teacher.surname}
                         </SelectItem>
                       ))}
@@ -427,7 +439,7 @@ export function ClassesCRUD() {
             {filteredClasses.map((classItem) => (
               <TableRow key={classItem.id}>
                 <TableCell className="font-medium whitespace-nowrap">{classItem.class_name}</TableCell>
-                <TableCell className="whitespace-nowrap">{classItem.teacher_name || 'Unassigned'}</TableCell>
+                <TableCell className="whitespace-nowrap">{getTeacherName(classItem.teacher_id || '')}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   <Badge variant="outline">{classItem.stage}</Badge>
                 </TableCell>
@@ -471,6 +483,16 @@ export function ClassesCRUD() {
           <p className="text-muted-foreground">No classes found matching "{searchQuery}"</p>
         </div>
       )}
+
+      <ClassDetailDialog
+        classId={selectedClassId}
+        open={isDetailDialogOpen}
+        onClose={() => {
+          setIsDetailDialogOpen(false);
+          setSelectedClassId(null);
+        }}
+        onRefreshRequested={fetchClasses}
+      />
     </div>
   );
 }

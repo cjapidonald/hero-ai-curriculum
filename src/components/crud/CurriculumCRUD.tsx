@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCurriculum, Curriculum } from '@/hooks/useCurriculum';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -27,17 +27,43 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CurriculumCRUDProps {
   teacherId?: string;
   showActions?: boolean;
   onEditLesson?: (lessonId: string) => void;
+  enableTeacherSelection?: boolean;
+  enableClassSelection?: boolean;
 }
 
 interface Activity {
   name: string;
   type: string;
   url: string;
+}
+
+type ExtendedCurriculum = Curriculum & {
+  title?: string | null;
+  stage?: string | null;
+  curriculum_stage?: string | null;
+  class?: string | null;
+  class_id?: string | null;
+  description?: string | null;
+  lesson_number?: number | null;
+  objectives?: string[] | null;
+};
+
+interface TeacherOption {
+  id: string;
+  name: string;
+  surname?: string | null;
+}
+
+interface ClassOption {
+  id: string;
+  class_name: string;
+  stage: string | null;
 }
 
 const activityPrefixes = {
@@ -75,27 +101,106 @@ const flattenActivities = (activities: Activity[], prefix: string, limit: number
   return flat;
 };
 
-export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: CurriculumCRUDProps) {
+export function CurriculumCRUD({
+  teacherId,
+  showActions = true,
+  onEditLesson,
+  enableTeacherSelection = false,
+  enableClassSelection = false,
+}: CurriculumCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
   const filters = teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined;
-  const { data: lessons, loading, create, update, remove } = useCurriculum(filters);
+  const { data: lessonsData, loading, create, update, remove } = useCurriculum(filters);
   const { toast } = useToast();
 
-  const [editingLesson, setEditingLesson] = useState<Curriculum | null>(null);
+  const lessons = useMemo(
+    () => ((lessonsData as ExtendedCurriculum[]) || []).sort((a, b) => {
+      const dateA = a.lesson_date ? new Date(a.lesson_date).getTime() : 0;
+      const dateB = b.lesson_date ? new Date(b.lesson_date).getTime() : 0;
+      return dateB - dateA;
+    }),
+    [lessonsData]
+  );
+
+  const [editingLesson, setEditingLesson] = useState<ExtendedCurriculum | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Curriculum> & {
+  const [formData, setFormData] = useState<Partial<ExtendedCurriculum> & {
     warmups?: Activity[];
     main_activities?: Activity[];
     assessments?: Activity[];
     homework?: Activity[];
     printables?: Activity[];
   }>({});
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [lookupsLoading, setLookupsLoading] = useState(false);
+  const stageOptions = useMemo(
+    () => ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5', 'Stage 6'],
+    []
+  );
+
+  useEffect(() => {
+    if (!enableTeacherSelection && !enableClassSelection) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchLookups = async () => {
+      try {
+        setLookupsLoading(true);
+
+        if (enableTeacherSelection) {
+          const { data, error } = await supabase
+            .from('teachers')
+            .select('id, name, surname')
+            .eq('is_active', true)
+            .order('name');
+
+          if (error) throw error;
+          if (isMounted) {
+            setTeachers((data as TeacherOption[]) || []);
+          }
+        }
+
+        if (enableClassSelection) {
+          const { data, error } = await supabase
+            .from('classes')
+            .select('id, class_name, stage')
+            .eq('is_active', true)
+            .order('class_name');
+
+          if (error) throw error;
+          if (isMounted) {
+            setClasses((data as ClassOption[]) || []);
+          }
+        }
+      } catch (error: any) {
+        console.error('Error loading curriculum options:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load teacher or class options',
+          variant: 'destructive',
+        });
+      } finally {
+        if (isMounted) {
+          setLookupsLoading(false);
+        }
+      }
+    };
+
+    void fetchLookups();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [enableTeacherSelection, enableClassSelection, toast]);
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
 
-  const handleOpenDialog = (lesson?: Curriculum) => {
+  const handleOpenDialog = (lesson?: ExtendedCurriculum) => {
     if (lesson) {
       if (onEditLesson) {
         onEditLesson(lesson.id);
@@ -104,6 +209,13 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
       setEditingLesson(lesson);
       setFormData({
         ...lesson,
+        title: lesson.title ?? lesson.lesson_title ?? '',
+        stage: lesson.stage ?? lesson.curriculum_stage ?? '',
+        curriculum_stage: lesson.curriculum_stage ?? lesson.stage ?? '',
+        class_id: lesson.class_id ?? undefined,
+        teacher_id: lesson.teacher_id ?? undefined,
+        teacher_name: lesson.teacher_name ?? '',
+        class: lesson.class ?? '',
         warmups: parseActivities(lesson, 'wp', activityLimits.warmups),
         main_activities: parseActivities(lesson, 'ma', activityLimits.main_activities),
         assessments: parseActivities(lesson, 'a', activityLimits.assessments),
@@ -115,9 +227,14 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
       setFormData({
         teacher_id: teacherId || user?.id || undefined,
         teacher_name: user?.name ? `${user.name} ${user.surname}` : '',
+        title: '',
         subject: 'English',
         lesson_title: '',
         lesson_date: new Date().toISOString().split('T')[0],
+        stage: '',
+        curriculum_stage: '',
+        class: '',
+        class_id: undefined,
         lesson_skills: '',
         success_criteria: '',
         warmups: [],
@@ -133,10 +250,47 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { warmups, main_activities, assessments, homework, printables, ...restOfData } = formData;
+    const {
+      warmups,
+      main_activities,
+      assessments,
+      homework,
+      printables,
+      class_id,
+      objectives,
+      description,
+      lesson_number,
+      stage,
+      curriculum_stage,
+      title,
+      ...restOfData
+    } = formData;
 
-    const payload = {
+    const sanitizeString = (value?: string | null) => {
+      if (value === undefined || value === null) return null;
+      const trimmed = value.toString().trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const normalizedTitle = sanitizeString(restOfData.lesson_title) || sanitizeString(title) || '';
+    const resolvedStage = sanitizeString(stage) || sanitizeString(curriculum_stage);
+    const selectedTeacherId = sanitizeString(restOfData.teacher_id) || null;
+    const selectedTeacherName = sanitizeString(restOfData.teacher_name);
+    const selectedClassName = sanitizeString(restOfData.class);
+
+    const payload: Record<string, any> = {
       ...restOfData,
+      lesson_title: normalizedTitle,
+      title: normalizedTitle,
+      teacher_id: selectedTeacherId,
+      teacher_name: selectedTeacherName,
+      class: selectedClassName,
+      class_id: class_id ?? null,
+      description: description ?? null,
+      objectives: objectives ?? null,
+      lesson_number: lesson_number ?? null,
+      stage: resolvedStage,
+      curriculum_stage: resolvedStage,
       ...flattenActivities(warmups || [], 'wp', activityLimits.warmups),
       ...flattenActivities(main_activities || [], 'ma', activityLimits.main_activities),
       ...flattenActivities(assessments || [], 'a', activityLimits.assessments),
@@ -144,8 +298,17 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
       ...flattenActivities(printables || [], 'p', activityLimits.printables),
     };
 
+    payload.lesson_skills = sanitizeString(payload.lesson_skills);
+    payload.success_criteria = sanitizeString(payload.success_criteria);
+    payload.subject = sanitizeString(payload.subject);
+    payload.lesson_date = payload.lesson_date || null;
+    if (!resolvedStage) {
+      payload.stage = null;
+      payload.curriculum_stage = null;
+    }
+
     if (editingLesson) {
-      const { error } = await update(editingLesson.id, payload);
+      const { error } = await update(editingLesson.id, payload as any);
       if (!error) {
         setIsDialogOpen(false);
         toast({
@@ -211,7 +374,14 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
                     <Input
                       id="lesson_title"
                       value={formData.lesson_title || ''}
-                      onChange={(e) => setFormData({ ...formData, lesson_title: e.target.value })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          lesson_title: value,
+                          title: value,
+                        });
+                      }}
                       required
                       placeholder="e.g., Numbers 1-10, Colors and Shapes"
                     />
@@ -235,6 +405,120 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
                       placeholder="e.g., English, Math"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="stage">Stage</Label>
+                    <Select
+                      value={formData.stage || formData.curriculum_stage || ''}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          stage: value || '',
+                          curriculum_stage: value || '',
+                        })
+                      }
+                    >
+                      <SelectTrigger id="stage">
+                        <SelectValue placeholder="Select stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Not set</SelectItem>
+                        {stageOptions.map((stageOption) => (
+                          <SelectItem key={stageOption} value={stageOption}>
+                            {stageOption}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {enableTeacherSelection && (
+                    <div className="col-span-2">
+                      <Label htmlFor="teacher">Assigned Teacher</Label>
+                      <Select
+                        value={formData.teacher_id || ''}
+                        onValueChange={(value) => {
+                          if (value === '') {
+                            setFormData({
+                              ...formData,
+                              teacher_id: undefined,
+                              teacher_name: '',
+                            });
+                            return;
+                          }
+                          const selectedTeacher = teachers.find((teacher) => teacher.id === value);
+                          setFormData({
+                            ...formData,
+                            teacher_id: value,
+                            teacher_name: selectedTeacher
+                              ? `${selectedTeacher.name} ${selectedTeacher.surname ?? ''}`.trim()
+                              : '',
+                          });
+                        }}
+                        disabled={lookupsLoading && teachers.length === 0}
+                      >
+                        <SelectTrigger id="teacher">
+                          <SelectValue placeholder={lookupsLoading ? 'Loading teachers...' : 'Select teacher'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Unassigned</SelectItem>
+                          {teachers.map((teacher) => (
+                            <SelectItem key={teacher.id} value={teacher.id}>
+                              {teacher.name} {teacher.surname ?? ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {enableClassSelection && (
+                    <>
+                      <div>
+                        <Label htmlFor="class_select">Link Existing Class</Label>
+                        <Select
+                          value={formData.class_id || ''}
+                          onValueChange={(value) => {
+                            if (value === '') {
+                              setFormData({
+                                ...formData,
+                                class_id: undefined,
+                                class: '',
+                              });
+                              return;
+                            }
+                            const selectedClass = classes.find((cls) => cls.id === value);
+                            setFormData({
+                              ...formData,
+                              class_id: value,
+                              class: selectedClass?.class_name || '',
+                              stage: formData.stage || selectedClass?.stage || '',
+                              curriculum_stage: formData.curriculum_stage || selectedClass?.stage || '',
+                            });
+                          }}
+                          disabled={lookupsLoading && classes.length === 0}
+                        >
+                          <SelectTrigger id="class_select">
+                            <SelectValue placeholder={lookupsLoading ? 'Loading classes...' : 'Select class'} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">No class</SelectItem>
+                            {classes.map((cls) => (
+                              <SelectItem key={cls.id} value={cls.id}>
+                                {cls.class_name} {cls.stage ? `(${cls.stage})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="class_name">Class Name</Label>
+                        <Input
+                          id="class_name"
+                          value={formData.class || ''}
+                          onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+                          placeholder="e.g., Alvin Stage 1"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div className="col-span-2">
                     <Label htmlFor="lesson_skills">Lesson Skills</Label>
                     <Input
@@ -357,6 +641,8 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
               <TableHead>Date</TableHead>
               <TableHead>Lesson Title</TableHead>
               <TableHead>Subject</TableHead>
+              <TableHead>Stage</TableHead>
+              <TableHead>Class</TableHead>
               <TableHead>Skills</TableHead>
               <TableHead>Teacher</TableHead>
               {showActions && canEdit && <TableHead>Actions</TableHead>}
@@ -365,7 +651,7 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
           <TableBody>
             {lessons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={showActions && canEdit ? 8 : 7} className="text-center py-8 text-gray-500">
                   No lessons found. Create your first lesson to get started.
                 </TableCell>
               </TableRow>
@@ -380,6 +666,8 @@ export function CurriculumCRUD({ teacherId, showActions = true, onEditLesson }: 
                   </TableCell>
                   <TableCell className="font-medium">{lesson.lesson_title}</TableCell>
                   <TableCell>{lesson.subject || '-'}</TableCell>
+                  <TableCell>{lesson.stage || lesson.curriculum_stage || '-'}</TableCell>
+                  <TableCell>{lesson.class || '-'}</TableCell>
                   <TableCell className="max-w-xs truncate">{lesson.lesson_skills || '-'}</TableCell>
                   <TableCell>{lesson.teacher_name || '-'}</TableCell>
                   {showActions && canEdit && (
