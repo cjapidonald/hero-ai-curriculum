@@ -71,18 +71,33 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
         table = 'teachers';
         query = supabase.from(table as any).select('*').eq('email', user.email).maybeSingle();
       } else {
-        // For admin, use auth.users metadata
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          setProfileData({
-            name: authUser.user_metadata?.name || '',
-            surname: authUser.user_metadata?.surname || '',
-            email: authUser.email || '',
-            phone: authUser.user_metadata?.phone || '',
-            location: authUser.user_metadata?.location || '',
-            profile_image_url: authUser.user_metadata?.avatar_url || '',
+        const { data, error } = await supabase
+          .from('admins' as any)
+          .select('*')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!data) {
+          toast({
+            title: 'Profile Not Found',
+            description: 'Unable to locate an admin profile for your account. Please contact support.',
+            variant: 'destructive',
           });
+          setLoading(false);
+          setOpen(false);
+          return;
         }
+
+        setProfileData(prev => ({
+          ...prev,
+          name: data.name || '',
+          surname: data.surname || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          profile_image_url: data.profile_image_url || '',
+        }));
         setLoading(false);
         return;
       }
@@ -214,18 +229,23 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
 
         if (error) throw error;
       } else {
-        // Update auth.users metadata for admin
-        const { error } = await supabase.auth.updateUser({
-          data: {
+        const { data, error } = await supabase
+          .from('admins' as any)
+          .update({
             name: profileData.name,
             surname: profileData.surname,
             phone: profileData.phone,
-            location: profileData.location,
-            avatar_url: profileData.profile_image_url,
-          },
-        });
+            profile_image_url: profileData.profile_image_url,
+          })
+          .eq('email', user?.email)
+          .select()
+          .maybeSingle();
 
         if (error) throw error;
+
+        if (!data) {
+          throw new Error('Admin profile not found. Please contact support.');
+        }
       }
 
       toast({
