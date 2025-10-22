@@ -701,8 +701,10 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <EnhancedStudentCRUD />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <EnhancedStudentCRUD />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -721,8 +723,10 @@ export default function AdminDashboard() {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
-                <EnhancedTeacherCRUD />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <EnhancedTeacherCRUD />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -733,16 +737,20 @@ export default function AdminDashboard() {
                 <CardTitle>Class Management</CardTitle>
                 <CardDescription>Add, edit, and manage all classes</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ClassesCRUD />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <ClassesCRUD />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="curriculum" className="space-y-4">
             <Card>
-              <CardContent>
-                <FullCurriculumView />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <FullCurriculumView />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -753,8 +761,10 @@ export default function AdminDashboard() {
                 <CardTitle>Skills Management</CardTitle>
                 <CardDescription>Manage skills and their assignments to classes</CardDescription>
               </CardHeader>
-              <CardContent>
-                <SkillsManagement />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <SkillsManagement />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -792,10 +802,12 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <CalendarSessionCRUD
-                  teacherId={selectedCalendarTeacherId === 'all' ? undefined : selectedCalendarTeacherId}
-                />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <CalendarSessionCRUD
+                    teacherId={selectedCalendarTeacherId === 'all' ? undefined : selectedCalendarTeacherId}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -818,8 +830,10 @@ export default function AdminDashboard() {
                 <CardTitle>Teacher Evaluations</CardTitle>
                 <CardDescription>View and manage all teacher evaluations</CardDescription>
               </CardHeader>
-              <CardContent>
-                <EvaluationsList mode="admin" />
+              <CardContent className="px-0">
+                <div className="px-6">
+                  <EvaluationsList mode="admin" />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

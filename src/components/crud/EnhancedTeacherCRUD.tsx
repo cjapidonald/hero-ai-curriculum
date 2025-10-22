@@ -256,7 +256,7 @@ export const EnhancedTeacherCRUD = () => {
   return (
     <>
       <div className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex justify-end px-0">
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open);
             if (!open) resetForm();
@@ -472,21 +472,22 @@ export const EnhancedTeacherCRUD = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="whitespace-nowrap">Name</TableHead>
-              <TableHead className="whitespace-nowrap">Username</TableHead>
-              <TableHead className="whitespace-nowrap">Email</TableHead>
-              <TableHead className="whitespace-nowrap">Subject</TableHead>
-              <TableHead className="whitespace-nowrap">Classes</TableHead>
-              <TableHead className="whitespace-nowrap">Rate</TableHead>
-              <TableHead className="whitespace-nowrap">Monthly Earnings</TableHead>
-              <TableHead className="whitespace-nowrap">Status</TableHead>
-              <TableHead className="whitespace-nowrap">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Name</TableHead>
+                <TableHead className="whitespace-nowrap">Username</TableHead>
+                <TableHead className="whitespace-nowrap">Email</TableHead>
+                <TableHead className="whitespace-nowrap">Subject</TableHead>
+                <TableHead className="whitespace-nowrap">Classes</TableHead>
+                <TableHead className="whitespace-nowrap">Rate</TableHead>
+                <TableHead className="whitespace-nowrap">Monthly Earnings</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {teachers.map((teacher) => (
               <TableRow key={teacher.id}>
@@ -583,7 +584,7 @@ export const EnhancedTeacherCRUD = () => {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
         </div>
       </div>
       <TeacherInsightPanel

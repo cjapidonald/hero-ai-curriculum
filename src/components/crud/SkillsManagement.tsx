@@ -394,75 +394,77 @@ export const SkillsManagement = () => {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Skill Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Level/Stage</TableHead>
-              <TableHead>Assigned Classes</TableHead>
-              <TableHead>Criteria Count</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {skills.map((skill) => (
-              <TableRow key={skill.id}>
-                <TableCell className="font-medium">{skill.skill_name}</TableCell>
-                <TableCell>
-                  <Badge className={getCategoryColor(skill.skill_category)}>
-                    {skill.skill_category}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {skill.level && <Badge variant="outline">{skill.level}</Badge>}
-                  {skill.stage && <Badge variant="outline" className="ml-1">{skill.stage}</Badge>}
-                </TableCell>
-                <TableCell>
-                  {skill.assigned_classes && skill.assigned_classes.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {skill.assigned_classes.map((cls, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {cls}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No classes</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {skill.evaluation_criteria?.length || 0} criteria
-                </TableCell>
-                <TableCell>
-                  <Badge variant={skill.is_active ? 'default' : 'secondary'}>
-                    {skill.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(skill)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(skill.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Skill Name</TableHead>
+                <TableHead className="whitespace-nowrap">Category</TableHead>
+                <TableHead className="whitespace-nowrap">Level/Stage</TableHead>
+                <TableHead className="whitespace-nowrap">Assigned Classes</TableHead>
+                <TableHead className="whitespace-nowrap">Criteria Count</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {skills.map((skill) => (
+                <TableRow key={skill.id}>
+                  <TableCell className="font-medium whitespace-nowrap">{skill.skill_name}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge className={getCategoryColor(skill.skill_category)}>
+                      {skill.skill_category}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {skill.level && <Badge variant="outline">{skill.level}</Badge>}
+                    {skill.stage && <Badge variant="outline" className="ml-1">{skill.stage}</Badge>}
+                  </TableCell>
+                  <TableCell className="min-w-[150px]">
+                    {skill.assigned_classes && skill.assigned_classes.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {skill.assigned_classes.map((cls, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {cls}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No classes</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {skill.evaluation_criteria?.length || 0} criteria
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge variant={skill.is_active ? 'default' : 'secondary'}>
+                      {skill.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(skill)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(skill.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );

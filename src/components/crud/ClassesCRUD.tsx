@@ -410,60 +410,62 @@ export function ClassesCRUD() {
         </Dialog>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Class Name</TableHead>
-              <TableHead>Teacher</TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>Schedule</TableHead>
-              <TableHead>Enrollment</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredClasses.map((classItem) => (
-              <TableRow key={classItem.id}>
-                <TableCell className="font-medium">{classItem.class_name}</TableCell>
-                <TableCell>{classItem.teacher_name || 'Unassigned'}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{classItem.stage}</Badge>
-                </TableCell>
-                <TableCell className="text-sm">
-                  {classItem.schedule_days?.join(', ') || 'Not set'} • {classItem.start_time}-{classItem.end_time}
-                </TableCell>
-                <TableCell>
-                  {classItem.current_students || 0}/{classItem.max_students}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
-                    {classItem.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(classItem)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(classItem.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Class Name</TableHead>
+                <TableHead className="whitespace-nowrap">Teacher</TableHead>
+                <TableHead className="whitespace-nowrap">Stage</TableHead>
+                <TableHead className="whitespace-nowrap">Schedule</TableHead>
+                <TableHead className="whitespace-nowrap">Enrollment</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredClasses.map((classItem) => (
+                <TableRow key={classItem.id}>
+                  <TableCell className="font-medium whitespace-nowrap">{classItem.class_name}</TableCell>
+                  <TableCell className="whitespace-nowrap">{classItem.teacher_name || 'Unassigned'}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge variant="outline">{classItem.stage}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">
+                    {classItem.schedule_days?.join(', ') || 'Not set'} • {classItem.start_time}-{classItem.end_time}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {classItem.current_students || 0}/{classItem.max_students}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
+                      {classItem.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(classItem)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(classItem.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {filteredClasses.length === 0 && searchQuery && (

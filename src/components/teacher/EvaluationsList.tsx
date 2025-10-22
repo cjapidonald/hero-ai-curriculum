@@ -93,17 +93,19 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
         <CardTitle>My Evaluations</CardTitle>
         <CardDescription>Real-time feedback from classroom observations.</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Overall Score</TableHead>
-              <TableHead>Evaluator</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+      <CardContent className="px-0">
+        <div className="-mx-0">
+          <div className="border-t border-b overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Date</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Overall Score</TableHead>
+                  <TableHead className="whitespace-nowrap">Evaluator</TableHead>
+                  <TableHead className="whitespace-nowrap">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
           <TableBody>
             {evaluations.map(evaluation => {
               const needsTeacherReview = mode === 'teacher' && evaluation.status === 'pending_teacher_review';
@@ -111,8 +113,8 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
 
               return (
                 <TableRow key={evaluation.id} className={needsAdminAttention ? 'bg-red-50 dark:bg-red-950' : ''}>
-                  <TableCell>{new Date(evaluation.evaluation_date).toLocaleDateString()}</TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">{new Date(evaluation.evaluation_date).toLocaleDateString()}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge variant={
                       evaluation.status === 'completed' ? 'default' :
                       evaluation.status === 'pending_admin_review' ? 'destructive' :
@@ -122,11 +124,11 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
                       {evaluation.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <Badge className="text-lg">{evaluation.overall_score}</Badge>
                   </TableCell>
-                  <TableCell>{evaluation.evaluator?.email || 'N/A'}</TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">{evaluation.evaluator?.email || 'N/A'}</TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <div className="flex gap-2">
                       {needsTeacherReview ? (
                         <Button
@@ -208,13 +210,15 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
             })}
              {evaluations.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                         No evaluations found.
                     </TableCell>
                 </TableRow>
             )}
           </TableBody>
-        </Table>
+            </Table>
+          </div>
+        </div>
       </CardContent>
 
       {/* Teacher Review Dialog */}

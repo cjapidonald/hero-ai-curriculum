@@ -290,24 +290,25 @@ export const FullCurriculumView = () => {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Lesson Title</TableHead>
-              <TableHead>Teacher</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>Skills</TableHead>
-              <TableHead>Warmup</TableHead>
-              <TableHead>Main</TableHead>
-              <TableHead>Assessment</TableHead>
-              <TableHead>Homework</TableHead>
-              <TableHead>Print</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Date</TableHead>
+                <TableHead className="whitespace-nowrap">Lesson Title</TableHead>
+                <TableHead className="whitespace-nowrap">Teacher</TableHead>
+                <TableHead className="whitespace-nowrap">Class</TableHead>
+                <TableHead className="whitespace-nowrap">Stage</TableHead>
+                <TableHead className="whitespace-nowrap">Skills</TableHead>
+                <TableHead className="whitespace-nowrap">Warmup</TableHead>
+                <TableHead className="whitespace-nowrap">Main</TableHead>
+                <TableHead className="whitespace-nowrap">Assessment</TableHead>
+                <TableHead className="whitespace-nowrap">Homework</TableHead>
+                <TableHead className="whitespace-nowrap">Print</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {filteredLessons.map((lesson) => (
               <TableRow key={lesson.id}>
@@ -357,7 +358,8 @@ export const FullCurriculumView = () => {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
 
       {/* View Dialog */}

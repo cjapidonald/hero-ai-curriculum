@@ -304,19 +304,20 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
         </div>
       )}
 
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date & Time</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead>Lesson</TableHead>
-              {showTeacherColumn && <TableHead>Teacher</TableHead>}
-              <TableHead>Status</TableHead>
-              <TableHead>Attendance</TableHead>
-              {showActions && canEdit && <TableHead>Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Date & Time</TableHead>
+                <TableHead className="whitespace-nowrap">Class</TableHead>
+                <TableHead className="whitespace-nowrap">Lesson</TableHead>
+                {showTeacherColumn && <TableHead className="whitespace-nowrap">Teacher</TableHead>}
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Attendance</TableHead>
+                {showActions && canEdit && <TableHead className="whitespace-nowrap">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {sessions.length === 0 ? (
               <TableRow>
@@ -329,7 +330,7 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
                 .sort((a, b) => new Date(b.session_date || '').getTime() - new Date(a.session_date || '').getTime())
                 .map((session) => (
                   <TableRow key={session.id}>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="font-medium">{session.session_date}</span>
                         <span className="text-sm text-gray-500 flex items-center gap-1">
@@ -338,23 +339,23 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">{session.class_name}</TableCell>
-                    <TableCell>{session.lesson_title || '-'}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{session.class_name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{session.lesson_title || '-'}</TableCell>
                     {showTeacherColumn && (
-                      <TableCell>{teacherNames[session.teacher_id] || 'Unassigned'}</TableCell>
+                      <TableCell className="whitespace-nowrap">{teacherNames[session.teacher_id] || 'Unassigned'}</TableCell>
                     )}
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge className={getStatusColor(session.status || 'scheduled')}>
                         {session.status || 'scheduled'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={session.attendance_taken ? 'default' : 'secondary'}>
                         {session.attendance_taken ? 'Taken' : 'Pending'}
                       </Badge>
                     </TableCell>
                     {showActions && canEdit && (
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
@@ -379,7 +380,8 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
                 ))
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

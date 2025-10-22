@@ -242,8 +242,7 @@ export const EnhancedStudentCRUD = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Student Management</h2>
+      <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={(open) => {
           setDialogOpen(open);
           if (!open) resetForm();
@@ -460,21 +459,22 @@ export const EnhancedStudentCRUD = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="border rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="whitespace-nowrap">Name</TableHead>
-              <TableHead className="whitespace-nowrap">Email</TableHead>
-              <TableHead className="whitespace-nowrap">Class</TableHead>
-              <TableHead className="whitespace-nowrap">Level</TableHead>
-              <TableHead className="whitespace-nowrap">Parent</TableHead>
-              <TableHead className="whitespace-nowrap">Sessions</TableHead>
-              <TableHead className="whitespace-nowrap">Attendance</TableHead>
-              <TableHead className="whitespace-nowrap">Status</TableHead>
-              <TableHead className="whitespace-nowrap">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+      <div className="-mx-6">
+        <div className="border-t border-b overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="whitespace-nowrap">Name</TableHead>
+                <TableHead className="whitespace-nowrap">Email</TableHead>
+                <TableHead className="whitespace-nowrap">Class</TableHead>
+                <TableHead className="whitespace-nowrap">Level</TableHead>
+                <TableHead className="whitespace-nowrap">Parent</TableHead>
+                <TableHead className="whitespace-nowrap">Sessions</TableHead>
+                <TableHead className="whitespace-nowrap">Attendance</TableHead>
+                <TableHead className="whitespace-nowrap">Status</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {students.map((student) => (
               <TableRow key={student.id}>
@@ -523,9 +523,10 @@ export const EnhancedStudentCRUD = () => {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
-      <div className="flex justify-between items-center mt-4">
+      <div className="flex justify-between items-center mt-4 px-0">
         <div>
           <p className="text-sm text-muted-foreground">
             Page {currentPage} of {Math.ceil(totalStudents / itemsPerPage)}
