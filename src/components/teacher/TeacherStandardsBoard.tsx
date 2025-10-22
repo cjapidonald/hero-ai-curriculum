@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import {
@@ -30,6 +30,7 @@ type Mode = "teacher" | "admin";
 
 type TeacherStandard = Tables<"teacher_standards">;
 type TeacherStandardProgress = Tables<"teacher_standard_progress">;
+type EvidenceUrlMap = Record<string, string | null>;
 
 interface TeacherStandardsBoardProps {
   teacherId: string;
@@ -83,7 +84,7 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
   const [processingApprovalId, setProcessingApprovalId] = useState<string | null>(null);
   const [standards, setStandards] = useState<TeacherStandard[]>([]);
   const [progressRecords, setProgressRecords] = useState<TeacherStandardProgress[]>([]);
-  const [evidenceUrls, setEvidenceUrls] = useState<Record<string, string | null>>({});
+  const [evidenceUrls, setEvidenceUrls] = useState<EvidenceUrlMap>({});
   const [descriptorDialog, setDescriptorDialog] = useState<DescriptorDialogState>({
     open: false,
     standard: null,
@@ -161,12 +162,6 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
 
         setStandards((standardsData as TeacherStandard[]) ?? []);
         setProgressRecords((progressData as TeacherStandardProgress[]) ?? []);
-
-        if (progressData?.length) {
-          await refreshEvidenceUrls(progressData as TeacherStandardProgress[]);
-        } else {
-          setEvidenceUrls({});
-        }
       } catch (error: any) {
         console.error("Failed to load teacher standards:", error);
         toast({
@@ -182,39 +177,35 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
     void loadData();
   }, [teacherId, toast]);
 
-  const refreshEvidenceUrls = async (records: TeacherStandardProgress[]) => {
-    const recordsWithEvidence = records.filter((record) => Boolean(record.evidence_storage_path));
+  const fetchEvidenceUrls = useCallback(
+    async (records: TeacherStandardProgress[]): Promise<EvidenceUrlMap> => {
+      const recordsWithEvidence = records.filter((record) => Boolean(record.evidence_storage_path));
 
-    if (!recordsWithEvidence.length) {
-      setEvidenceUrls({});
-      return;
-    }
-
-    const { data, error } = await supabase.storage
-      .from("teacher-standards")
-      .createSignedUrls(
-        recordsWithEvidence.map((record) => record.evidence_storage_path as string),
-        SIGNED_URL_TTL_SECONDS,
-      );
-
-    if (error) {
-      console.error("Unable to generate signed URLs for evidence", error);
-      setEvidenceUrls({});
-      return;
-    }
-
-    const entries: Array<[string, string | null]> = [];
-    recordsWithEvidence.forEach((record, index) => {
-      if (!record.standard_id) {
-        return;
+      if (!recordsWithEvidence.length) {
+        return {};
       }
 
-      const signedUrl = data?.[index]?.signedUrl ?? null;
-      entries.push([record.standard_id, signedUrl]);
-    });
+      const { data, error } = await supabase.storage
+        .from("teacher-standards")
+        .createSignedUrls(
+          recordsWithEvidence.map((record) => record.evidence_storage_path as string),
+          SIGNED_URL_TTL_SECONDS,
+        );
 
-    setEvidenceUrls(Object.fromEntries(entries));
-  };
+      if (error) {
+        console.error("Unable to generate signed URLs for evidence", error);
+        return {};
+      }
+
+      return recordsWithEvidence.reduce<EvidenceUrlMap>((acc, record, index) => {
+        if (record.standard_id) {
+          acc[record.standard_id] = data?.[index]?.signedUrl ?? null;
+        }
+        return acc;
+      }, {});
+    },
+    [],
+  );
 
   const refreshProgress = async () => {
     const { data, error } = await supabase
@@ -234,8 +225,31 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
 
     const records = (data as TeacherStandardProgress[]) ?? [];
     setProgressRecords(records);
-    await refreshEvidenceUrls(records);
   };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!progressRecords.length) {
+      setEvidenceUrls({});
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    const loadEvidenceUrls = async () => {
+      const urls = await fetchEvidenceUrls(progressRecords);
+      if (!isCancelled) {
+        setEvidenceUrls(urls);
+      }
+    };
+
+    void loadEvidenceUrls();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [progressRecords, fetchEvidenceUrls]);
 
   const handleUpload = async (standard: TeacherStandard, file: File | undefined | null) => {
     if (!file) {
