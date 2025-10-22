@@ -23,6 +23,8 @@ import NotFound from './pages/NotFound';
 import EvaluationPage from './pages/EvaluationPage';
 import EditEvaluationPage from './pages/EditEvaluationPage';
 import Root from './pages/Root';
+import SkillsManagement from './pages/admin/SkillsManagement';
+import SkillsEvaluation from './pages/teacher/SkillsEvaluation';
 
 const queryClient = new QueryClient();
 
@@ -39,7 +41,9 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<Root />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/skills" element={<SkillsManagement />} />
           <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+          <Route path="/teacher/skills-evaluation" element={<SkillsEvaluation />} />
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />

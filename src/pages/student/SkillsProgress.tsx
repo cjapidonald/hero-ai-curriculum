@@ -1,73 +1,54 @@
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { format, subMonths, subWeeks } from "date-fns";
-import type { Tables } from "@/integrations/supabase/types";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Label } from "@/components/ui/label";
 
 interface SkillsProgressProps {
   studentId: string;
 }
 
-type TimeFilter = '1week' | '1month' | '3months' | '6months' | '9months';
-type SkillFilter = 'all' | 'Writing' | 'Reading' | 'Listening' | 'Speaking';
+interface SkillProgress {
+  skill_id: string;
+  skill_name: string;
+  skill_code: string;
+  subject: string;
+  strand: string;
+  substrand: string;
+  latest_score: number;
+  average_score: number;
+  evaluation_count: number;
+  evaluations: Array<{
+    score: number;
+    text_feedback: string;
+    evaluation_date: string;
+    teacher_id: string;
+  }>;
+}
 
-type SkillCategory = Exclude<SkillFilter, 'all'>;
-type SkillsEvaluationRecord = Tables<"skills_evaluation">;
-
-const SKILL_KEYS: SkillCategory[] = ["Writing", "Reading", "Listening", "Speaking"];
+const COLORS = ['#0088FE', '#E0E0E0'];
 
 export default function SkillsProgress({ studentId }: SkillsProgressProps) {
-  const [skillsData, setSkillsData] = useState<SkillsEvaluationRecord[]>([]);
+  const [skillsProgress, setSkillsProgress] = useState<SkillProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
-  const [skillFilter, setSkillFilter] = useState<SkillFilter>('all');
+  const [selectedSkillId, setSelectedSkillId] = useState<string>("");
 
   useEffect(() => {
-    const getDateFilter = () => {
-      const now = new Date();
-      switch (timeFilter) {
-        case '1week':
-          return subWeeks(now, 1);
-        case '1month':
-          return subMonths(now, 1);
-        case '3months':
-          return subMonths(now, 3);
-        case '6months':
-          return subMonths(now, 6);
-        case '9months':
-          return subMonths(now, 9);
-        default:
-          return subMonths(now, 1);
-      }
-    };
-
-    const fetchSkillsData = async () => {
+    const fetchSkillsProgress = async () => {
       try {
         setLoading(true);
         setError(null);
-        const dateFilter = getDateFilter();
 
-        let query = supabase
-          .from("skills_evaluation")
-          .select("*")
-          .eq("student_id", studentId)
-          .gte("evaluation_date", dateFilter.toISOString())
-          .order("evaluation_date", { ascending: true });
-
-        if (skillFilter !== 'all') {
-          query = query.eq("skill_category", skillFilter);
-        }
-
-        const { data, error } = await query;
+        const { data, error } = await supabase.rpc("get_student_skill_progress", {
+          p_student_id: studentId,
+        });
 
         if (error) throw error;
-        setSkillsData((data ?? []) as SkillsEvaluationRecord[]);
+        setSkillsProgress((data ?? []) as SkillProgress[]);
       } catch (error: any) {
-        console.error("Error fetching skills data:", error);
+        console.error("Error fetching skills progress:", error);
         setError(error.message);
       } finally {
         setLoading(false);
@@ -75,56 +56,42 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     };
 
     if (studentId) {
-      fetchSkillsData();
+      fetchSkillsProgress();
     }
-  }, [studentId, timeFilter, skillFilter]);
+  }, [studentId]);
 
-  const groupedChartData = useMemo(() => {
-    const grouped: Record<string, { date: string } & Partial<Record<SkillCategory, number>>> = {};
+  // Calculate overall percentage
+  const overallPercentage = skillsProgress && skillsProgress.length > 0
+    ? Math.round(
+        skillsProgress.reduce((sum, skill) => sum + (skill.latest_score || 0), 0) / skillsProgress.length
+      )
+    : 0;
 
-    skillsData.forEach((skill) => {
-      if (!skill.evaluation_date) return;
-      const category = skill.skill_category as SkillCategory | null;
-      if (!category) return;
+  // Data for donut chart
+  const donutData = [
+    { name: "Completed", value: overallPercentage },
+    { name: "Remaining", value: 100 - overallPercentage },
+  ];
 
-      const dateKey = format(new Date(skill.evaluation_date), "MMM dd");
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = { date: dateKey };
-      }
-      grouped[dateKey][category] = skill.average_score ?? 0;
-    });
+  // Get selected skill details
+  const selectedSkill = skillsProgress?.find(s => s.skill_id === selectedSkillId);
 
-    return Object.values(grouped);
-  }, [skillsData]);
+  // Data for line chart (skill progress over time)
+  const lineChartData = selectedSkill?.evaluations?.map((eval, index) => ({
+    name: `Attempt ${index + 1}`,
+    score: eval.score,
+    date: new Date(eval.evaluation_date).toLocaleDateString(),
+  })) || [];
 
-  const calculateOverallAverage = () => {
-    if (!skillsData.length) return 0;
-    const sum = skillsData.reduce((acc, skill) => acc + (skill.average_score ?? 0), 0);
-    return Number.isFinite(sum / skillsData.length) ? (sum / skillsData.length).toFixed(2) : "0.00";
-  };
-
-  const chartData = groupedChartData;
-
-  const chartConfig = {
-    Writing: {
-      label: 'Writing',
-      color: 'hsl(var(--chart-1))',
-    },
-    Reading: {
-      label: 'Reading',
-      color: 'hsl(var(--chart-2))',
-    },
-    Listening: {
-      label: 'Listening',
-      color: 'hsl(var(--chart-3))',
-    },
-    Speaking: {
-      label: 'Speaking',
-      color: 'hsl(var(--chart-4))',
-    },
-  } as const;
-
-  const skillsToRender = skillFilter === 'all' ? SKILL_KEYS : [skillFilter as SkillCategory];
+  // Group skills by subject for display
+  const skillsBySubject = skillsProgress?.reduce((acc, skill) => {
+    const subject = skill.subject || "Other";
+    if (!acc[subject]) {
+      acc[subject] = [];
+    }
+    acc[subject].push(skill);
+    return acc;
+  }, {} as Record<string, SkillProgress[]>) || {};
 
   if (loading) {
     return (
@@ -145,156 +112,221 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Filters */}
+  if (!skillsProgress || skillsProgress.length === 0) {
+    return (
       <Card>
         <CardHeader>
-          <CardTitle>Skills Progress Tracker</CardTitle>
-          <CardDescription>Monitor your progress across different skills</CardDescription>
+          <CardTitle>Skills Progress</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Time Period</label>
-              <Select value={timeFilter} onValueChange={(value) => setTimeFilter(value as TimeFilter)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1week">Last Week</SelectItem>
-                  <SelectItem value="1month">Last Month</SelectItem>
-                  <SelectItem value="3months">Last 3 Months</SelectItem>
-                  <SelectItem value="6months">Last 6 Months</SelectItem>
-                  <SelectItem value="9months">Last 9 Months</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <p className="text-muted-foreground">
+            No skill evaluations yet. Your teacher will add evaluations soon.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
-            <div className="flex-1">
-              <label className="text-sm font-medium mb-2 block">Skill Category</label>
-              <Select value={skillFilter} onValueChange={(value) => setSkillFilter(value as SkillFilter)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Skills</SelectItem>
-                  <SelectItem value="Writing">Writing</SelectItem>
-                  <SelectItem value="Reading">Reading</SelectItem>
-                  <SelectItem value="Listening">Listening</SelectItem>
-                  <SelectItem value="Speaking">Speaking</SelectItem>
-                </SelectContent>
-              </Select>
+  return (
+    <div className="space-y-6">
+      {/* Overall Progress Donut Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Overall Skills Progress</CardTitle>
+          <CardDescription>
+            Your average performance across all evaluated skills
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center">
+            <div className="relative">
+              <ResponsiveContainer width={300} height={300}>
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    cx={150}
+                    cy={150}
+                    innerRadius={80}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {donutData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl font-bold">{overallPercentage}%</div>
+                  <div className="text-sm text-muted-foreground">Average Score</div>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Overall Average */}
-          <div className="bg-muted/50 p-4 rounded-lg mb-4">
-            <p className="text-sm text-muted-foreground">Overall Average Score</p>
-            <p className="text-3xl font-bold text-primary">{calculateOverallAverage()}</p>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold">{skillsProgress.length}</div>
+              <div className="text-sm text-muted-foreground">Skills Evaluated</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold">
+                {skillsProgress.reduce((sum, skill) => sum + skill.evaluation_count, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Evaluations</div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Line Chart */}
+      {/* Individual Skill Progress */}
       <Card>
         <CardHeader>
-          <CardTitle>Progress Over Time</CardTitle>
+          <CardTitle>Individual Skill Progress</CardTitle>
           <CardDescription>
-            {skillFilter === 'all' ? 'All skills' : skillFilter} performance trends
+            Select a skill to see your progress over time
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {chartData.length > 0 ? (
-            <ChartContainer
-              config={chartConfig}
-              className="h-[400px] w-full rounded-3xl bg-gradient-to-br from-white/80 via-white/35 to-white/10 dark:from-slate-900/70 dark:via-slate-900/40 dark:to-slate-900/10 backdrop-blur-xl border border-white/40 dark:border-slate-800 shadow-[0_25px_55px_-35px_rgba(15,23,42,0.9)] px-4 py-6"
-            >
-              <ComposedChart data={chartData}>
-                <defs>
-                  {skillsToRender.map((skill) => (
-                    <linearGradient key={skill} id={`${skill}Gradient`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={`var(--color-${skill})`} stopOpacity={0.38} />
-                      <stop offset="95%" stopColor={`var(--color-${skill})`} stopOpacity={0.05} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid stroke="rgba(148,163,184,0.25)" vertical={false} strokeDasharray="4 8" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "rgba(71,85,105,0.85)", fontSize: 12, fontWeight: 500 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
-                />
-                <YAxis
-                  tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
-                  domain={[0, 5]}
-                  ticks={[0, 1, 2, 3, 4, 5]}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
-                  }
-                />
-                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 500 }} />
-                {skillsToRender.map((skill) => (
-                  <Fragment key={skill}>
-                    <Area
-                      type="monotone"
-                      dataKey={skill}
-                      fill={`url(#${skill}Gradient)`}
-                      stroke="none"
-                      fillOpacity={1}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey={skill}
-                      stroke={`var(--color-${skill})`}
-                      strokeWidth={3}
-                      dot={false}
-                      activeDot={{ r: 7, strokeWidth: 2, fill: "#fff" }}
-                    />
-                  </Fragment>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Select Skill</Label>
+            <Select value={selectedSkillId} onValueChange={setSelectedSkillId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a skill to view progress" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(skillsBySubject).map(([subject, skills]) => (
+                  <div key={subject}>
+                    <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                      {subject}
+                    </div>
+                    {skills.map((skill) => (
+                      <SelectItem key={skill.skill_id} value={skill.skill_id}>
+                        {skill.skill_code} - {skill.skill_name}
+                      </SelectItem>
+                    ))}
+                  </div>
                 ))}
-              </ComposedChart>
-            </ChartContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground">
-              <p>No data available for the selected period</p>
-              <p className="text-sm mt-2">Try selecting a different time range</p>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedSkill && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Latest Score</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{selectedSkill.latest_score || 0}%</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Math.round(selectedSkill.average_score || 0)}%
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium">Attempts</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{selectedSkill.evaluation_count}</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Progress Over Time</h3>
+                {lineChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={lineChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#0088FE"
+                        strokeWidth={2}
+                        dot={{ r: 6 }}
+                        activeDot={{ r: 8 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-muted-foreground">No evaluation history available</p>
+                )}
+              </div>
+
+              {/* Recent Feedback */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Recent Feedback</h3>
+                <div className="space-y-3">
+                  {selectedSkill.evaluations?.slice(0, 3).map((eval, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-semibold">Score: {eval.score}%</span>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(eval.evaluation_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                        {eval.text_feedback && (
+                          <p className="text-sm text-muted-foreground">{eval.text_feedback}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Skills Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {SKILL_KEYS.map((skill) => {
-          const skillDataForCategory = skillsData.filter((entry) => entry.skill_category === skill);
-          const latestScore = skillDataForCategory.length > 0
-            ? skillDataForCategory[skillDataForCategory.length - 1].average_score
-            : null;
-          const hasScore = latestScore !== null && latestScore !== undefined;
+      {/* Skills Overview by Subject */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Skills Overview by Subject</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Object.entries(skillsBySubject).map(([subject, skills]) => {
+              const subjectAvg = Math.round(
+                skills.reduce((sum, skill) => sum + (skill.latest_score || 0), 0) / skills.length
+              );
 
-          return (
-            <Card key={skill}>
-              <CardHeader>
-                <CardTitle className="text-base">{skill}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {hasScore ? (latestScore ?? 0).toFixed(1) : 'N/A'}
+              return (
+                <div key={subject} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold">{subject}</h3>
+                    <span className="text-sm text-muted-foreground">
+                      {subjectAvg}% avg • {skills.length} skills
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all"
+                      style={{ width: `${subjectAvg}%` }}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {skillDataForCategory.length} evaluation{skillDataForCategory.length !== 1 ? 's' : ''}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
