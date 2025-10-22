@@ -261,7 +261,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const studentId = studentData.id;
+  const dashboardStudentId = studentData.id;
   const attendanceRate = Number(studentData.attendance_rate ?? 0);
   const sessionsCompleted = Number(studentData.sessions ?? 0);
   const sessionsLeft = Number(studentData.sessions_left ?? 0);
@@ -570,19 +570,23 @@ export default function StudentDashboard() {
           </TabsList>
 
           <TabsContent value="skills" className="space-y-4">
-            <SkillsProgress studentId={studentId} />
+            <SkillsProgress studentId={dashboardStudentId} />
           </TabsContent>
 
           <TabsContent value="assessments" className="space-y-4">
-            <AssessmentProgress studentId={studentId} />
+            <AssessmentProgress studentId={dashboardStudentId} />
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
-            <AttendanceChart studentId={studentId} attendanceRate={attendanceRate} sessionsCompleted={sessionsCompleted} />
+            <AttendanceChart
+              studentId={dashboardStudentId}
+              attendanceRate={attendanceRate}
+              sessionsCompleted={sessionsCompleted}
+            />
           </TabsContent>
 
           <TabsContent value="homework" className="space-y-4">
-            <HomeworkList studentId={studentId} />
+            <HomeworkList studentId={dashboardStudentId} />
           </TabsContent>
         </Tabs>
       </div>
