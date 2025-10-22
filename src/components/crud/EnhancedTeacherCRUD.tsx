@@ -598,6 +598,7 @@ export const EnhancedTeacherCRUD = () => {
           }
         }}
       />
+    </div>
     </>
   );
 };
