@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { AuthContext } from '@/contexts/AuthContext';
 import { CLASSROOM_OBSERVATION_RUBRIC } from '@/lib/rubric';
@@ -22,6 +23,31 @@ interface Score {
 interface RubricScores {
   [criterionId: string]: Score;
 }
+
+type TeacherEvaluationInsert = Database['public']['Tables']['teacher_evaluations']['Insert'];
+type EvaluationItemScoreInsert = Database['public']['Tables']['evaluation_item_scores']['Insert'];
+
+const RUBRIC_ITEM_ID_MAP: Record<string, number> = {
+  '1.1': 1,
+  '1.2': 2,
+  '1.3': 3,
+  '2.1': 4,
+  '2.2': 5,
+  '3.1': 6,
+  '3.2': 7,
+  '3.3': 8,
+  '3.4': 9,
+  '4.1': 10,
+  '4.2': 11,
+  '4.3': 12,
+  '4.4': 13,
+  '5.1': 14,
+  '5.2': 15,
+  '5.3': 16,
+  '6.1': 17,
+  '6.2': 18,
+  '7.1': 19,
+};
 
 type ObservationClass = {
   id: string;
@@ -67,7 +93,14 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
     const initialScores: RubricScores = {};
     CLASSROOM_OBSERVATION_RUBRIC.forEach(category => {
       category.criteria.forEach(criterion => {
-        initialScores[criterion.id] = { score: 0, comment: '' };
+        const defaultScore =
+          criterion.type === 'scale'
+            ? 0
+            : criterion.type === 'yes_no'
+              ? null
+              : null;
+
+        initialScores[criterion.id] = { score: defaultScore, comment: '' };
       });
     });
     setRubricScores(initialScores);
@@ -106,23 +139,76 @@ const ClassroomObservationForm: React.FC<ClassroomObservationFormProps> = ({ tea
 
     setIsSubmitting(true);
     try {
-      const overallScore = parseFloat(calculateOverallScore());
-
+      const overallScoreValue = parseFloat(calculateOverallScore());
+      const totalScore = Number.isFinite(overallScoreValue) ? overallScoreValue : null;
       const evaluatorId = auth.user.role === 'admin' ? null : auth.user.id;
+      const evaluationDate = new Date().toISOString().split('T')[0];
+      const trimmedContext = contextExplanation.trim();
 
-      const { error } = await supabase.from('teacher_evaluations' as any).insert({
+      const evaluationPayload: TeacherEvaluationInsert = {
         teacher_id: teacher.id,
         evaluator_id: evaluatorId,
-        evaluation_date: new Date().toISOString(),
-        rubric_scores: rubricScores,
-        context_explanation: contextExplanation,
-        overall_score: overallScore,
+        evaluation_date: evaluationDate,
         class_id: selectedClass || null,
         status: 'pending_teacher_review',
-        requires_attention: false,
+        total_score: totalScore,
+        highlights_strengths: trimmedContext || null,
+        improvements_to_make: trimmedContext || null,
+      };
+
+      const { data: insertedEvaluation, error: evaluationError } = await supabase
+        .from('teacher_evaluations')
+        .insert(evaluationPayload)
+        .select('id')
+        .single();
+
+      if (evaluationError) throw evaluationError;
+
+      const scoreEntries: EvaluationItemScoreInsert[] = [];
+
+      CLASSROOM_OBSERVATION_RUBRIC.forEach(category => {
+        category.criteria.forEach(criterion => {
+          if (criterion.type === 'bonus') {
+            return;
+          }
+
+          const rubricItemId = RUBRIC_ITEM_ID_MAP[criterion.id];
+          const scoreData = rubricScores[criterion.id];
+
+          if (!rubricItemId || !scoreData) {
+            return;
+          }
+
+          const trimmedComment = scoreData.comment.trim();
+          let normalizedScore: number | null = null;
+
+          if (typeof scoreData.score === 'number') {
+            normalizedScore =
+              criterion.type === 'scale' && scoreData.score <= 0
+                ? null
+                : scoreData.score;
+          }
+
+          if (!trimmedComment && normalizedScore === null) {
+            return;
+          }
+
+          scoreEntries.push({
+            evaluation_id: insertedEvaluation.id,
+            rubric_item_id: rubricItemId,
+            score: normalizedScore,
+            evaluator_comment: trimmedComment || null,
+          });
+        });
       });
 
-      if (error) throw error;
+      if (scoreEntries.length > 0) {
+        const { error: scoresError } = await supabase
+          .from('evaluation_item_scores')
+          .upsert(scoreEntries, { onConflict: 'evaluation_id,rubric_item_id' });
+
+        if (scoresError) throw scoresError;
+      }
 
       toast({
         title: "Evaluation Submitted",
