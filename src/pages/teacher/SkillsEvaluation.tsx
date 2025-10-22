@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -62,7 +62,11 @@ export default function SkillsEvaluation() {
   const teacherId = user?.id ?? "";
 
   // Fetch classes
-  const { data: classes } = useQuery({
+  const {
+    data: classes,
+    isLoading: isLoadingClasses,
+    isError: isClassesError,
+  } = useQuery({
     queryKey: ["teacher-classes"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -215,7 +219,22 @@ export default function SkillsEvaluation() {
     saveEvaluationMutation.mutate(evaluation);
   };
 
-  if (!classes?.length) {
+  if (isLoadingClasses) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Skills Evaluation</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isLoadingClasses && (!classes || classes.length === 0)) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -224,7 +243,9 @@ export default function SkillsEvaluation() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              No classes found. Please contact an administrator.
+              {isClassesError
+                ? "There was a problem loading classes. Please try again later."
+                : "No classes found. Please contact an administrator."}
             </p>
           </CardContent>
         </Card>
