@@ -472,33 +472,33 @@ export const EnhancedTeacherCRUD = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Classes</TableHead>
-              <TableHead>Rate</TableHead>
-              <TableHead>Monthly Earnings</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="whitespace-nowrap">Name</TableHead>
+              <TableHead className="whitespace-nowrap">Username</TableHead>
+              <TableHead className="whitespace-nowrap">Email</TableHead>
+              <TableHead className="whitespace-nowrap">Subject</TableHead>
+              <TableHead className="whitespace-nowrap">Classes</TableHead>
+              <TableHead className="whitespace-nowrap">Rate</TableHead>
+              <TableHead className="whitespace-nowrap">Monthly Earnings</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {teachers.map((teacher) => (
               <TableRow key={teacher.id}>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium whitespace-nowrap">
                   {teacher.name} {teacher.surname}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge variant="outline">{teacher.username || 'Not set'}</Badge>
                 </TableCell>
-                <TableCell>{teacher.email}</TableCell>
-                <TableCell>{teacher.subject || '-'}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{teacher.email}</TableCell>
+                <TableCell className="whitespace-nowrap">{teacher.subject || '-'}</TableCell>
+                <TableCell className="min-w-[150px]">
                   {teacher.assigned_classes && teacher.assigned_classes.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {teacher.assigned_classes.map((cls, idx) => (
@@ -511,8 +511,8 @@ export const EnhancedTeacherCRUD = () => {
                     '-'
                   )}
                 </TableCell>
-                <TableCell>{formatCurrency(teacher.hourly_rate)}/hr</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{formatCurrency(teacher.hourly_rate)}/hr</TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="flex items-center gap-1">
                     <DollarSign className="h-4 w-4 text-green-600" />
                     <span className="font-semibold text-green-600">
@@ -520,12 +520,12 @@ export const EnhancedTeacherCRUD = () => {
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge variant={teacher.is_active ? 'default' : 'secondary'}>
                     {teacher.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="flex gap-2">
                     <Button
                       variant="ghost"

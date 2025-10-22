@@ -119,10 +119,10 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-[280px] flex items-center justify-center">
+        <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading student dashboard...</p>
+          <p className="text-muted-foreground">Loading student dashboard...</p>
         </div>
       </div>
     );
@@ -130,15 +130,13 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
   if (!studentData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <p className="text-lg font-semibold">No student profile found.</p>
-        </div>
+      <div className="min-h-[200px] flex items-center justify-center">
+        <p className="text-lg font-semibold">No student profile found.</p>
       </div>
     );
   }
 
-    const calculateAge = (birthday: string | null) => {
+  const calculateAge = (birthday: string | null) => {
     if (!birthday) return "N/A";
     const birthDate = new Date(birthday);
     const today = new Date();
@@ -168,11 +166,10 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
   const sessionsLeft = Number(studentData.sessions_left ?? 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background">
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+    <div className="h-full w-full bg-gradient-to-b from-background via-muted/30 to-background">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
         {/* Student Profile Card */}
-        <Card className="mb-6 overflow-hidden border-2">
+        <Card className="overflow-hidden border-2">
           <div className="h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20" />
           <CardContent className="pt-0">
             <div className="flex flex-col md:flex-row gap-6 -mt-12">
@@ -235,7 +232,7 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="border-l-4 border-l-green-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
@@ -300,7 +297,7 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
         </div>
 
         {/* Placement Test Results */}
-        <Card className="mb-6">
+        <Card>
           <CardHeader>
             <CardTitle>Placement Test Results</CardTitle>
             <CardDescription>Initial assessment scores across key skill areas</CardDescription>
@@ -341,7 +338,7 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
         {/* Skills Overview Radar Chart */}
         {skillsRadarData.length > 0 && (
-          <Card className="mb-6">
+          <Card>
             <CardHeader>
               <CardTitle>Skills Overview</CardTitle>
               <CardDescription>Current performance across all skill categories</CardDescription>
@@ -378,7 +375,11 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
-            <AttendanceChart studentId={studentId} attendanceRate={attendanceRate} />
+            <AttendanceChart
+              studentId={studentId}
+              attendanceRate={attendanceRate}
+              sessionsCompleted={sessionsCompleted}
+            />
           </TabsContent>
 
           <TabsContent value="homework" className="space-y-4">

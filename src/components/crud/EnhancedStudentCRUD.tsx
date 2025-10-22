@@ -452,49 +452,49 @@ export const EnhancedStudentCRUD = () => {
       </div>
 
       <Dialog open={!!viewingStudentId} onOpenChange={() => setViewingStudentId(null)}>
-        <DialogContent className="sm:max-w-[1200px]">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] sm:max-w-[1200px] h-[90vh] overflow-y-auto p-0 sm:p-6">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>Student Dashboard</DialogTitle>
           </DialogHeader>
           {viewingStudentId && <StudentDashboardViewer studentId={viewingStudentId} />}
         </DialogContent>
       </Dialog>
 
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead>Level</TableHead>
-              <TableHead>Parent</TableHead>
-              <TableHead>Sessions</TableHead>
-              <TableHead>Attendance</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="whitespace-nowrap">Name</TableHead>
+              <TableHead className="whitespace-nowrap">Email</TableHead>
+              <TableHead className="whitespace-nowrap">Class</TableHead>
+              <TableHead className="whitespace-nowrap">Level</TableHead>
+              <TableHead className="whitespace-nowrap">Parent</TableHead>
+              <TableHead className="whitespace-nowrap">Sessions</TableHead>
+              <TableHead className="whitespace-nowrap">Attendance</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
+              <TableHead className="whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {students.map((student) => (
               <TableRow key={student.id}>
-                <TableCell className="font-medium">
+                <TableCell className="font-medium whitespace-nowrap">
                   {student.name} {student.surname}
                 </TableCell>
-                <TableCell>{student.email}</TableCell>
-                <TableCell>{student.class || '-'}</TableCell>
-                <TableCell>{student.level || '-'}</TableCell>
-                <TableCell>{student.parent_name || '-'}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{student.email}</TableCell>
+                <TableCell className="whitespace-nowrap">{student.class || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{student.level || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">{student.parent_name || '-'}</TableCell>
+                <TableCell className="whitespace-nowrap">
                   {student.sessions} / {student.sessions_left} left
                 </TableCell>
-                <TableCell>{student.attendance_rate?.toFixed(1)}%</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">{student.attendance_rate?.toFixed(1)}%</TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge variant={student.is_active ? 'default' : 'secondary'}>
                     {student.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="flex gap-2">
                     <Button
                       variant="ghost"
