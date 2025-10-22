@@ -248,7 +248,7 @@ const TeacherDashboard = () => {
       {/* Navigation Tabs */}
       <div className="bg-background border-b">
         <div className="container mx-auto px-4">
-          <div className="flex overflow-x-auto gap-1">
+          <div className="flex flex-wrap gap-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
