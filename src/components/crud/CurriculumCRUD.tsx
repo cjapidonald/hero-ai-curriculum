@@ -349,6 +349,8 @@ export function CurriculumCRUD({
     );
   }
 
+  const NONE_OPTION_VALUE = "__none__";
+
   return (
     <div className="space-y-4">
       {canEdit && showActions && (
@@ -408,12 +410,14 @@ export function CurriculumCRUD({
                   <div>
                     <Label htmlFor="stage">Stage</Label>
                     <Select
-                      value={formData.stage || formData.curriculum_stage || ''}
+                      value={
+                        formData.stage || formData.curriculum_stage || NONE_OPTION_VALUE
+                      }
                       onValueChange={(value) =>
                         setFormData({
                           ...formData,
-                          stage: value || '',
-                          curriculum_stage: value || '',
+                          stage: value === NONE_OPTION_VALUE ? '' : value,
+                          curriculum_stage: value === NONE_OPTION_VALUE ? '' : value,
                         })
                       }
                     >
@@ -421,7 +425,7 @@ export function CurriculumCRUD({
                         <SelectValue placeholder="Select stage" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Not set</SelectItem>
+                        <SelectItem value={NONE_OPTION_VALUE}>Not set</SelectItem>
                         {stageOptions.map((stageOption) => (
                           <SelectItem key={stageOption} value={stageOption}>
                             {stageOption}
@@ -434,9 +438,9 @@ export function CurriculumCRUD({
                     <div className="col-span-2">
                       <Label htmlFor="teacher">Assigned Teacher</Label>
                       <Select
-                        value={formData.teacher_id || ''}
+                        value={formData.teacher_id || NONE_OPTION_VALUE}
                         onValueChange={(value) => {
-                          if (value === '') {
+                          if (value === NONE_OPTION_VALUE) {
                             setFormData({
                               ...formData,
                               teacher_id: undefined,
@@ -459,7 +463,7 @@ export function CurriculumCRUD({
                           <SelectValue placeholder={lookupsLoading ? 'Loading teachers...' : 'Select teacher'} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Unassigned</SelectItem>
+                          <SelectItem value={NONE_OPTION_VALUE}>Unassigned</SelectItem>
                           {teachers.map((teacher) => (
                             <SelectItem key={teacher.id} value={teacher.id}>
                               {teacher.name} {teacher.surname ?? ''}
@@ -474,9 +478,9 @@ export function CurriculumCRUD({
                       <div>
                         <Label htmlFor="class_select">Link Existing Class</Label>
                         <Select
-                          value={formData.class_id || ''}
+                          value={formData.class_id || NONE_OPTION_VALUE}
                           onValueChange={(value) => {
-                            if (value === '') {
+                            if (value === NONE_OPTION_VALUE) {
                               setFormData({
                                 ...formData,
                                 class_id: undefined,
@@ -499,7 +503,7 @@ export function CurriculumCRUD({
                             <SelectValue placeholder={lookupsLoading ? 'Loading classes...' : 'Select class'} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">No class</SelectItem>
+                          <SelectItem value={NONE_OPTION_VALUE}>No class</SelectItem>
                             {classes.map((cls) => (
                               <SelectItem key={cls.id} value={cls.id}>
                                 {cls.class_name} {cls.stage ? `(${cls.stage})` : ''}
