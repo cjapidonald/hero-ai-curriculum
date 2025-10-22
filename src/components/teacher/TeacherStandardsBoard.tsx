@@ -183,22 +183,35 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
   }, [teacherId, toast]);
 
   const refreshEvidenceUrls = async (records: TeacherStandardProgress[]) => {
-    const entries = await Promise.all(
-      records
-        .filter((record) => Boolean(record.evidence_storage_path))
-        .map(async (record) => {
-          const { data, error } = await supabase.storage
-            .from("teacher-standards")
-            .createSignedUrl(record.evidence_storage_path as string, SIGNED_URL_TTL_SECONDS);
+    const recordsWithEvidence = records.filter((record) => Boolean(record.evidence_storage_path));
 
-          if (error) {
-            console.error("Unable to generate signed URL for evidence", error);
-            return [record.standard_id, null] as const;
-          }
+    if (!recordsWithEvidence.length) {
+      setEvidenceUrls({});
+      return;
+    }
 
-          return [record.standard_id, data?.signedUrl ?? null] as const;
-        }),
-    );
+    const { data, error } = await supabase.storage
+      .from("teacher-standards")
+      .createSignedUrls(
+        recordsWithEvidence.map((record) => record.evidence_storage_path as string),
+        SIGNED_URL_TTL_SECONDS,
+      );
+
+    if (error) {
+      console.error("Unable to generate signed URLs for evidence", error);
+      setEvidenceUrls({});
+      return;
+    }
+
+    const entries: Array<[string, string | null]> = [];
+    recordsWithEvidence.forEach((record, index) => {
+      if (!record.standard_id) {
+        return;
+      }
+
+      const signedUrl = data?.[index]?.signedUrl ?? null;
+      entries.push([record.standard_id, signedUrl]);
+    });
 
     setEvidenceUrls(Object.fromEntries(entries));
   };
