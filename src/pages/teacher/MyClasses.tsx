@@ -61,7 +61,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       // First, get classes assigned to this teacher
       const { data: teacherClasses, error: classesError } = await supabase
         .from('classes')
-        .select('id, class_name, name')
+        .select('id, class_name')
         .eq('teacher_id', teacherId)
         .eq('is_active', true);
 
@@ -71,7 +71,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
 
       const classMap: Record<string, string> = {};
       (teacherClasses || []).forEach((classRow: any) => {
-        const displayName = classRow?.name || classRow?.class_name;
+        const displayName = classRow?.class_name || classRow?.name;
         if (displayName && classRow?.id) {
           classMap[displayName] = classRow.id;
         }
