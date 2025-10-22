@@ -17,6 +17,7 @@ import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
 import { SkillsManagement } from "@/components/crud/SkillsManagement";
 import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
+import { ClassesCRUD } from "@/components/crud/ClassesCRUD";
 import { exportToCSV } from "@/lib/export-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -729,110 +730,11 @@ export default function AdminDashboard() {
           <TabsContent value="classes" className="space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Class Schedule</CardTitle>
-                      <CardDescription>
-                        {searchQuery && filteredClasses.length !== classes.length
-                          ? `Showing ${filteredClasses.length} of ${classes.length} classes`
-                          : `All active classes (${classes.length} total)`}
-                      </CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={exportClassesToCSV}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Export CSV
-                    </Button>
-                  </div>
-                  <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    <Input
-                      type="text"
-                      placeholder="Search classes, teachers, or stages..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                      aria-label="Search classes by name, teacher, or stage"
-                      title="Ctrl+/ to focus"
-                    />
-                  </div>
-                </div>
+                <CardTitle>Class Management</CardTitle>
+                <CardDescription>Add, edit, and manage all classes</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Class Name</TableHead>
-                      <TableHead>Teacher</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Schedule</TableHead>
-                      <TableHead>Enrollment</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredClasses
-                      .slice((classesPage - 1) * classesPerPage, classesPage * classesPerPage)
-                      .map((classItem) => (
-                        <TableRow key={classItem.id}>
-                          <TableCell className="font-medium">{classItem.class_name}</TableCell>
-                          <TableCell>{classItem.teacher_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{classItem.stage}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {classItem.schedule_days?.join(', ')} • {classItem.start_time}-{classItem.end_time}
-                          </TableCell>
-                          <TableCell>
-                            {classItem.current_students}/{classItem.max_students}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={classItem.is_active ? 'default' : 'secondary'}>
-                              {classItem.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-                {filteredClasses.length > classesPerPage && (
-                  <div className="flex items-center justify-between mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      Showing {(classesPage - 1) * classesPerPage + 1} to{' '}
-                      {Math.min(classesPage * classesPerPage, filteredClasses.length)} of {filteredClasses.length} classes
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setClassesPage((p) => Math.max(1, p - 1))}
-                        disabled={classesPage === 1}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setClassesPage((p) => p + 1)}
-                        disabled={classesPage * classesPerPage >= filteredClasses.length}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {filteredClasses.length === 0 && searchQuery && (
-                  <div className="text-center py-8">
-                    <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No classes found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      No classes match your search query "{searchQuery}"
-                    </p>
-                    <Button variant="outline" onClick={() => setSearchQuery('')}>
-                      Clear Search
-                    </Button>
-                  </div>
-                )}
+                <ClassesCRUD />
               </CardContent>
             </Card>
           </TabsContent>
