@@ -780,7 +780,7 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent className="px-0">
                 <div className="px-6">
-                  <SkillsManagement />
+                  <SkillsManagement showHeader={false} />
                 </div>
               </CardContent>
             </Card>
