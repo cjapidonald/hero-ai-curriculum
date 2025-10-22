@@ -185,6 +185,131 @@ SET
   updated_at = NOW();
 
 -- =============================================
+-- 4. Ensure core enrollment records exist for attendance tracking
+-- =============================================
+
+DO $$
+DECLARE
+  v_has_name_column BOOLEAN;
+  v_class_id UUID;
+  v_parent_id UUID;
+  v_parent_email TEXT;
+  v_parent_phone TEXT;
+  v_parent_full_name TEXT;
+  v_student_full_name TEXT;
+  student_rec RECORD;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'classes' AND column_name = 'name'
+  ) INTO v_has_name_column;
+
+  IF v_has_name_column THEN
+    SELECT id
+    INTO v_class_id
+    FROM classes
+    WHERE class_name = 'Alvin' OR name = 'Alvin'
+    ORDER BY updated_at DESC, created_at DESC
+    LIMIT 1;
+  ELSE
+    SELECT id
+    INTO v_class_id
+    FROM classes
+    WHERE class_name = 'Alvin'
+    ORDER BY updated_at DESC, created_at DESC
+    LIMIT 1;
+  END IF;
+
+  IF v_class_id IS NULL THEN
+    RAISE NOTICE 'Alvin class not found. Skipping enrollment sync.';
+    RETURN;
+  END IF;
+
+  FOR student_rec IN
+    SELECT id, name, surname, parent_name, parent_zalo_nr
+    FROM dashboard_students
+    WHERE class = 'Alvin' AND is_active = true
+  LOOP
+    v_student_full_name := student_rec.name || ' ' || student_rec.surname;
+    v_parent_full_name := COALESCE(student_rec.parent_name, v_student_full_name || ' Parent');
+    v_parent_phone := regexp_replace(COALESCE(student_rec.parent_zalo_nr, ''), '\\s+', '', 'g');
+
+    IF v_parent_phone = '' THEN
+      v_parent_phone := '+84000000000';
+    END IF;
+
+    v_parent_email := lower(
+      regexp_replace(v_parent_full_name, '\\s+', '.', 'g')
+    ) || '@parent.heroschool.com';
+
+    SELECT id
+    INTO v_parent_id
+    FROM parents
+    WHERE regexp_replace(phone, '\\s+', '', 'g') = v_parent_phone
+       OR (email IS NOT NULL AND email = v_parent_email)
+    LIMIT 1;
+
+    IF v_parent_id IS NULL THEN
+      INSERT INTO parents (full_name, phone, email)
+      VALUES (v_parent_full_name, v_parent_phone, v_parent_email)
+      RETURNING id INTO v_parent_id;
+    ELSE
+      UPDATE parents
+      SET
+        full_name = v_parent_full_name,
+        phone = v_parent_phone,
+        email = COALESCE(email, v_parent_email),
+        updated_at = NOW()
+      WHERE id = v_parent_id;
+    END IF;
+
+    INSERT INTO students (
+      id,
+      parent_id,
+      full_name,
+      assigned_stage,
+      status,
+      enrollment_date
+    )
+    VALUES (
+      student_rec.id,
+      v_parent_id,
+      v_student_full_name,
+      'stage_1'::cambridge_stage,
+      'enrolled'::student_status,
+      CURRENT_DATE
+    )
+    ON CONFLICT (id) DO UPDATE
+      SET
+        parent_id = EXCLUDED.parent_id,
+        full_name = EXCLUDED.full_name,
+        assigned_stage = EXCLUDED.assigned_stage,
+        status = 'enrolled'::student_status,
+        enrollment_date = COALESCE(students.enrollment_date, EXCLUDED.enrollment_date),
+        updated_at = NOW();
+
+    INSERT INTO enrollments (
+      student_id,
+      class_id,
+      enrollment_date,
+      is_active
+    )
+    VALUES (
+      student_rec.id,
+      v_class_id,
+      CURRENT_DATE,
+      true
+    )
+    ON CONFLICT (student_id, class_id) DO UPDATE
+      SET
+        is_active = true,
+        enrollment_date = COALESCE(enrollments.enrollment_date, EXCLUDED.enrollment_date),
+        updated_at = NOW();
+  END LOOP;
+END $$;
+
+-- =============================================
 -- DONE - Verification queries
 -- =============================================
 
@@ -194,6 +319,9 @@ DECLARE
   v_student_count INT;
   v_teacher_name TEXT;
   v_class_name TEXT;
+  v_enrollment_count INT;
+  v_class_id UUID;
+  v_has_name_column BOOLEAN;
 BEGIN
   SELECT COUNT(*) INTO v_student_count
   FROM dashboard_students
@@ -203,22 +331,34 @@ BEGIN
   FROM teachers
   WHERE email = 'xhoana.strand@heroschool.com';
 
-  IF EXISTS (
+  SELECT EXISTS (
     SELECT 1
     FROM information_schema.columns
     WHERE table_name = 'classes' AND column_name = 'name'
-  ) THEN
-    SELECT COALESCE(name, class_name) INTO v_class_name
+  ) INTO v_has_name_column;
+
+  IF v_has_name_column THEN
+    SELECT id, COALESCE(name, class_name)
+    INTO v_class_id, v_class_name
     FROM classes
     WHERE (name = 'Alvin' OR class_name = 'Alvin')
     ORDER BY updated_at DESC, created_at DESC
     LIMIT 1;
   ELSE
-    SELECT class_name INTO v_class_name
+    SELECT id, class_name
+    INTO v_class_id, v_class_name
     FROM classes
     WHERE class_name = 'Alvin'
     ORDER BY updated_at DESC, created_at DESC
     LIMIT 1;
+  END IF;
+
+  IF v_class_id IS NOT NULL THEN
+    SELECT COUNT(*) INTO v_enrollment_count
+    FROM enrollments
+    WHERE class_id = v_class_id AND is_active = true;
+  ELSE
+    v_enrollment_count := 0;
   END IF;
 
   RAISE NOTICE '========================================';
@@ -227,5 +367,6 @@ BEGIN
   RAISE NOTICE 'Teacher: %', v_teacher_name;
   RAISE NOTICE 'Class: %', v_class_name;
   RAISE NOTICE 'Students enrolled: %', v_student_count;
+  RAISE NOTICE 'Active enrollments synced: %', v_enrollment_count;
   RAISE NOTICE '========================================';
 END $$;
