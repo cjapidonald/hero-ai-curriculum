@@ -31,17 +31,15 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
     const fetchEvaluations = async () => {
       try {
         setLoading(true);
+      const currentTeacherId = mode === 'teacher' ? auth.user.id : teacherId;
+
       let query = supabase
         .from('teacher_evaluations' as any)
-        .select('*, evaluator:users(email)') // Simplified join
+        .select('*, evaluator:users(email)'); // Simplified join
 
-      if (mode === 'teacher') {
-        const { data: teacherData, error: teacherError } = await supabase.from('teachers' as any).select('id').eq('user_id', auth.user.id).single();
-          if (teacherError) throw teacherError;
-          query = query.eq('teacher_id', teacherData.id);
-        } else if (teacherId) {
-          query = query.eq('teacher_id', teacherId);
-        }
+      if (currentTeacherId) {
+        query = query.eq('teacher_id', currentTeacherId);
+      }
 
         const { data, error } = await query.order('evaluation_date', { ascending: false });
 
@@ -70,8 +68,8 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
         (payload) => {
           // Check if the new evaluation is for the current user/teacher and add it to the list
           const newEvaluation = payload.new;
-          const isForCurrentUser = (mode === 'teacher' && newEvaluation.teacher_id === teacherId) || (mode === 'admin' && newEvaluation.teacher_id === teacherId);
-          if(isForCurrentUser){
+          const targetTeacherId = mode === 'teacher' ? auth.user?.id : teacherId;
+          if (targetTeacherId && newEvaluation.teacher_id === targetTeacherId) {
             setEvaluations(prev => [newEvaluation, ...prev]);
           }
         }
