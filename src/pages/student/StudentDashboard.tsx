@@ -31,6 +31,7 @@ interface RadarDataPoint {
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const studentId = user?.id;
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,15 @@ export default function StudentDashboard() {
   const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
   useEffect(() => {
+    if (!user || user.role !== "student") {
+      navigate("/login");
+      return;
+    }
+
+    if (!studentId) {
+      return;
+    }
+
     const fetchStudentData = async () => {
       try {
         setLoading(true);
@@ -126,11 +136,6 @@ export default function StudentDashboard() {
       }
     };
 
-    if (!user || user.role !== "student") {
-      navigate("/login");
-      return;
-    }
-
     void fetchStudentData();
 
     // Set up real-time subscriptions
@@ -142,7 +147,7 @@ export default function StudentDashboard() {
           event: '*',
           schema: 'public',
           table: 'skills_evaluation',
-          filter: `student_id=eq.${studentData?.id}`,
+          filter: `student_id=eq.${studentId}`,
         },
         () => {
           void fetchStudentData();
@@ -158,7 +163,7 @@ export default function StudentDashboard() {
           event: '*',
           schema: 'public',
           table: 'assessment',
-          filter: `student_id=eq.${studentData?.id}`,
+          filter: `student_id=eq.${studentId}`,
         },
         () => {
           void fetchStudentData();
@@ -170,7 +175,7 @@ export default function StudentDashboard() {
       supabase.removeChannel(skillsChannel);
       supabase.removeChannel(assessmentChannel);
     };
-  }, [navigate, user]);
+  }, [navigate, studentId, user]);
 
   const averageAssessmentScore = useMemo(() => {
     if (!recentAssessments.length) return 0;
