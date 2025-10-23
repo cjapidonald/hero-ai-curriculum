@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Download, Search, Filter } from 'lucide-react';
+import { Eye, Download, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -24,6 +24,10 @@ interface CurriculumLesson {
   status?: string | null;
   title?: string | null;
   created_at: string;
+  class_level?: string | null;
+  class_stage?: string | null;
+  class_teacher?: string | null;
+  class_name?: string | null;
   // All activity fields
   [key: string]: any;
 }
@@ -39,15 +43,16 @@ export const FullCurriculumView = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<CurriculumLesson | null>(null);
   const [classes, setClasses] = useState<string[]>([]);
+  const [stages, setStages] = useState<string[]>([]);
 
-  const formatStageLabel = (stage?: string | null) => {
+  const formatStageLabel = useCallback((stage?: string | null) => {
     if (!stage) return null;
     if (stage.toLowerCase().startsWith('stage_')) {
       const suffix = stage.split('_')[1];
       return `Stage ${suffix}`;
     }
     return stage;
-  };
+  }, []);
 
   const renderStatusBadge = (status?: string | null) => {
     if (!status) {
@@ -75,16 +80,51 @@ export const FullCurriculumView = () => {
 
       const { data, error } = await supabase
         .from('curriculum')
-        .select('*')
+        .select(`
+          *,
+          classes:class_id (
+            class_name,
+            stage,
+            level,
+            teacher_name
+          )
+        `)
         .order('lesson_date', { ascending: false });
 
       if (error) throw error;
 
-      setLessons((data || []) as unknown as CurriculumLesson[]);
+      const formattedLessons = (data || []).map((lesson: any) => ({
+        ...lesson,
+        class_name: lesson.class ?? lesson.classes?.class_name ?? null,
+        class_stage: lesson.classes?.stage ?? lesson.curriculum_stage ?? lesson.stage ?? null,
+        class_level: lesson.classes?.level ?? null,
+        class_teacher: lesson.teacher_name ?? lesson.classes?.teacher_name ?? null,
+      }));
+
+      setLessons(formattedLessons as CurriculumLesson[]);
 
       // Extract unique classes
-      const uniqueClasses = Array.from(new Set(data?.map(l => (l as any).class).filter(Boolean))) as string[];
+      const uniqueClasses = Array.from(
+        new Set(
+          formattedLessons
+            .map((lesson: CurriculumLesson) => lesson.class ?? lesson.class_name)
+            .filter(Boolean)
+        )
+      ) as string[];
+      uniqueClasses.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
       setClasses(uniqueClasses);
+
+      const uniqueStages = Array.from(
+        new Set(
+          formattedLessons
+            .map((lesson: CurriculumLesson) =>
+              formatStageLabel(lesson.curriculum_stage || lesson.class_stage || lesson.stage)
+            )
+            .filter(Boolean)
+        )
+      ) as string[];
+      uniqueStages.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      setStages(uniqueStages);
     } catch (error) {
       console.error('Error fetching curriculum:', error);
       toast({
@@ -95,33 +135,39 @@ export const FullCurriculumView = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, formatStageLabel]);
 
   const filterLessons = useCallback(() => {
     let filtered = [...lessons];
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(
-        (lesson) =>
-          lesson.lesson_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lesson.teacher_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lesson.class?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((lesson) => {
+        const teacherValue = (lesson.class_teacher || lesson.teacher_name || '').toLowerCase();
+        const classValue = ((lesson.class || lesson.class_name) || '').toLowerCase();
+        return (
+          lesson.lesson_title.toLowerCase().includes(searchLower) ||
+          teacherValue.includes(searchLower) ||
+          classValue.includes(searchLower)
+        );
+      });
     }
 
     // Class filter
     if (classFilter !== 'all') {
-      filtered = filtered.filter((lesson) => lesson.class === classFilter);
+      filtered = filtered.filter((lesson) => (lesson.class ?? lesson.class_name) === classFilter);
     }
 
     // Stage filter
     if (stageFilter !== 'all') {
-      filtered = filtered.filter((lesson) => lesson.curriculum_stage === stageFilter);
+      filtered = filtered.filter(
+        (lesson) => formatStageLabel(lesson.curriculum_stage || lesson.class_stage || lesson.stage) === stageFilter
+      );
     }
 
     setFilteredLessons(filtered);
-  }, [lessons, searchTerm, classFilter, stageFilter]);
+  }, [lessons, searchTerm, classFilter, stageFilter, formatStageLabel]);
 
   useEffect(() => {
     void fetchData();
@@ -230,11 +276,12 @@ export const FullCurriculumView = () => {
   const handleExportCSV = () => {
     const csvData = filteredLessons.map((lesson) => ({
       Title: lesson.lesson_title,
-      Teacher: lesson.teacher_name || '',
-      Class: lesson.class || '',
+      Teacher: lesson.class_teacher || lesson.teacher_name || '',
+      Class: lesson.class || lesson.class_name || '',
+      Grade: lesson.class_level || formatStageLabel(lesson.curriculum_stage || lesson.class_stage || lesson.stage) || '',
       Subject: lesson.subject || '',
       Date: lesson.lesson_date || '',
-      Stage: lesson.curriculum_stage || lesson.stage || '',
+      Stage: formatStageLabel(lesson.curriculum_stage || lesson.class_stage || lesson.stage) || '',
       Status: lesson.status || '',
       Skills: lesson.lesson_skills || '',
       Warmups: getActivityCount(lesson, 'wp'),
@@ -314,7 +361,7 @@ export const FullCurriculumView = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stages</SelectItem>
-            {['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5', 'Stage 6'].map((stage) => (
+            {stages.map((stage) => (
               <SelectItem key={stage} value={stage}>
                 {stage}
               </SelectItem>
@@ -333,6 +380,7 @@ export const FullCurriculumView = () => {
               <TableHead className="whitespace-nowrap">Subject</TableHead>
               <TableHead className="whitespace-nowrap">Teacher</TableHead>
               <TableHead className="whitespace-nowrap">Class</TableHead>
+              <TableHead className="whitespace-nowrap">Grade</TableHead>
               <TableHead className="whitespace-nowrap">Stage</TableHead>
               <TableHead className="whitespace-nowrap">Status</TableHead>
               <TableHead className="whitespace-nowrap">Skills</TableHead>
@@ -346,7 +394,8 @@ export const FullCurriculumView = () => {
           </TableHeader>
           <TableBody>
             {filteredLessons.map((lesson) => {
-              const stageLabel = formatStageLabel(lesson.curriculum_stage || lesson.stage);
+              const stageLabel = formatStageLabel(lesson.curriculum_stage || lesson.class_stage || lesson.stage);
+              const gradeLabel = lesson.class_level || stageLabel;
               return (
                 <TableRow key={lesson.id}>
                   <TableCell className="whitespace-nowrap">
@@ -356,9 +405,16 @@ export const FullCurriculumView = () => {
                     {lesson.lesson_title}
                   </TableCell>
                   <TableCell>{lesson.subject || '-'}</TableCell>
-                  <TableCell>{lesson.teacher_name || '-'}</TableCell>
+                  <TableCell>{lesson.class_teacher || lesson.teacher_name || '-'}</TableCell>
                   <TableCell>
-                    {lesson.class ? <Badge variant="outline">{lesson.class}</Badge> : '-'}
+                    {lesson.class || lesson.class_name ? (
+                      <Badge variant="outline">{lesson.class || lesson.class_name}</Badge>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {gradeLabel ? <Badge variant="secondary">{gradeLabel}</Badge> : '-'}
                   </TableCell>
                   <TableCell>
                     {stageLabel ? <Badge variant="secondary">{stageLabel}</Badge> : '-'}
@@ -412,19 +468,33 @@ export const FullCurriculumView = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="font-semibold">Teacher:</Label>
-                  <p>{selectedLesson.teacher_name || '-'}</p>
+                  <p>{selectedLesson.class_teacher || selectedLesson.teacher_name || '-'}</p>
                 </div>
                 <div>
                   <Label className="font-semibold">Class:</Label>
-                  <p>{selectedLesson.class || '-'}</p>
+                  <p>{selectedLesson.class || selectedLesson.class_name || '-'}</p>
                 </div>
                 <div>
                   <Label className="font-semibold">Date:</Label>
                   <p>{selectedLesson.lesson_date ? new Date(selectedLesson.lesson_date).toLocaleDateString() : '-'}</p>
                 </div>
                 <div>
+                  <Label className="font-semibold">Grade:</Label>
+                  <p>
+                    {selectedLesson.class_level ||
+                      formatStageLabel(
+                        selectedLesson.curriculum_stage || selectedLesson.class_stage || selectedLesson.stage
+                      ) ||
+                      '-'}
+                  </p>
+                </div>
+                <div>
                   <Label className="font-semibold">Stage:</Label>
-                  <p>{formatStageLabel(selectedLesson.curriculum_stage || selectedLesson.stage) || '-'}</p>
+                  <p>
+                    {formatStageLabel(
+                      selectedLesson.curriculum_stage || selectedLesson.class_stage || selectedLesson.stage
+                    ) || '-'}
+                  </p>
                 </div>
                 <div>
                   <Label className="font-semibold">Subject:</Label>
