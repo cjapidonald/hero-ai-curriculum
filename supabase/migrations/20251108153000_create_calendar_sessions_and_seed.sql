@@ -62,8 +62,8 @@ BEGIN
     attendance_taken
   )
   VALUES
-    (donald_id, 'Starters A', 'Unit 3: Fun with Phonics', (CURRENT_DATE + 1), '09:00', '10:30', 'scheduled', false),
-    (donald_id, 'Starters A', 'Unit 3 Review Workshop', (CURRENT_DATE + 3), '09:00', '10:30', 'scheduled', false),
+    (donald_id, 'Alvin Stage 1', 'Unit 3: Fun with Phonics', (CURRENT_DATE + 1), '09:00', '10:30', 'scheduled', false),
+    (donald_id, 'Alvin Stage 1', 'Unit 3 Review Workshop', (CURRENT_DATE + 3), '09:00', '10:30', 'scheduled', false),
     (sarah_id, 'Movers B', 'Science Lab: Ecosystems', (CURRENT_DATE + 2), '14:00', '15:30', 'scheduled', false),
     (sarah_id, 'Movers B', 'STEM Project Check-in', (CURRENT_DATE + 5), '14:00', '15:30', 'scheduled', false)
   ON CONFLICT (teacher_id, session_date, start_time) DO NOTHING;
