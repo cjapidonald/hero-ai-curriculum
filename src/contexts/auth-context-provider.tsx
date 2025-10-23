@@ -1,6 +1,11 @@
 import { useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AuthContext, type AuthContextType, type AuthUser, type UserRole } from "./auth-context-hook";
+import {
+  AuthContext,
+  type AuthContextType,
+  type AuthUser,
+  type UserRole,
+} from "./auth-context-hook";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -11,71 +16,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initializeUser = async () => {
-      try {
-        const savedUser = localStorage.getItem("hero_user");
+    try {
+      const savedUser = localStorage.getItem("hero_user");
 
-        if (savedUser) {
-          setUser(JSON.parse(savedUser));
-          setLoading(false);
-          return;
-        }
-
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error("Error retrieving auth session:", sessionError);
-          setLoading(false);
-          return;
-        }
-
-        const authUserId = session?.user?.id;
-        if (!authUserId) {
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("teachers")
-          .select("*")
-          .eq("auth_user_id", authUserId)
-          .eq("is_active", true)
-          .single();
-
-        if (error || !data) {
-          if (error) {
-            console.error("Teacher lookup after session restore failed:", error);
-          }
-          setLoading(false);
-          return;
-        }
-
-        const userData: AuthUser = {
-          id: data.id,
-          authUserId,
-          name: data.name,
-          surname: data.surname,
-          email: data.email,
-          role: "teacher",
-          subject: data.subject,
-          profileImageUrl: data.profile_image_url ?? undefined,
-          phone: data.phone ?? undefined,
-          bio: data.bio ?? undefined,
-        };
-
-        setUser(userData);
-        localStorage.setItem("hero_user", JSON.stringify(userData));
-      } catch (error) {
-        console.error("Error initializing auth state:", error);
-      } finally {
-        setLoading(false);
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
       }
-    };
-
-    void initializeUser();
+    } catch (error) {
+      console.error("Error initializing auth state:", error);
+      localStorage.removeItem("hero_user");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
@@ -119,36 +71,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setLoading(false);
         return true;
       } else if (role === "teacher") {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const identifier = email.trim();
 
-        if (authError || !authData?.user) {
-          console.error("Teacher auth error:", authError);
-          setLoading(false);
-          return false;
-        }
-
-        const authUserId = authData.user.id;
-
-        const { data, error } = await supabase
+        let query = supabase
           .from("teachers")
           .select("*")
-          .eq("auth_user_id", authUserId)
-          .eq("is_active", true)
-          .single();
+          .eq("password", password)
+          .eq("is_active", true);
+
+        if (identifier.includes("@")) {
+          query = query.ilike("email", identifier);
+        } else {
+          query = query.ilike("username", identifier);
+        }
+
+        const { data, error } = await query.maybeSingle();
 
         if (error || !data) {
-          console.error("Teacher profile lookup error:", error);
-          await supabase.auth.signOut();
+          console.error("Teacher login error:", error);
           setLoading(false);
           return false;
         }
 
         const userData: AuthUser = {
           id: data.id,
-          authUserId,
           name: data.name,
           surname: data.surname,
           email: data.email,
