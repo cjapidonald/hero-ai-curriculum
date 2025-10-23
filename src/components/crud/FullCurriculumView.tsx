@@ -20,6 +20,9 @@ interface CurriculumLesson {
   lesson_skills: string | null;
   success_criteria: string | null;
   curriculum_stage: string | null;
+  stage?: string | null;
+  status?: string | null;
+  title?: string | null;
   created_at: string;
   // All activity fields
   [key: string]: any;
@@ -36,6 +39,35 @@ export const FullCurriculumView = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<CurriculumLesson | null>(null);
   const [classes, setClasses] = useState<string[]>([]);
+
+  const formatStageLabel = (stage?: string | null) => {
+    if (!stage) return null;
+    if (stage.toLowerCase().startsWith('stage_')) {
+      const suffix = stage.split('_')[1];
+      return `Stage ${suffix}`;
+    }
+    return stage;
+  };
+
+  const renderStatusBadge = (status?: string | null) => {
+    if (!status) {
+      return <Badge variant="outline">Draft</Badge>;
+    }
+
+    const normalized = status.replace(/_/g, ' ');
+    const variantMap: Record<string, 'secondary' | 'default' | 'destructive' | 'outline'> = {
+      scheduled: 'secondary',
+      building: 'default',
+      ready: 'default',
+      in_progress: 'default',
+      completed: 'outline',
+      cancelled: 'destructive',
+    };
+
+    const variant = variantMap[status] ?? 'outline';
+    const label = normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+    return <Badge variant={variant}>{label}</Badge>;
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -200,8 +232,10 @@ export const FullCurriculumView = () => {
       Title: lesson.lesson_title,
       Teacher: lesson.teacher_name || '',
       Class: lesson.class || '',
+      Subject: lesson.subject || '',
       Date: lesson.lesson_date || '',
-      Stage: lesson.curriculum_stage || '',
+      Stage: lesson.curriculum_stage || lesson.stage || '',
+      Status: lesson.status || '',
       Skills: lesson.lesson_skills || '',
       Warmups: getActivityCount(lesson, 'wp'),
       MainActivities: getActivityCount(lesson, 'ma'),
@@ -296,9 +330,11 @@ export const FullCurriculumView = () => {
             <TableRow>
               <TableHead className="whitespace-nowrap">Date</TableHead>
               <TableHead className="whitespace-nowrap">Lesson Title</TableHead>
+              <TableHead className="whitespace-nowrap">Subject</TableHead>
               <TableHead className="whitespace-nowrap">Teacher</TableHead>
               <TableHead className="whitespace-nowrap">Class</TableHead>
               <TableHead className="whitespace-nowrap">Stage</TableHead>
+              <TableHead className="whitespace-nowrap">Status</TableHead>
               <TableHead className="whitespace-nowrap">Skills</TableHead>
               <TableHead className="whitespace-nowrap">Warmup</TableHead>
               <TableHead className="whitespace-nowrap">Main</TableHead>
@@ -309,53 +345,58 @@ export const FullCurriculumView = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLessons.map((lesson) => (
-              <TableRow key={lesson.id}>
-                <TableCell className="whitespace-nowrap">
-                  {lesson.lesson_date ? new Date(lesson.lesson_date).toLocaleDateString() : '-'}
-                </TableCell>
-                <TableCell className="font-medium max-w-xs truncate">
-                  {lesson.lesson_title}
-                </TableCell>
-                <TableCell>{lesson.teacher_name || '-'}</TableCell>
-                <TableCell>
-                  {lesson.class ? <Badge variant="outline">{lesson.class}</Badge> : '-'}
-                </TableCell>
-                <TableCell>
-                  {lesson.curriculum_stage ? <Badge variant="secondary">{lesson.curriculum_stage}</Badge> : '-'}
-                </TableCell>
-                <TableCell className="max-w-xs truncate">
-                  {lesson.lesson_skills || '-'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{getActivityCount(lesson, 'wp')}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{getActivityCount(lesson, 'ma')}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{getActivityCount(lesson, 'a')}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{getActivityCount(lesson, 'hw')}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{getActivityCount(lesson, 'p')}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedLesson(lesson);
-                      setViewDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filteredLessons.map((lesson) => {
+              const stageLabel = formatStageLabel(lesson.curriculum_stage || lesson.stage);
+              return (
+                <TableRow key={lesson.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {lesson.lesson_date ? new Date(lesson.lesson_date).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell className="font-medium max-w-xs truncate">
+                    {lesson.lesson_title}
+                  </TableCell>
+                  <TableCell>{lesson.subject || '-'}</TableCell>
+                  <TableCell>{lesson.teacher_name || '-'}</TableCell>
+                  <TableCell>
+                    {lesson.class ? <Badge variant="outline">{lesson.class}</Badge> : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {stageLabel ? <Badge variant="secondary">{stageLabel}</Badge> : '-'}
+                  </TableCell>
+                  <TableCell>{renderStatusBadge(lesson.status)}</TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {lesson.lesson_skills || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getActivityCount(lesson, 'wp')}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getActivityCount(lesson, 'ma')}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getActivityCount(lesson, 'a')}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getActivityCount(lesson, 'hw')}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{getActivityCount(lesson, 'p')}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedLesson(lesson);
+                        setViewDialogOpen(true);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -383,7 +424,15 @@ export const FullCurriculumView = () => {
                 </div>
                 <div>
                   <Label className="font-semibold">Stage:</Label>
-                  <p>{selectedLesson.curriculum_stage || '-'}</p>
+                  <p>{formatStageLabel(selectedLesson.curriculum_stage || selectedLesson.stage) || '-'}</p>
+                </div>
+                <div>
+                  <Label className="font-semibold">Subject:</Label>
+                  <p>{selectedLesson.subject || '-'}</p>
+                </div>
+                <div>
+                  <Label className="font-semibold">Status:</Label>
+                  <p>{selectedLesson.status ? selectedLesson.status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : '-'}</p>
                 </div>
                 <div className="col-span-2">
                   <Label className="font-semibold">Skills:</Label>

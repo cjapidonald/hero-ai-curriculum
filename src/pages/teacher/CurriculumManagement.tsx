@@ -43,6 +43,8 @@ interface ClassSession {
   // Joined data
   class_name?: string;
   class_stage?: string;
+  class_level?: string | null;
+  class_teacher?: string | null;
   lesson_title?: string;
   lesson_subject?: string;
 }
@@ -67,6 +69,15 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   const [selectedSession, setSelectedSession] = useState<ClassSession | null>(null);
 
   const { toast } = useToast();
+
+  const formatStageLabel = (stage?: string | null) => {
+    if (!stage) return null;
+    if (stage.toLowerCase().startsWith('stage_')) {
+      const suffix = stage.split('_')[1];
+      return `Stage ${suffix}`;
+    }
+    return stage;
+  };
 
   useEffect(() => {
     loadData();
@@ -123,7 +134,9 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
           *,
           classes:class_id (
             class_name,
-            stage
+            stage,
+            level,
+            teacher_name
           ),
           curriculum:curriculum_id (
             lesson_title,
@@ -140,6 +153,8 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
         ...session,
         class_name: session.classes?.class_name,
         class_stage: session.classes?.stage,
+        class_level: session.classes?.level,
+        class_teacher: session.classes?.teacher_name,
         lesson_title: session.curriculum?.lesson_title,
         lesson_subject: session.curriculum?.subject,
       }));
@@ -208,7 +223,24 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   };
 
   const canStartClass = (session: ClassSession) => {
-    return session.status === 'ready' && isToday(parseISO(session.session_date));
+    const sessionDate = parseISO(session.session_date);
+    if (session.status === 'in_progress') {
+      return true;
+    }
+
+    if (session.status === 'ready' && isToday(sessionDate)) {
+      return true;
+    }
+
+    if (
+      session.status === 'scheduled' &&
+      session.lesson_plan_completed &&
+      isToday(sessionDate)
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
   const handleBuildLesson = (session: ClassSession) => {
@@ -223,18 +255,24 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
 
   const handleStartClass = async (session: ClassSession) => {
     try {
-      // Update status to in_progress
-      const { error } = await supabase
-        .from('class_sessions')
-        .update({ status: 'in_progress' })
-        .eq('id', session.id);
+      if (session.status !== 'in_progress') {
+        const { error } = await supabase
+          .from('class_sessions')
+          .update({ status: 'in_progress' })
+          .eq('id', session.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: 'Class Started',
-        description: 'Redirecting to class view...',
-      });
+        toast({
+          title: 'Class Started',
+          description: 'Redirecting to live class tools...',
+        });
+      } else {
+        toast({
+          title: 'Resuming Class',
+          description: 'Returning to attendance and lesson plan.',
+        });
+      }
 
       // Navigate to MyClassView
       if (onStartClass) {
@@ -329,8 +367,10 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
               <TableHeader>
                 <TableRow>
                   <TableHead>Date & Time</TableHead>
+                  <TableHead>Lesson &amp; Subject</TableHead>
                   <TableHead>Class</TableHead>
-                  <TableHead>Lesson</TableHead>
+                  <TableHead>Teacher</TableHead>
+                  <TableHead>Grade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Attendance</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -339,86 +379,99 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
               <TableBody>
                 {filteredSessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No sessions found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredSessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">
-                              {format(parseISO(session.session_date), 'EEE, MMM d')}
+                  filteredSessions.map((session) => {
+                    const stageLabel = formatStageLabel(session.class_stage);
+                    const gradeLabel = session.class_level || stageLabel || 'Stage TBD';
+                    const subjectLabel = session.lesson_subject || 'General English';
+                    const teacherLabel = session.class_teacher || 'Assigned Teacher';
+                    const startLabel = session.status === 'in_progress' ? 'Resume Lesson' : 'Start Lesson';
+
+                    return (
+                      <TableRow key={session.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <div>
+                              <div className="font-medium">
+                                {format(parseISO(session.session_date), 'EEE, MMM d')}
+                              </div>
+                              <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {session.start_time} - {session.end_time}
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {session.start_time} - {session.end_time}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{session.lesson_title || 'No lesson assigned'}</div>
+                          <div className="text-sm text-muted-foreground">{subjectLabel}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{session.class_name || 'Unassigned class'}</div>
+                          <div className="text-sm text-muted-foreground">{stageLabel || 'Stage TBD'}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{teacherLabel}</div>
+                          <div className="text-sm text-muted-foreground">Lead Instructor</div>
+                        </TableCell>
+                        <TableCell>
+                          {gradeLabel ? (
+                            <Badge variant="secondary">{gradeLabel}</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(session.status)}</TableCell>
+                        <TableCell>
+                          {session.attendance_taken ? (
+                            <div className="text-sm">
+                              {session.attendance_count} / {session.total_students}
                             </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{session.class_name}</div>
-                          <div className="text-sm text-muted-foreground">{session.class_stage}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{session.lesson_title || 'No lesson'}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {session.lesson_subject}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      <TableCell>
-                        {session.attendance_taken ? (
-                          <div className="text-sm">
-                            {session.attendance_count} / {session.total_students}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">Not taken</div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {canBuildLesson(session) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleBuildLesson(session)}
-                            >
-                              <Pencil className="w-4 h-4 mr-1" />
-                              Build
-                            </Button>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">Not taken</div>
                           )}
-                          {session.lesson_plan_completed && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewLesson(session)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View
-                            </Button>
-                          )}
-                          {canStartClass(session) && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleStartClass(session)}
-                            >
-                              <Play className="w-4 h-4 mr-1" />
-                              Start
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {canBuildLesson(session) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleBuildLesson(session)}
+                              >
+                                <Pencil className="w-4 h-4 mr-1" />
+                                Build Plan
+                              </Button>
+                            )}
+                            {session.lesson_plan_completed && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleViewLesson(session)}
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View Plan
+                              </Button>
+                            )}
+                            {canStartClass(session) && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleStartClass(session)}
+                              >
+                                <Play className="w-4 h-4 mr-1" />
+                                {startLabel}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

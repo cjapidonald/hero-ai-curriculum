@@ -37,6 +37,9 @@ interface ClassSession {
   class_name?: string;
   lesson_title?: string;
   lesson_subject?: string;
+  class_stage?: string | null;
+  class_level?: string | null;
+  class_teacher?: string | null;
 }
 
 interface ViewLessonPlanModalProps {
@@ -50,6 +53,15 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
   const [lessonPlan, setLessonPlan] = useState<LessonPlanData | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const formatStageLabel = (stage?: string | null) => {
+    if (!stage) return null;
+    if (stage.toLowerCase().startsWith('stage_')) {
+      const suffix = stage.split('_')[1];
+      return `Stage ${suffix}`;
+    }
+    return stage;
+  };
 
   useEffect(() => {
     if (open && session.lesson_plan_data) {
@@ -291,6 +303,12 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
               </div>
               <div>
                 <span className="font-semibold">Time:</span> {session.start_time} - {session.end_time}
+              </div>
+              <div>
+                <span className="font-semibold">Teacher:</span> {session.class_teacher || 'Not assigned'}
+              </div>
+              <div>
+                <span className="font-semibold">Grade:</span> {session.class_level || formatStageLabel(session.class_stage) || 'Stage TBD'}
               </div>
             </div>
           </CardContent>
