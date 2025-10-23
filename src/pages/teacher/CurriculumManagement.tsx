@@ -200,19 +200,37 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     existingClasses: { id: string; name: string }[],
   ) => {
     try {
-      const { data: curriculumData, error: curriculumError } = await supabase
-        .from('curriculum')
-        .select(
-          `id, lesson_title, lesson_date, status, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
-        )
-        .eq('teacher_id', teacherId)
-        .order('lesson_date', { ascending: true });
+      const selectCurriculum = (includeStatus: boolean) =>
+        supabase
+          .from('curriculum')
+          .select(
+            includeStatus
+              ? `id, lesson_title, lesson_date, status, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
+              : `id, lesson_title, lesson_date, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
+          )
+          .eq('teacher_id', teacherId)
+          .order('lesson_date', { ascending: true });
+
+      let curriculumResult = await selectCurriculum(true);
+
+      if (
+        curriculumResult.error &&
+        typeof curriculumResult.error.message === 'string' &&
+        curriculumResult.error.message.toLowerCase().includes('column curriculum.status')
+      ) {
+        curriculumResult = await selectCurriculum(false);
+      }
+
+      const { data: curriculumData, error: curriculumError } = curriculumResult;
 
       if (curriculumError) {
         throw curriculumError;
       }
 
-      type CurriculumFallbackRow = CurriculumRow & { class_name?: string | null };
+      type CurriculumFallbackRow = CurriculumRow & {
+        class_name?: string | null;
+        status?: string | null;
+      };
 
       const lessons: CurriculumFallbackRow[] = (curriculumData as CurriculumFallbackRow[]) || [];
 
