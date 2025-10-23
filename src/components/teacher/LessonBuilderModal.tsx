@@ -63,13 +63,16 @@ interface ClassSession {
   class_id: string;
   lesson_title?: string;
   lesson_subject?: string;
+  lesson_plan_content?: {
+    resources?: LessonResource[];
+  };
 }
 
 interface LessonBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lesson: Partial<ClassSession>;
-  onSave: (lessonPlanData: Record<string, unknown>) => void;
+  onSave: (lessonPlanData: Record<string, unknown>) => void | Promise<void>;
 }
 
 function SortableResource({
@@ -221,7 +224,7 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const lessonPlanData = {
       resources: lessonResources.map((lr, index) => ({
         ...lr,
@@ -232,7 +235,12 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
         0
       ),
     };
-    onSave(lessonPlanData);
+    setSaving(true);
+    try {
+      await Promise.resolve(onSave(lessonPlanData));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filteredResources = availableResources.filter((resource) => {
