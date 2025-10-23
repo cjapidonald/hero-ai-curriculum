@@ -133,7 +133,7 @@ const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ teacherId }
     const latestEvaluation = filtered[filtered.length - 1];
     const rubricScores = latestEvaluation?.rubric_scores || {};
 
-    const skillData: any[] = [];
+    const skillData: { name: string; fullName: string; category: string; score: number; maxScore: number }[] = [];
 
     CLASSROOM_OBSERVATION_RUBRIC.forEach(category => {
       category.criteria.forEach(criterion => {

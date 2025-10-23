@@ -223,7 +223,7 @@ const TakeAttendanceDialog = ({
 
       if (enrollmentIds.length > 0) {
         const { data: existingRecords, error: existingRecordsError } = await supabase
-          .from('attendance' as any)
+          .from('attendance')
           .select('enrollment_id, present, late')
           .in('enrollment_id', enrollmentIds)
           .eq('class_date', classDate);
@@ -264,7 +264,7 @@ const TakeAttendanceDialog = ({
         };
       });
 
-      const { error } = await supabase.from('attendance' as any).upsert(attendanceRecords, {
+      const { error } = await supabase.from('attendance').upsert(attendanceRecords, {
         onConflict: 'enrollment_id,class_date',
       });
 

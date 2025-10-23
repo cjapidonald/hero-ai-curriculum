@@ -68,8 +68,8 @@ interface ClassSession {
 interface LessonBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  lesson: any;
-  onSave: (lessonPlanData: any) => void;
+  lesson: Partial<ClassSession>;
+  onSave: (lessonPlanData: Record<string, unknown>) => void;
 }
 
 function SortableResource({

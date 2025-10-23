@@ -53,7 +53,6 @@ type ObservationClass = {
   id: string;
   name?: string | null;
   class_name?: string | null;
-  [key: string]: any;
 };
 
 interface ClassroomObservationFormProps {

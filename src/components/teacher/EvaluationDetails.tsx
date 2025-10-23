@@ -16,7 +16,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
   const { toast } = useToast();
   const auth = useContext(AuthContext);
   const [evaluation, setEvaluation] = useState<any>(null);
-  const [itemScores, setItemScores] = useState<any[]>([]);
+  const [itemScores, setItemScores] = useState<EvaluationItemScoreInsert[]>([]);
   const [rubricItems, setRubricItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [teacherComments, setTeacherComments] = useState<{ [key: number]: string }>({});
@@ -26,7 +26,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
       try {
         setLoading(true);
         const { data: evalData, error: evalError } = await supabase
-          .from('teacher_evaluations' as any)
+          .from('teacher_evaluations')
           .select('*, teacher:teachers(name, surname), evaluator:users(first_name, last_name)')
           .eq('id', evaluationId)
           .single();
@@ -35,7 +35,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
         setEvaluation(evalData);
 
         const { data: scoresData, error: scoresError } = await supabase
-          .from('evaluation_item_scores' as any)
+          .from('evaluation_item_scores')
           .select('*')
           .eq('evaluation_id', evaluationId);
 
@@ -43,7 +43,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
         setItemScores(scoresData || []);
 
         const { data: rubricData, error: rubricError } = await supabase
-          .from('evaluation_rubric_items' as any)
+          .from('evaluation_rubric_items')
           .select('*')
           .order('order', { ascending: true });
         
@@ -51,7 +51,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
         setRubricItems(rubricData || []);
 
         // Initialize teacher comments
-        const initialComments = {};
+        const initialComments: { [key: number]: string } = {};
         (scoresData || []).forEach(score => {
           initialComments[score.rubric_item_id] = score.teacher_comment || '';
         });
@@ -79,7 +79,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
     try {
       const updatePromises = Object.entries(teacherComments).map(([rubric_item_id, comment]) =>
         supabase
-          .from('evaluation_item_scores' as any)
+          .from('evaluation_item_scores')
           .update({ teacher_comment: comment })
           .eq('evaluation_id', evaluationId)
           .eq('rubric_item_id', rubric_item_id)
@@ -88,7 +88,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
       await Promise.all(updatePromises);
 
       await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .update({ status: 'teacher_reviewed' })
         .eq('id', evaluationId);
 
@@ -106,7 +106,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
   const handleSendBackForReevaluation = async () => {
     try {
       await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .update({ status: 'pending_re_evaluation' })
         .eq('id', evaluationId);
 
@@ -123,7 +123,7 @@ const EvaluationDetails: React.FC<EvaluationDetailsProps> = ({ evaluationId }) =
   const handleFinalizeEvaluation = async () => {
     try {
       await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .update({ status: 'finalized' })
         .eq('id', evaluationId);
 

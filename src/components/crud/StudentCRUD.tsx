@@ -82,7 +82,7 @@ export function StudentCRUD({ classFilter, showActions = true }: StudentCRUDProp
         });
       }
     } else {
-      const { error } = await create(formData as any);
+      const { error } = await create(formData as Student);
       if (!error) {
         setIsDialogOpen(false);
         toast({

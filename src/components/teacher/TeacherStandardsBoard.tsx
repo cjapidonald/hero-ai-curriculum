@@ -162,11 +162,11 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
 
         setStandards((standardsData as TeacherStandard[]) ?? []);
         setProgressRecords((progressData as TeacherStandardProgress[]) ?? []);
-      } catch (error: any) {
+      } catch (error) {
         console.error("Failed to load teacher standards:", error);
         toast({
           title: "Unable to load teacher standards",
-          description: error.message ?? "Please try again in a moment.",
+          description: (error as Error).message ?? "Please try again in a moment.",
           variant: "destructive",
         });
       } finally {
@@ -314,7 +314,7 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
 
       const { error: upsertError } = await supabase
         .from("teacher_standard_progress")
-        .upsert(payload, { onConflict: "teacher_id,standard_id" } as any);
+        .upsert(payload, { onConflict: "teacher_id,standard_id" });
 
       if (upsertError) {
         throw upsertError;
@@ -371,7 +371,7 @@ export const TeacherStandardsBoard = ({ teacherId, mode, teacherName }: TeacherS
 
       const { error } = await supabase
         .from("teacher_standard_progress")
-        .upsert(payload, { onConflict: "teacher_id,standard_id" } as any);
+        .upsert(payload, { onConflict: "teacher_id,standard_id" });
 
       if (error) {
         throw error;

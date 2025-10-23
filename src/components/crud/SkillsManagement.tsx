@@ -113,7 +113,7 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
 
       setSkills((skillsRes.data ?? []) as Skill[]);
       setCurriculums((curriculumsRes.data ?? []) as CurriculumOption[]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching skills:", error);
       toast({
         title: "Error",
@@ -176,7 +176,7 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
           description: "The skill was updated successfully.",
         });
       } else {
-        const { error } = await supabase.from("skills").insert(payload);
+        const { error } = await supabase.from("skills").insert(payload as Skill);
         if (error) throw error;
         toast({
           title: "Skill created",

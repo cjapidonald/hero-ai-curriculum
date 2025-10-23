@@ -44,7 +44,7 @@ const TeacherEvaluationReview: React.FC<TeacherEvaluationReviewProps> = ({ evalu
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .select('*')
         .eq('id', evaluationId)
         .single();
@@ -100,7 +100,7 @@ const TeacherEvaluationReview: React.FC<TeacherEvaluationReviewProps> = ({ evalu
     try {
       setIsSubmitting(true);
       const { error } = await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .update({
           teacher_reviewed_at: new Date().toISOString(),
           status: 'completed',
@@ -144,7 +144,7 @@ const TeacherEvaluationReview: React.FC<TeacherEvaluationReviewProps> = ({ evalu
       });
 
       const { error } = await supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .update({
           rubric_scores: updatedRubricScores,
           teacher_reviewed_at: new Date().toISOString(),
@@ -156,7 +156,7 @@ const TeacherEvaluationReview: React.FC<TeacherEvaluationReviewProps> = ({ evalu
       if (error) throw error;
 
       // Create notification for admin
-      await supabase.from('evaluation_notifications' as any).insert({
+      await supabase.from('evaluation_notifications').insert({
         evaluation_id: evaluationId,
         recipient_type: 'admin',
         recipient_id: evaluation.evaluator_id,

@@ -34,7 +34,7 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
       const currentTeacherId = mode === 'teacher' ? auth.user.id : teacherId;
 
       let query = supabase
-        .from('teacher_evaluations' as any)
+        .from('teacher_evaluations')
         .select('*, evaluator:users(email)'); // Simplified join
 
       if (currentTeacherId) {
@@ -67,7 +67,7 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
         { event: 'INSERT', schema: 'public', table: 'teacher_evaluations' },
         (payload) => {
           // Check if the new evaluation is for the current user/teacher and add it to the list
-          const newEvaluation = payload.new;
+          const newEvaluation = payload.new as any;
           const targetTeacherId = mode === 'teacher' ? auth.user?.id : teacherId;
           if (targetTeacherId && newEvaluation.teacher_id === targetTeacherId) {
             setEvaluations(prev => [newEvaluation, ...prev]);
@@ -107,7 +107,7 @@ const EvaluationsList: React.FC<EvaluationsListProps> = ({ mode, teacherId }) =>
                 </TableRow>
               </TableHeader>
           <TableBody>
-            {evaluations.map(evaluation => {
+            {evaluations.map((evaluation: any) => {
               const needsTeacherReview = mode === 'teacher' && evaluation.status === 'pending_teacher_review';
               const needsAdminAttention = mode === 'admin' && evaluation.requires_attention;
 

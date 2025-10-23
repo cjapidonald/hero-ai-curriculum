@@ -81,7 +81,7 @@ export function TeacherCRUD() {
         });
       }
     } else {
-      const { data: createdTeacher, error } = await create(formData as any);
+      const { data: createdTeacher, error } = await create(formData as Teacher);
       if (!error) {
         await logAuditEvent({
           tableName: 'teachers',

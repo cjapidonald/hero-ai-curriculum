@@ -35,7 +35,7 @@ interface Teacher {
 export const EnhancedTeacherCRUD = () => {
   const { toast } = useToast();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<Partial<ClassRecord>[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [resetPasswordDialog, setResetPasswordDialog] = useState(false);
@@ -48,7 +48,7 @@ export const EnhancedTeacherCRUD = () => {
   const [evaluatingTeacher, setEvaluatingTeacher] = useState<Teacher | null>(null);
   const [pendingReviews, setPendingReviews] = useState<Record<string, boolean>>({});
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<Teacher>>({
     name: '',
     surname: '',
     email: '',
@@ -72,8 +72,8 @@ export const EnhancedTeacherCRUD = () => {
 
       const [teachersRes, classesRes, evaluationsRes] = await Promise.all([
         supabase.from('teachers').select('*').order('created_at', { ascending: false }),
-        supabase.from('classes' as any).select('*').eq('is_active', true),
-        supabase.from('teacher_evaluations' as any).select('teacher_id, requires_attention').eq('requires_attention', true),
+        supabase.from('classes').select('*').eq('is_active', true),
+        supabase.from('teacher_evaluations').select('teacher_id, requires_attention').eq('requires_attention', true),
       ]);
 
       if (teachersRes.data) setTeachers(teachersRes.data as unknown as Teacher[]);
@@ -103,7 +103,7 @@ export const EnhancedTeacherCRUD = () => {
     e.preventDefault();
 
     try {
-      const dataToSave = {
+      const dataToSave: Partial<Teacher> = {
         ...formData,
         // Only include password if it's being set/changed
         ...(formData.password && { password: formData.password }),
@@ -112,7 +112,7 @@ export const EnhancedTeacherCRUD = () => {
       if (editingTeacher) {
         // Don't send password if it's empty (keeping existing)
         if (!formData.password) {
-          delete (dataToSave as any).password;
+          delete (dataToSave as Partial<Teacher>).password;
         }
 
         const { error } = await supabase
@@ -129,7 +129,7 @@ export const EnhancedTeacherCRUD = () => {
       } else {
         const { error } = await supabase
           .from('teachers')
-          .insert([dataToSave]);
+          .insert([dataToSave as Teacher]);
 
         if (error) throw error;
 

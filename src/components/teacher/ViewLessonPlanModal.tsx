@@ -200,7 +200,7 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
         title: 'Lesson Plan Exported',
         description: 'HTML file downloaded. Open in browser and use Print to PDF to save as PDF.',
       });
-    } catch (error: any) {
+    } catch (error: Error) {
       console.error('Error exporting to PDF:', error);
       toast({
         title: 'Export Failed',
@@ -251,7 +251,7 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
         title: 'CSV Exported',
         description: 'Lesson plan has been exported to CSV',
       });
-    } catch (error: any) {
+    } catch (error: Error) {
       console.error('Error exporting to CSV:', error);
       toast({
         title: 'Export Failed',
