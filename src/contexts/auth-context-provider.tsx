@@ -11,12 +11,71 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in (from localStorage)
-    const savedUser = localStorage.getItem('hero_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const initializeUser = async () => {
+      try {
+        const savedUser = localStorage.getItem("hero_user");
+
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+          setLoading(false);
+          return;
+        }
+
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error("Error retrieving auth session:", sessionError);
+          setLoading(false);
+          return;
+        }
+
+        const authUserId = session?.user?.id;
+        if (!authUserId) {
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("teachers")
+          .select("*")
+          .eq("auth_user_id", authUserId)
+          .eq("is_active", true)
+          .single();
+
+        if (error || !data) {
+          if (error) {
+            console.error("Teacher lookup after session restore failed:", error);
+          }
+          setLoading(false);
+          return;
+        }
+
+        const userData: AuthUser = {
+          id: data.id,
+          authUserId,
+          name: data.name,
+          surname: data.surname,
+          email: data.email,
+          role: "teacher",
+          subject: data.subject,
+          profileImageUrl: data.profile_image_url ?? undefined,
+          phone: data.phone ?? undefined,
+          bio: data.bio ?? undefined,
+        };
+
+        setUser(userData);
+        localStorage.setItem("hero_user", JSON.stringify(userData));
+      } catch (error) {
+        console.error("Error initializing auth state:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void initializeUser();
   }, []);
 
   const login = async (email: string, password: string, role: UserRole): Promise<boolean> => {
@@ -59,45 +118,41 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         setLoading(false);
         return true;
-      } else if (role === 'teacher') {
-        // Try login with email OR username
-        const teacherResponse = await supabase
-          .from('teachers')
-          .select('*')
-          .or(`email.eq.${email},username.eq.${email}`)
-          .eq('password', password)
-          .eq('is_active', true)
-          .single();
+      } else if (role === "teacher") {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-        let data = teacherResponse.data;
-        let error = teacherResponse.error;
-
-        // Fallback for environments where the username column hasn't been added yet
-        if (error && error.code === '42703') {
-          const fallbackResponse = await supabase
-            .from('teachers')
-            .select('*')
-            .eq('email', email)
-            .eq('password', password)
-            .eq('is_active', true)
-            .single();
-
-          data = fallbackResponse.data;
-          error = fallbackResponse.error;
+        if (authError || !authData?.user) {
+          console.error("Teacher auth error:", authError);
+          setLoading(false);
+          return false;
         }
 
+        const authUserId = authData.user.id;
+
+        const { data, error } = await supabase
+          .from("teachers")
+          .select("*")
+          .eq("auth_user_id", authUserId)
+          .eq("is_active", true)
+          .single();
+
         if (error || !data) {
-          console.error('Teacher login error:', error);
+          console.error("Teacher profile lookup error:", error);
+          await supabase.auth.signOut();
           setLoading(false);
           return false;
         }
 
         const userData: AuthUser = {
           id: data.id,
+          authUserId,
           name: data.name,
           surname: data.surname,
           email: data.email,
-          role: 'teacher',
+          role: "teacher",
           subject: data.subject,
           profileImageUrl: data.profile_image_url ?? undefined,
           phone: data.phone ?? undefined,
@@ -105,13 +160,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         };
 
         setUser(userData);
-        localStorage.setItem('hero_user', JSON.stringify(userData));
+        localStorage.setItem("hero_user", JSON.stringify(userData));
 
-        // Update last login
         await supabase
-          .from('teachers')
+          .from("teachers")
           .update({ last_login: new Date().toISOString() })
-          .eq('id', data.id);
+          .eq("id", data.id);
 
         setLoading(false);
         return true;
@@ -156,6 +210,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = () => {
+    void supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('hero_user');
   };
