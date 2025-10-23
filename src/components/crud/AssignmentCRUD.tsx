@@ -89,7 +89,7 @@ export function AssignmentCRUD({ teacherId, studentId, classFilter, showActions 
         });
       }
     } else {
-      const { error } = await create(formData as any);
+      const { error } = await create(formData as Assignment);
       if (!error) {
         setIsDialogOpen(false);
         toast({

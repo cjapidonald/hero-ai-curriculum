@@ -89,11 +89,11 @@ export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions 
 
   const calculateTotalScore = (data: Partial<Assessment>) => {
     const scores = [
-      parseFloat(data.r1_score as any) || 0,
-      parseFloat(data.r2_score as any) || 0,
-      parseFloat(data.r3_score as any) || 0,
-      parseFloat(data.r4_score as any) || 0,
-      parseFloat(data.r5_score as any) || 0,
+      parseFloat(data.r1_score as string) || 0,
+      parseFloat(data.r2_score as string) || 0,
+      parseFloat(data.r3_score as string) || 0,
+      parseFloat(data.r4_score as string) || 0,
+      parseFloat(data.r5_score as string) || 0,
     ];
     return scores.reduce((sum, score) => sum + score, 0) / scores.filter(s => s > 0).length || 0;
   };
@@ -102,7 +102,7 @@ export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions 
     e.preventDefault();
 
     const total = calculateTotalScore(formData);
-    const dataToSubmit = { ...formData, total_score: total };
+    const dataToSubmit: Partial<Assessment> = { ...formData, total_score: total };
 
     if (editingAssessment) {
       const { error } = await update(editingAssessment.id, dataToSubmit);
@@ -114,7 +114,7 @@ export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions 
         });
       }
     } else {
-      const { error } = await create(dataToSubmit as any);
+      const { error } = await create(dataToSubmit as Assessment);
       if (!error) {
         setIsDialogOpen(false);
         toast({
@@ -222,7 +222,7 @@ export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions 
                           <Label htmlFor={`r${num}`}>Rubric {num}</Label>
                           <Input
                             id={`r${num}`}
-                            value={(formData as any)[`r${num}`] || ''}
+                            value={formData[`r${num}` as keyof Assessment] as string || ''}
                             onChange={(e) => setFormData({ ...formData, [`r${num}`]: e.target.value })}
                             placeholder={`e.g., Pronunciation, Fluency`}
                           />
@@ -235,7 +235,7 @@ export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions 
                             step="0.1"
                             min="0"
                             max="5"
-                            value={(formData as any)[`r${num}_score`] || ''}
+                            value={formData[`r${num}_score` as keyof Assessment] as number || ''}
                             onChange={(e) => setFormData({ ...formData, [`r${num}_score`]: parseFloat(e.target.value) || 0 })}
                           />
                         </div>

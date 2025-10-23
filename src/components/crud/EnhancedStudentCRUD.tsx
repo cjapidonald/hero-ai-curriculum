@@ -42,7 +42,7 @@ export const EnhancedStudentCRUD = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<Partial<ClassRecord>[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -51,7 +51,7 @@ export const EnhancedStudentCRUD = () => {
   const [itemsPerPage] = useState(10);
   const [totalStudents, setTotalStudents] = useState(0);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<Student>>({
     name: '',
     surname: '',
     email: '',
@@ -131,7 +131,7 @@ export const EnhancedStudentCRUD = () => {
       } else {
         const { error } = await supabase
           .from('dashboard_students')
-          .insert([formData]);
+          .insert([formData as Student]);
 
         if (error) throw error;
 

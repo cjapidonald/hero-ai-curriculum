@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
@@ -50,13 +50,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
     parent_zalo_nr: '',
   });
 
-  useEffect(() => {
-    if (open) {
-      fetchProfileData();
-    }
-  }, [open]);
-
-  const fetchProfileData = async () => {
+  const fetchProfileData = useCallback(async () => {
     if (!user?.email) return;
 
     setLoading(true);
@@ -66,13 +60,13 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
 
       if (userType === 'student') {
         table = 'dashboard_students';
-        query = supabase.from(table as any).select('*').eq('email', user.email).maybeSingle();
+        query = supabase.from(table).select('*').eq('email', user.email).maybeSingle();
       } else if (userType === 'teacher') {
         table = 'teachers';
-        query = supabase.from(table as any).select('*').eq('email', user.email).maybeSingle();
+        query = supabase.from(table).select('*').eq('email', user.email).maybeSingle();
       } else {
         const { data, error } = await supabase
-          .from('admins' as any)
+          .from('admins')
           .select('*')
           .eq('email', user.email)
           .maybeSingle();
@@ -131,7 +125,13 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, userType, toast]);
+
+  useEffect(() => {
+    if (open) {
+      fetchProfileData();
+    }
+  }, [open, fetchProfileData]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -201,7 +201,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
     try {
       if (userType === 'student') {
         const { error } = await supabase
-          .from('dashboard_students' as any)
+          .from('dashboard_students')
           .update({
             name: profileData.name,
             surname: profileData.surname,
@@ -218,7 +218,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
         if (error) throw error;
       } else if (userType === 'teacher') {
         const { error } = await supabase
-          .from('teachers' as any)
+          .from('teachers')
           .update({
             name: profileData.name,
             surname: profileData.surname,
@@ -230,7 +230,7 @@ export function ProfileEditor({ userType, trigger }: ProfileEditorProps) {
         if (error) throw error;
       } else {
         const { data, error } = await supabase
-          .from('admins' as any)
+          .from('admins')
           .update({
             name: profileData.name,
             surname: profileData.surname,

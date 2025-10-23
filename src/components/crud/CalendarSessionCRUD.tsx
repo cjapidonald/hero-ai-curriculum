@@ -245,7 +245,7 @@ export function CalendarSessionCRUD({
         });
       }
     } else {
-      const { error } = await create(formData as any);
+      const { error } = await create(formData as CalendarSession);
       if (!error) {
         setIsDialogOpen(false);
         toast({

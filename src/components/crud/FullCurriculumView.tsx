@@ -28,8 +28,7 @@ interface CurriculumLesson {
   class_stage?: string | null;
   class_teacher?: string | null;
   class_name?: string | null;
-  // All activity fields
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export const FullCurriculumView = () => {
@@ -93,7 +92,7 @@ export const FullCurriculumView = () => {
 
       if (error) throw error;
 
-      const formattedLessons = (data || []).map((lesson: any) => ({
+      const formattedLessons = (data || []).map((lesson: Record<string, unknown>) => ({
         ...lesson,
         class_name: lesson.class ?? lesson.classes?.class_name ?? null,
         class_stage: lesson.classes?.stage ?? lesson.curriculum_stage ?? lesson.stage ?? null,
@@ -208,11 +207,11 @@ export const FullCurriculumView = () => {
 
   const getAllActivities = (lesson: CurriculumLesson) => {
     const activities = {
-      warmup: [] as any[],
-      main: [] as any[],
-      assessment: [] as any[],
-      homework: [] as any[],
-      printables: [] as any[],
+      warmup: [] as { name: string; type: string; url: string }[],
+      main: [] as { name: string; type: string; url: string }[],
+      assessment: [] as { name: string; type: string; url: string }[],
+      homework: [] as { name: string; type: string; url: string }[],
+      printables: [] as { name: string; type: string; url: string }[],
     };
 
     // Warmup activities
@@ -514,7 +513,7 @@ export const FullCurriculumView = () => {
                 </div>
               </div>
 
-              {Object.entries(getAllActivities(selectedLesson)).map(([type, activities]) => {
+              {selectedLesson && Object.entries(getAllActivities(selectedLesson)).map(([type, activities]) => {
                 if (activities.length === 0) return null;
 
                 return (

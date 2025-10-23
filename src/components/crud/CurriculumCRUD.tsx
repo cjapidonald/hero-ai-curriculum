@@ -95,7 +95,7 @@ const parseActivities = (lesson: Partial<Curriculum>, prefix: string, count: num
 };
 
 const flattenActivities = (activities: Activity[], prefix: string, limit: number) => {
-  const flat: { [key: string]: any } = {};
+  const flat: Record<string, string | null> = {};
   for (let i = 0; i < limit; i++) {
     const activity = activities[i];
     flat[`${prefix}${i + 1}_name`] = activity?.name || null;
@@ -363,7 +363,7 @@ export function CurriculumCRUD({
     const selectedTeacherName = sanitizeString(restOfData.teacher_name);
     const selectedClassName = sanitizeString(restOfData.class);
 
-    const payload: Record<string, any> = {
+    const payload: Partial<Curriculum> = {
       ...restOfData,
       lesson_title: normalizedTitle,
       title: normalizedTitle,
@@ -393,7 +393,7 @@ export function CurriculumCRUD({
     }
 
     if (editingLesson) {
-      const { error } = await update(editingLesson.id, payload as any);
+      const { error } = await update(editingLesson.id, payload as Curriculum);
       if (!error) {
         setIsDialogOpen(false);
         toast({
@@ -402,7 +402,7 @@ export function CurriculumCRUD({
         });
       }
     } else {
-      const { error } = await create(payload as any);
+      const { error } = await create(payload as Curriculum);
       if (!error) {
         setIsDialogOpen(false);
         toast({

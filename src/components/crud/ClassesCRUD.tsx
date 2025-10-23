@@ -63,10 +63,9 @@ export function ClassesCRUD() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [editingClass, setEditingClass] = useState<ClassRecord | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<ClassRecord>>({
     class_name: '',
     teacher_id: '',
-    teacher_name: '',
     stage: 'stage_1',
     schedule_days: [] as string[],
     start_time: '',
@@ -150,7 +149,7 @@ export function ClassesCRUD() {
         // Create new class
         const { error } = await supabase
           .from("classes")
-          .insert([formData]);
+          .insert([formData as ClassRecord]);
 
         if (error) throw error;
 
@@ -219,11 +218,12 @@ export function ClassesCRUD() {
   };
 
   const handleDayToggle = (day: string) => {
+    const currentDays = formData.schedule_days || [];
     setFormData(prev => ({
       ...prev,
-      schedule_days: prev.schedule_days.includes(day)
-        ? prev.schedule_days.filter(d => d !== day)
-        : [...prev.schedule_days, day]
+      schedule_days: currentDays.includes(day)
+        ? currentDays.filter(d => d !== day)
+        : [...currentDays, day]
     }));
   };
 
@@ -291,7 +291,7 @@ export function ClassesCRUD() {
                 <div className="space-y-2">
                   <Label htmlFor="teacher_id">Teacher</Label>
                   <Select
-                    value={formData.teacher_id}
+                    value={formData.teacher_id || undefined}
                     onValueChange={(value) => setFormData({ ...formData, teacher_id: value })}
                   >
                     <SelectTrigger>
@@ -310,7 +310,7 @@ export function ClassesCRUD() {
                 <div className="space-y-2">
                   <Label htmlFor="stage">Stage *</Label>
                   <Select
-                    value={formData.stage}
+                    value={formData.stage || undefined}
                     onValueChange={(value) => setFormData({ ...formData, stage: value })}
                   >
                     <SelectTrigger>
@@ -331,7 +331,7 @@ export function ClassesCRUD() {
                   <Input
                     id="max_students"
                     type="number"
-                    value={formData.max_students}
+                    value={formData.max_students || undefined}
                     onChange={(e) => setFormData({ ...formData, max_students: parseInt(e.target.value) })}
                     required
                   />
@@ -342,7 +342,7 @@ export function ClassesCRUD() {
                   <Input
                     id="start_time"
                     type="time"
-                    value={formData.start_time}
+                    value={formData.start_time || undefined}
                     onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
                   />
                 </div>
@@ -352,7 +352,7 @@ export function ClassesCRUD() {
                   <Input
                     id="end_time"
                     type="time"
-                    value={formData.end_time}
+                    value={formData.end_time || undefined}
                     onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
                   />
                 </div>
@@ -361,7 +361,7 @@ export function ClassesCRUD() {
                   <Label htmlFor="classroom_location">Classroom Location</Label>
                   <Input
                     id="classroom_location"
-                    value={formData.classroom_location}
+                    value={formData.classroom_location || undefined}
                     onChange={(e) => setFormData({ ...formData, classroom_location: e.target.value })}
                     placeholder="e.g., Room A1"
                   />
@@ -376,7 +376,7 @@ export function ClassesCRUD() {
                       <input
                         type="checkbox"
                         id={day.value}
-                        checked={formData.schedule_days.includes(day.value)}
+                        checked={(formData.schedule_days || []).includes(day.value)}
                         onChange={() => handleDayToggle(day.value)}
                         className="rounded border-gray-300"
                       />
@@ -391,7 +391,7 @@ export function ClassesCRUD() {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="is_active"
-                  checked={formData.is_active}
+                  checked={formData.is_active || false}
                   onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
                 <Label htmlFor="is_active">Active</Label>

@@ -23,7 +23,7 @@ interface VirtualTableProps<T> {
  * Efficiently renders large datasets using virtual scrolling
  * Only renders visible rows for better performance
  */
-export function VirtualTable<T extends Record<string, any>>({
+export function VirtualTable<T>({
   data,
   columns,
   rowHeight = 60,
