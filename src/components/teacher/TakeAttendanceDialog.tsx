@@ -23,6 +23,7 @@ interface Student {
   surname: string;
   sessions_left: number;
   enrollment_id?: string | null;
+  class_id?: string | null;
 }
 
 interface TakeAttendanceDialogProps {
@@ -94,21 +95,84 @@ const TakeAttendanceDialog = ({
       (student) => attendance.has(student.id) && !student.enrollment_id,
     );
 
+    let studentsForSave: Student[] = students;
+
     if (studentsMissingEnrollment.length > 0) {
-      toast({
-        title: 'Missing enrollment records',
-        description: `Unable to save attendance for ${studentsMissingEnrollment
-          .map((student) => student.name)
-          .join(', ')}. Please contact an administrator.`,
-        variant: 'destructive',
-      });
-      return;
+      const missingClassInfo = studentsMissingEnrollment.filter((student) => !student.class_id);
+
+      if (missingClassInfo.length > 0) {
+        toast({
+          title: 'Missing enrollment records',
+          description: `Unable to save attendance for ${missingClassInfo
+            .map((student) => student.name)
+            .join(', ')} because their class assignments are incomplete. Please contact an administrator.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      try {
+        const { data: newEnrollments, error: createEnrollmentError } = await supabase
+          .from('enrollments')
+          .upsert(
+            studentsMissingEnrollment.map((student) => ({
+              student_id: student.id,
+              class_id: student.class_id!,
+              is_active: true,
+            })),
+            { onConflict: 'student_id,class_id' },
+          )
+          .select('id, student_id, class_id');
+
+        if (createEnrollmentError) {
+          throw createEnrollmentError;
+        }
+
+        const enrollmentMap = new Map(
+          (newEnrollments ?? []).map((enrollment) => [
+            `${enrollment.student_id}-${enrollment.class_id}`,
+            enrollment.id,
+          ]),
+        );
+
+        studentsForSave = students.map((student) => {
+          if (student.enrollment_id || !student.class_id) {
+            return student;
+          }
+          const key = `${student.id}-${student.class_id}`;
+          const enrollmentId = enrollmentMap.get(key);
+          return enrollmentId ? { ...student, enrollment_id: enrollmentId } : student;
+        });
+      } catch (error) {
+        console.error('Error ensuring enrollments before attendance save:', error);
+        toast({
+          title: 'Missing enrollment records',
+          description: 'Unable to automatically create missing enrollments. Please contact an administrator.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const stillMissing = studentsForSave.filter(
+        (student) => attendance.has(student.id) && !student.enrollment_id,
+      );
+
+      if (stillMissing.length > 0) {
+        toast({
+          title: 'Missing enrollment records',
+          description: `Unable to save attendance for ${stillMissing
+            .map((student) => student.name)
+            .join(', ')}. Please contact an administrator.`,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setSaving(true);
     try {
       const classDate = format(sessionDate, 'yyyy-MM-dd');
-      const attendanceRecords = students.map((student) => {
+      const attendanceRecords = studentsForSave.map((student) => {
         const status = attendance.get(student.id)!;
         const present = status === 'present' || status === 'late';
         const late = status === 'late';
@@ -140,7 +204,7 @@ const TakeAttendanceDialog = ({
         throw error;
       }
 
-      const attendeesToUpdate = students.filter((student) => {
+      const attendeesToUpdate = studentsForSave.filter((student) => {
         const status = attendance.get(student.id);
         return status === 'present' || status === 'late';
       });
