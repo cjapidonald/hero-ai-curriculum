@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, Award, Lightbulb, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
+import { BookOpen, FileText, Award, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -10,7 +10,6 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { ProfileEditor } from '@/components/ProfileEditor';
 import MyClasses from './MyClasses';
 import CurriculumTab from './CurriculumTab';
-import MyStudents from './MyStudents';
 import Skills from './Skills';
 import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
@@ -18,10 +17,8 @@ import { EnhancedLessonPlanner } from './EnhancedLessonPlanner';
 import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
 import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
-import { StudentCRUD } from '@/components/crud/StudentCRUD';
-import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
 
-type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'students' | 'assignments' | 'skills';
+type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'assignments' | 'skills';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
@@ -111,7 +108,6 @@ const TeacherDashboard = () => {
     { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
     { id: 'lessonbuilder' as TabType, label: 'Lesson Builder', icon: Blocks },
-    { id: 'students' as TabType, label: 'My Students', icon: Users },
     { id: 'assignments' as TabType, label: 'Assignments', icon: FileText },
     { id: 'skills' as TabType, label: 'Skills', icon: Award },
   ];
@@ -150,14 +146,6 @@ const TeacherDashboard = () => {
             teacherName={`${user.name} ${user.surname}`}
             lessonId={lessonIdFromUrl}
           />
-        );
-      case 'students':
-        return (
-          <div className="space-y-4">
-            <div className="bg-background rounded-lg shadow p-6">
-              <TeacherStudentCRUD teacherId={user.id} />
-            </div>
-          </div>
         );
       case 'assignments':
         return (
