@@ -475,9 +475,15 @@ export type Database = {
           hw6_type: string | null
           hw6_url: string | null
           id: string
+          class: string | null
+          class_id: string | null
+          curriculum_stage: string | null
+          description: string | null
           lesson_date: string | null
+          lesson_number: number | null
           lesson_skills: string | null
           lesson_title: string
+          objectives: string[] | null
           ma1_name: string | null
           ma1_type: string | null
           ma1_url: string | null
@@ -505,10 +511,14 @@ export type Database = {
           p4_name: string | null
           p4_type: string | null
           p4_url: string | null
+          school: string | null
+          stage: string | null
+          status: string | null
           subject: string | null
           success_criteria: string | null
           teacher_id: string | null
           teacher_name: string | null
+          title: string | null
           updated_at: string | null
           wp1_name: string | null
           wp1_type: string | null
@@ -556,9 +566,15 @@ export type Database = {
           hw6_type?: string | null
           hw6_url?: string | null
           id?: string
+          class?: string | null
+          class_id?: string | null
+          curriculum_stage?: string | null
+          description?: string | null
           lesson_date?: string | null
+          lesson_number?: number | null
           lesson_skills?: string | null
           lesson_title: string
+          objectives?: string[] | null
           ma1_name?: string | null
           ma1_type?: string | null
           ma1_url?: string | null
@@ -586,10 +602,14 @@ export type Database = {
           p4_name?: string | null
           p4_type?: string | null
           p4_url?: string | null
+          school?: string | null
+          stage?: string | null
+          status?: string | null
           subject?: string | null
           success_criteria?: string | null
           teacher_id?: string | null
           teacher_name?: string | null
+          title?: string | null
           updated_at?: string | null
           wp1_name?: string | null
           wp1_type?: string | null
@@ -637,9 +657,15 @@ export type Database = {
           hw6_type?: string | null
           hw6_url?: string | null
           id?: string
+          class?: string | null
+          class_id?: string | null
+          curriculum_stage?: string | null
+          description?: string | null
           lesson_date?: string | null
+          lesson_number?: number | null
           lesson_skills?: string | null
           lesson_title?: string
+          objectives?: string[] | null
           ma1_name?: string | null
           ma1_type?: string | null
           ma1_url?: string | null
@@ -667,10 +693,14 @@ export type Database = {
           p4_name?: string | null
           p4_type?: string | null
           p4_url?: string | null
+          school?: string | null
+          stage?: string | null
+          status?: string | null
           subject?: string | null
           success_criteria?: string | null
           teacher_id?: string | null
           teacher_name?: string | null
+          title?: string | null
           updated_at?: string | null
           wp1_name?: string | null
           wp1_type?: string | null
@@ -686,6 +716,13 @@ export type Database = {
           wp4_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "curriculum_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "curriculum_teacher_id_fkey"
             columns: ["teacher_id"]
