@@ -122,6 +122,16 @@ export function CurriculumCRUD({
     [lessonsData]
   );
 
+  const [columnFilters, setColumnFilters] = useState({
+    date: '',
+    lessonTitle: '',
+    subject: '',
+    stage: '',
+    className: '',
+    skills: '',
+    teacher: '',
+  });
+
   const [editingLesson, setEditingLesson] = useState<ExtendedCurriculum | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -199,6 +209,61 @@ export function CurriculumCRUD({
 
   const canEdit = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
   const canDelete = isAdmin || (isTeacher && (!teacherId || teacherId === user?.id));
+
+  const handleFilterChange = (key: keyof typeof columnFilters, value: string) => {
+    setColumnFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setColumnFilters({
+      date: '',
+      lessonTitle: '',
+      subject: '',
+      stage: '',
+      className: '',
+      skills: '',
+      teacher: '',
+    });
+  };
+
+  const filteredLessons = useMemo(() => {
+    return lessons.filter((lesson) => {
+      const matchesDate = columnFilters.date
+        ? (lesson.lesson_date || '').startsWith(columnFilters.date)
+        : true;
+      const matchesLessonTitle = columnFilters.lessonTitle
+        ? (lesson.lesson_title || '').toLowerCase().includes(columnFilters.lessonTitle.toLowerCase())
+        : true;
+      const matchesSubject = columnFilters.subject
+        ? (lesson.subject || '').toLowerCase().includes(columnFilters.subject.toLowerCase())
+        : true;
+      const matchesStage = columnFilters.stage
+        ? (lesson.stage || lesson.curriculum_stage || '').toLowerCase().includes(columnFilters.stage.toLowerCase())
+        : true;
+      const matchesClass = columnFilters.className
+        ? (lesson.class || '').toLowerCase().includes(columnFilters.className.toLowerCase())
+        : true;
+      const matchesSkills = columnFilters.skills
+        ? (lesson.lesson_skills || '').toLowerCase().includes(columnFilters.skills.toLowerCase())
+        : true;
+      const matchesTeacher = columnFilters.teacher
+        ? (lesson.teacher_name || '').toLowerCase().includes(columnFilters.teacher.toLowerCase())
+        : true;
+
+      return (
+        matchesDate &&
+        matchesLessonTitle &&
+        matchesSubject &&
+        matchesStage &&
+        matchesClass &&
+        matchesSkills &&
+        matchesTeacher
+      );
+    });
+  }, [lessons, columnFilters]);
 
   const handleOpenDialog = (lesson?: ExtendedCurriculum) => {
     if (lesson) {
@@ -638,6 +703,81 @@ export function CurriculumCRUD({
         </div>
       )}
 
+      <div className="space-y-4 mb-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="filter-date">Date</Label>
+            <Input
+              id="filter-date"
+              type="date"
+              value={columnFilters.date}
+              onChange={(event) => handleFilterChange('date', event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-lesson-title">Lesson Title</Label>
+            <Input
+              id="filter-lesson-title"
+              placeholder="Search lesson title"
+              value={columnFilters.lessonTitle}
+              onChange={(event) => handleFilterChange('lessonTitle', event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-subject">Subject</Label>
+            <Input
+              id="filter-subject"
+              placeholder="Search subject"
+              value={columnFilters.subject}
+              onChange={(event) => handleFilterChange('subject', event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-stage">Stage</Label>
+            <Input
+              id="filter-stage"
+              placeholder="Search stage"
+              value={columnFilters.stage}
+              onChange={(event) => handleFilterChange('stage', event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="filter-class">Class</Label>
+            <Input
+              id="filter-class"
+              placeholder="Search class"
+              value={columnFilters.className}
+              onChange={(event) => handleFilterChange('className', event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-skills">Skills</Label>
+            <Input
+              id="filter-skills"
+              placeholder="Search skills"
+              value={columnFilters.skills}
+              onChange={(event) => handleFilterChange('skills', event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="filter-teacher">Teacher</Label>
+            <Input
+              id="filter-teacher"
+              placeholder="Search teacher"
+              value={columnFilters.teacher}
+              onChange={(event) => handleFilterChange('teacher', event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={handleResetFilters}>
+            Reset Filters
+          </Button>
+        </div>
+      </div>
+
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
@@ -659,8 +799,14 @@ export function CurriculumCRUD({
                   No lessons found. Create your first lesson to get started.
                 </TableCell>
               </TableRow>
+            ) : filteredLessons.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={showActions && canEdit ? 8 : 7} className="text-center py-8 text-gray-500">
+                  No lessons match the current filters. Adjust or reset the filters to see more lessons.
+                </TableCell>
+              </TableRow>
             ) : (
-              lessons.map((lesson) => (
+              filteredLessons.map((lesson) => (
                 <TableRow key={lesson.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
