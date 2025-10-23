@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTeachers, Teacher } from '@/hooks/useTeachers';
 import { useAuth } from '@/contexts/auth-context';
+import { logAuditEvent } from '@/lib/audit-log';
 import {
   Table,
   TableBody,
@@ -29,13 +30,13 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function TeacherCRUD() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { data: teachers, loading, create, update, remove } = useTeachers();
   const { toast } = useToast();
 
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
   const [formData, setFormData] = useState<Partial<Teacher>>({});
 
   const handleOpenDialog = (teacher?: Teacher) => {
@@ -61,8 +62,18 @@ export function TeacherCRUD() {
     e.preventDefault();
 
     if (editingTeacher) {
-      const { error } = await update(editingTeacher.id, formData);
+      const previousTeacher = editingTeacher;
+      const { data: updatedTeacher, error } = await update(editingTeacher.id, formData);
       if (!error) {
+        await logAuditEvent({
+          tableName: 'teachers',
+          action: 'UPDATE',
+          recordId: editingTeacher.id,
+          oldData: previousTeacher,
+          newData: (updatedTeacher as Teacher) ?? { ...previousTeacher, ...formData },
+          user,
+        });
+
         setIsDialogOpen(false);
         toast({
           title: 'Success',
@@ -70,8 +81,16 @@ export function TeacherCRUD() {
         });
       }
     } else {
-      const { error } = await create(formData as any);
+      const { data: createdTeacher, error } = await create(formData as any);
       if (!error) {
+        await logAuditEvent({
+          tableName: 'teachers',
+          action: 'INSERT',
+          recordId: createdTeacher?.id ?? null,
+          newData: createdTeacher ?? formData,
+          user,
+        });
+
         setIsDialogOpen(false);
         toast({
           title: 'Success',
@@ -82,15 +101,23 @@ export function TeacherCRUD() {
   };
 
   const handleDelete = async () => {
-    if (deleteId) {
-      const { error } = await remove(deleteId);
+    if (teacherToDelete) {
+      const { data: deletedTeacher, error } = await remove(teacherToDelete.id);
       if (!error) {
+        await logAuditEvent({
+          tableName: 'teachers',
+          action: 'DELETE',
+          recordId: teacherToDelete.id,
+          oldData: deletedTeacher ?? teacherToDelete,
+          user,
+        });
+
         toast({
           title: 'Success',
           description: 'Teacher deleted successfully',
         });
       }
-      setDeleteId(null);
+      setTeacherToDelete(null);
     }
   };
 
@@ -236,7 +263,7 @@ export function TeacherCRUD() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setDeleteId(teacher.id)}
+                      onClick={() => setTeacherToDelete(teacher)}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
@@ -248,7 +275,11 @@ export function TeacherCRUD() {
         </Table>
       </div>
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!teacherToDelete} onOpenChange={(open) => {
+        if (!open) {
+          setTeacherToDelete(null);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
