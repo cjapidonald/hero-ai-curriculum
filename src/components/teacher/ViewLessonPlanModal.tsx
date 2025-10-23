@@ -34,6 +34,9 @@ interface ClassSession {
   start_time: string;
   end_time: string;
   lesson_plan_data: LessonPlanData | null;
+  lesson_plan_content?: {
+    resources?: unknown[];
+  } | null;
   class_name?: string;
   lesson_title?: string;
   lesson_subject?: string;
@@ -48,6 +51,73 @@ interface ViewLessonPlanModalProps {
   session: ClassSession;
   onEdit: () => void;
 }
+
+const mapStoredResources = (resources: unknown[] = []): LessonResource[] => {
+  return resources
+    .map((resource, index) => {
+      if (!resource || typeof resource !== 'object') {
+        return null;
+      }
+
+      const typedResource = resource as Record<string, unknown>;
+      const nestedResource = typedResource.resource as Record<string, unknown> | undefined;
+
+      const id =
+        (typedResource.id as string | undefined) ||
+        (typedResource.resource_id as string | undefined) ||
+        (nestedResource?.id as string | undefined);
+
+      if (!id) {
+        return null;
+      }
+
+      return {
+        id,
+        title:
+          (typedResource.title as string | undefined) ||
+          (nestedResource?.title as string | undefined) ||
+          'Untitled Resource',
+        type:
+          (typedResource.type as string | undefined) ||
+          (nestedResource?.resource_type as string | undefined) ||
+          'resource',
+        duration:
+          (typedResource.duration as number | null | undefined) ??
+          (nestedResource?.duration_minutes as number | null | undefined) ??
+          null,
+        notes: (typedResource.notes as string | null | undefined) ?? null,
+        position: (typedResource.position as number | undefined) ?? index,
+      };
+    })
+    .filter((resource): resource is LessonResource => resource !== null)
+    .sort((a, b) => a.position - b.position)
+    .map((resource, index) => ({ ...resource, position: index }));
+};
+
+const buildLessonPlanData = (session: ClassSession): LessonPlanData | null => {
+  const storedResources =
+    session.lesson_plan_data?.resources || session.lesson_plan_content?.resources || [];
+  const normalizedResources = mapStoredResources(storedResources);
+
+  if (normalizedResources.length === 0) {
+    if (session.lesson_plan_data) {
+      return {
+        resources: [],
+        total_duration: session.lesson_plan_data.total_duration ?? 0,
+      };
+    }
+    return null;
+  }
+
+  const totalDuration =
+    session.lesson_plan_data?.total_duration ??
+    normalizedResources.reduce((sum, resource) => sum + (resource.duration ?? 0), 0);
+
+  return {
+    resources: normalizedResources,
+    total_duration: totalDuration,
+  };
+};
 
 const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLessonPlanModalProps) => {
   const [lessonPlan, setLessonPlan] = useState<LessonPlanData | null>(null);
@@ -64,8 +134,10 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
   };
 
   useEffect(() => {
-    if (open && session.lesson_plan_data) {
-      setLessonPlan(session.lesson_plan_data);
+    if (open) {
+      setLessonPlan(buildLessonPlanData(session));
+    } else {
+      setLessonPlan(null);
     }
   }, [open, session]);
 

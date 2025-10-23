@@ -36,6 +36,9 @@ interface ClassSession {
   start_time: string;
   end_time: string;
   lesson_plan_data: LessonPlanData | null;
+  lesson_plan_content?: {
+    resources?: unknown[];
+  } | null;
   class_id: string;
   class_name?: string;
   lesson_title?: string;
@@ -47,6 +50,59 @@ interface MyClassViewProps {
   sessionId: string;
   onBack: () => void;
 }
+
+const mapStoredResources = (resources: unknown[] = []): LessonResource[] => {
+  return resources
+    .map((resource, index) => {
+      if (!resource || typeof resource !== 'object') {
+        return null;
+      }
+
+      const typedResource = resource as Record<string, unknown>;
+      const nestedResource = typedResource.resource as Record<string, unknown> | undefined;
+
+      const id =
+        (typedResource.id as string | undefined) ||
+        (typedResource.resource_id as string | undefined) ||
+        (nestedResource?.id as string | undefined);
+
+      if (!id) {
+        return null;
+      }
+
+      return {
+        id,
+        title:
+          (typedResource.title as string | undefined) ||
+          (nestedResource?.title as string | undefined) ||
+          'Untitled Resource',
+        type:
+          (typedResource.type as string | undefined) ||
+          (nestedResource?.resource_type as string | undefined) ||
+          'resource',
+        duration:
+          (typedResource.duration as number | null | undefined) ??
+          (nestedResource?.duration_minutes as number | null | undefined) ??
+          null,
+        notes: (typedResource.notes as string | null | undefined) ?? null,
+        position: (typedResource.position as number | undefined) ?? index,
+      };
+    })
+    .filter((resource): resource is LessonResource => resource !== null)
+    .sort((a, b) => a.position - b.position)
+    .map((resource, index) => ({ ...resource, position: index }));
+};
+
+const getLessonResources = (session: ClassSession | null): LessonResource[] => {
+  if (!session) {
+    return [];
+  }
+
+  const storedResources =
+    session.lesson_plan_data?.resources || session.lesson_plan_content?.resources || [];
+
+  return mapStoredResources(storedResources);
+};
 
 const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
   const [session, setSession] = useState<ClassSession | null>(null);
@@ -262,8 +318,7 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
     );
   }
 
-  const lessonResources = session.lesson_plan_data?.resources
-    ?.sort((a, b) => a.position - b.position) || [];
+  const lessonResources = getLessonResources(session);
   const presentCount = students.filter((s) => s.present).length;
 
   return (
