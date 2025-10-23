@@ -2,25 +2,23 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Users, FileText, Award, BookMarked, LogOut, BarChart3 } from 'lucide-react';
+import { Users, BookOpen, FileText, LogOut, BarChart3 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ProfileEditor } from '@/components/ProfileEditor';
-import Skills from './Skills';
 import TeacherPerformance from './TeacherPerformance';
-import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
 import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
-import CurriculumManagement from './CurriculumManagement';
-import MyClassView from './MyClassView';
+import LessonBuilder from './LessonBuilder';
+import MyClasses from './MyClasses';
 
-type TabType = 'performance' | 'curriculum' | 'students' | 'assignments' | 'skills';
+type TabType = 'performance' | 'classes' | 'students' | 'lessonBuilder';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs: TabType[] = ['performance', 'curriculum', 'students', 'assignments', 'skills'];
+  const validTabs: TabType[] = ['performance', 'classes', 'students', 'lessonBuilder'];
   const tabFromUrlParam = searchParams.get('tab');
   const tabFromUrl = validTabs.includes(tabFromUrlParam as TabType)
     ? (tabFromUrlParam as TabType)
@@ -28,7 +26,6 @@ const TeacherDashboard = () => {
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'performance');
   const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -87,34 +84,19 @@ const TeacherDashboard = () => {
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);
-    setActiveSessionId(null); // Clear active session when changing tabs
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', tabId);
     setSearchParams(newParams);
   };
 
-  const handleStartClass = (sessionId: string) => {
-    setActiveSessionId(sessionId);
-  };
-
-  const handleBackToCurriculum = () => {
-    setActiveSessionId(null);
-  };
-
   const tabs = [
     { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
-    { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
+    { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
-    { id: 'assignments' as TabType, label: 'Assignments', icon: FileText },
-    { id: 'skills' as TabType, label: 'Skills', icon: Award },
+    { id: 'lessonBuilder' as TabType, label: 'Lesson Builder', icon: FileText },
   ];
 
   const renderTabContent = () => {
-    // If actively in a class session, show MyClassView
-    if (activeSessionId) {
-      return <MyClassView sessionId={activeSessionId} onBack={handleBackToCurriculum} />;
-    }
-
     switch (activeTab) {
       case 'performance':
         return (
@@ -123,8 +105,8 @@ const TeacherDashboard = () => {
             teacherProfile={teacherProfile}
           />
         );
-      case 'curriculum':
-        return <CurriculumManagement teacherId={user.id} onStartClass={handleStartClass} />;
+      case 'classes':
+        return <MyClasses teacherId={user.id} />;
       case 'students':
         return (
           <div className="space-y-4">
@@ -133,18 +115,8 @@ const TeacherDashboard = () => {
             </div>
           </div>
         );
-      case 'assignments':
-        return (
-          <div className="space-y-4">
-            <div className="bg-background rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Manage Assignments</h2>
-              <p className="text-muted-foreground mb-4">Create and manage assignments for your classes</p>
-              <AssignmentCRUD teacherId={user.id} />
-            </div>
-          </div>
-        );
-      case 'skills':
-        return <Skills teacherId={user.id} />;
+      case 'lessonBuilder':
+        return <LessonBuilder teacherId={user.id} />;
       default:
         return (
           <TeacherPerformance
@@ -202,33 +174,30 @@ const TeacherDashboard = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs - Hidden when in active class session */}
-      {!activeSessionId && (
-        <div className="bg-background border-b">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-wrap gap-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <Button
-                    key={tab.id}
-                    variant={activeTab === tab.id ? 'default' : 'ghost'}
-                    onClick={() => handleTabChange(tab.id)}
-                    className="gap-2 rounded-none border-b-2 border-transparent data-[active=true]:border-primary whitespace-nowrap"
-                    data-active={activeTab === tab.id}
-                  >
-                    <Icon size={18} />
-                    {tab.label}
-                  </Button>
-                );
-              })}
-            </div>
+      <div className="bg-background border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-wrap gap-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <Button
+                  key={tab.id}
+                  variant={activeTab === tab.id ? 'default' : 'ghost'}
+                  onClick={() => handleTabChange(tab.id)}
+                  className="gap-2 rounded-none border-b-2 border-transparent data-[active=true]:border-primary whitespace-nowrap"
+                  data-active={activeTab === tab.id}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </Button>
+              );
+            })}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Content */}
-      <div className={activeSessionId ? '' : 'container mx-auto px-4 py-8'}>
+      <div className="container mx-auto px-4 py-8">
         {renderTabContent()}
       </div>
     </div>

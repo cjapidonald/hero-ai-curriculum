@@ -495,24 +495,6 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
         </Card>
       </div>
 
-      {/* Formal Assessment Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Formal Assessment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12 text-muted-foreground">
-            <div className="text-4xl mb-4">🚧</div>
-            <h3 className="text-lg font-semibold mb-2">Coming Soon</h3>
-            <p>
-              Track student progress during class activities with formal assessment tools.
-              This feature will allow you to evaluate students in real-time and provide
-              immediate feedback.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
       <StudentDashboardModal
         open={isStudentModalOpen}
         onOpenChange={(open) => {

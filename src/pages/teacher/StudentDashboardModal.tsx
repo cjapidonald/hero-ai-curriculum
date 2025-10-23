@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import {
@@ -13,12 +13,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, TrendingUp, Target, Award, User, MapPin, BookOpen, Phone } from 'lucide-react';
-import SkillsProgress from '@/pages/student/SkillsProgress';
-import AssessmentProgress from '@/pages/student/AssessmentProgress';
+import { Calendar, TrendingUp, Target, User, MapPin, BookOpen, Phone } from 'lucide-react';
 import AttendanceChart from '@/pages/student/AttendanceChart';
 import HomeworkList from '@/pages/student/HomeworkList';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip } from 'recharts';
 
 interface StudentDashboardModalProps {
   open: boolean;
@@ -28,15 +25,6 @@ interface StudentDashboardModalProps {
 }
 
 type DashboardStudent = Tables<'dashboard_students'>;
-type SkillsEvaluationRecord = Tables<'skills_evaluation'>;
-type AssessmentRecord = Tables<'assessment'>;
-
-interface RadarDataPoint {
-  subject: string;
-  score: number;
-  fullMark: number;
-}
-
 export function StudentDashboardModal({
   open,
   onOpenChange,
@@ -46,8 +34,6 @@ export function StudentDashboardModal({
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
-  const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,67 +62,6 @@ export function StudentDashboardModal({
         }
 
         setStudentData((data as DashboardStudent) ?? null);
-
-        if (!data) {
-          setSkillsRadarData([]);
-          setRecentAssessments([]);
-          return;
-        }
-
-        const { data: skillsData, error: skillsError } = await supabase
-          .from('skills_evaluation')
-          .select('*')
-          .eq('student_id', studentId)
-          .order('evaluation_date', { ascending: false })
-          .limit(20);
-
-        if (skillsError) {
-          console.error('Failed to load skills data:', skillsError);
-        }
-
-        if (skillsData) {
-          const typedSkills = skillsData as SkillsEvaluationRecord[];
-          const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
-            if (!skill.skill_category) {
-              return acc;
-            }
-
-            const categoryKey = skill.skill_category;
-            if (!acc[categoryKey]) {
-              acc[categoryKey] = { total: 0, count: 0 };
-            }
-
-            acc[categoryKey].total += skill.average_score ?? 0;
-            acc[categoryKey].count += 1;
-            return acc;
-          }, {});
-
-          const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
-            subject: category,
-            score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-            fullMark: 5,
-          }));
-
-          if (isMounted) {
-            setSkillsRadarData(radarData);
-          }
-        }
-
-        const { data: assessmentsData, error: assessmentsError } = await supabase
-          .from('assessment')
-          .select('*')
-          .eq('student_id', studentId)
-          .eq('published', true)
-          .order('assessment_date', { ascending: false })
-          .limit(5);
-
-        if (assessmentsError) {
-          console.error('Failed to load assessments:', assessmentsError);
-        }
-
-        if (isMounted) {
-          setRecentAssessments((assessmentsData as AssessmentRecord[]) ?? []);
-        }
       } catch (fetchError) {
         console.error('Error loading student dashboard:', fetchError);
         if (isMounted) {
@@ -155,12 +80,6 @@ export function StudentDashboardModal({
       isMounted = false;
     };
   }, [open, studentId]);
-
-  const averageAssessmentScore = useMemo(() => {
-    if (!recentAssessments.length) return 0;
-    const total = recentAssessments.reduce((acc, assessment) => acc + (assessment.total_score ?? 0), 0);
-    return total / recentAssessments.length;
-  }, [recentAssessments]);
 
   const placementScoreValue = (score?: string | null) => {
     switch (score) {
@@ -318,22 +237,6 @@ export function StudentDashboardModal({
                 </CardContent>
               </Card>
 
-              <Card className="border-l-4 border-l-orange-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Overall Performance</CardTitle>
-                  <Award className="h-4 w-4 text-orange-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-orange-600">
-                    {recentAssessments.length > 0 ? averageAssessmentScore.toFixed(1) : 'N/A'}
-                  </div>
-                  <Progress
-                    value={recentAssessments.length > 0 ? (averageAssessmentScore / 5) * 100 : 0}
-                    className="mt-2 h-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">average assessment score</p>
-                </CardContent>
-              </Card>
             </div>
 
             <Card>
@@ -375,79 +278,12 @@ export function StudentDashboardModal({
               </CardContent>
             </Card>
 
-            {skillsRadarData.length > 0 && (
-              <Card className="overflow-hidden border-none bg-gradient-to-br from-slate-50/90 via-white/70 to-white/90 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60 shadow-xl backdrop-blur-xl">
-                <CardHeader>
-                  <CardTitle>Skills Overview</CardTitle>
-                  <CardDescription>Performance across skill categories</CardDescription>
-                </CardHeader>
-                <CardContent className="relative">
-                  <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_65%)]" />
-                  <ResponsiveContainer width="100%" height={350}>
-                    <RadarChart data={skillsRadarData}>
-                      <defs>
-                        <radialGradient id="teacherRadarFill" cx="50%" cy="50%" r="65%">
-                          <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
-                          <stop offset="100%" stopColor="rgba(139,92,246,0)" />
-                        </radialGradient>
-                        <linearGradient id="teacherRadarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#38bdf8" />
-                          <stop offset="100%" stopColor="#a855f7" />
-                        </linearGradient>
-                      </defs>
-                      <PolarGrid stroke="rgba(148, 163, 184, 0.3)" radialLines={false} />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: 'rgba(71,85,105,0.85)', fontSize: 12, fontWeight: 500 }}
-                      />
-                      <PolarRadiusAxis
-                        angle={90}
-                        domain={[0, 5]}
-                        tick={{ fill: 'rgba(100,116,139,0.65)', fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Radar
-                        name="Score"
-                        dataKey="score"
-                        stroke="url(#teacherRadarStroke)"
-                        fill="url(#teacherRadarFill)"
-                        strokeWidth={3}
-                        fillOpacity={1}
-                      />
-                      <Tooltip
-                        cursor={false}
-                        wrapperStyle={{ outline: 'none' }}
-                        contentStyle={{
-                          backgroundColor: 'rgba(15,23,42,0.85)',
-                          borderRadius: 16,
-                          border: 'none',
-                          color: '#e2e8f0',
-                          boxShadow: '0 20px 45px -25px rgba(15,23,42,0.7)',
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
             {effectiveStudentId && (
-              <Tabs defaultValue="skills" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="skills">Skills Progress</TabsTrigger>
-                  <TabsTrigger value="assessments">Assessments</TabsTrigger>
+              <Tabs defaultValue="attendance" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="attendance">Attendance</TabsTrigger>
                   <TabsTrigger value="homework">Homework</TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="skills" className="space-y-4">
-                  <SkillsProgress studentId={effectiveStudentId} />
-                </TabsContent>
-
-                <TabsContent value="assessments" className="space-y-4">
-                  <AssessmentProgress studentId={effectiveStudentId} />
-                </TabsContent>
 
                 <TabsContent value="attendance" className="space-y-4">
                   <AttendanceChart
