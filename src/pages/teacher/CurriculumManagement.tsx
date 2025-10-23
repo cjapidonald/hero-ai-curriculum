@@ -200,25 +200,58 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     existingClasses: { id: string; name: string }[],
   ) => {
     try {
-      const selectCurriculum = (includeStatus: boolean) =>
-        supabase
+      const selectCurriculum = (
+        includeStatus: boolean,
+        includeClassAlias: boolean,
+      ) => {
+        const baseFields = [
+          'id',
+          'lesson_title',
+          'lesson_date',
+          'class_id',
+          'stage',
+          'curriculum_stage',
+          'subject',
+          'teacher_name',
+          'description',
+        ];
+
+        if (includeStatus) {
+          baseFields.push('status');
+        }
+
+        if (includeClassAlias) {
+          baseFields.push('class_name:class');
+        }
+
+        return supabase
           .from('curriculum')
-          .select(
-            includeStatus
-              ? `id, lesson_title, lesson_date, status, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
-              : `id, lesson_title, lesson_date, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
-          )
+          .select(baseFields.join(', '))
           .eq('teacher_id', teacherId)
           .order('lesson_date', { ascending: true });
+      };
 
-      let curriculumResult = await selectCurriculum(true);
+      let includeStatus = true;
+      let includeClassAlias = true;
+
+      let curriculumResult = await selectCurriculum(includeStatus, includeClassAlias);
 
       if (
         curriculumResult.error &&
         typeof curriculumResult.error.message === 'string' &&
         curriculumResult.error.message.toLowerCase().includes('column curriculum.status')
       ) {
-        curriculumResult = await selectCurriculum(false);
+        includeStatus = false;
+        curriculumResult = await selectCurriculum(includeStatus, includeClassAlias);
+      }
+
+      if (
+        curriculumResult.error &&
+        typeof curriculumResult.error.message === 'string' &&
+        curriculumResult.error.message.toLowerCase().includes('column curriculum.class')
+      ) {
+        includeClassAlias = false;
+        curriculumResult = await selectCurriculum(includeStatus, includeClassAlias);
       }
 
       const { data: curriculumData, error: curriculumError } = curriculumResult;
@@ -246,11 +279,12 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       const classEntries = new Map(existingClasses.map((c) => [c.id, c.name]));
 
       const fallbackSessions: ClassSession[] = lessons.map((lesson) => {
+        const classDisplayName = lesson.class_name ?? lesson.class ?? 'Curriculum Lesson';
         const fallbackClassId = lesson.class_id || `curriculum-${lesson.id}`;
 
         if (!updatedClassDetails[fallbackClassId]) {
           updatedClassDetails[fallbackClassId] = {
-            name: lesson.class_name || lesson.class || 'Curriculum Lesson',
+            name: classDisplayName,
             stage: lesson.stage || lesson.curriculum_stage,
             level: lesson.curriculum_stage || lesson.stage,
             start_time: null,
