@@ -845,6 +845,7 @@ export default function AdminDashboard() {
                 <div className="px-6">
                   <CalendarSessionCRUD
                     teacherId={selectedCalendarTeacherId === 'all' ? undefined : selectedCalendarTeacherId}
+                    showHeading={false}
                   />
                 </div>
               </CardContent>

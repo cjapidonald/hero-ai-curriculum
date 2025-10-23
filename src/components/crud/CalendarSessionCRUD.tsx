@@ -32,9 +32,14 @@ import { supabase } from '@/integrations/supabase/client';
 interface CalendarSessionCRUDProps {
   teacherId?: string;
   showActions?: boolean;
+  showHeading?: boolean;
 }
 
-export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarSessionCRUDProps) {
+export function CalendarSessionCRUD({
+  teacherId,
+  showActions = true,
+  showHeading = true,
+}: CalendarSessionCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
   const filters = useMemo(
     () => (teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined),
@@ -287,8 +292,19 @@ export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarS
     <div className="space-y-4">
       {canEdit && showActions && (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-2xl font-bold">Calendar Sessions</h2>
+          <div
+            className={`flex flex-col gap-3 md:flex-row md:items-center ${
+              showHeading ? 'md:justify-between' : 'md:justify-end'
+            }`}
+          >
+            {showHeading && (
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold">Calendar Sessions</h2>
+                <p className="text-muted-foreground">
+                  Schedule and manage class sessions with real-time sync.
+                </p>
+              </div>
+            )}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => handleOpenDialog()} className="bg-purple-600 hover:bg-purple-700">
