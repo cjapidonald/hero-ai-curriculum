@@ -223,6 +223,7 @@ export type Database = {
       attendance: {
         Row: {
           class_date: string
+          class_session_id: string | null
           created_at: string | null
           enrollment_id: string
           id: string
@@ -233,6 +234,7 @@ export type Database = {
         }
         Insert: {
           class_date: string
+          class_session_id?: string | null
           created_at?: string | null
           enrollment_id: string
           id?: string
@@ -243,6 +245,7 @@ export type Database = {
         }
         Update: {
           class_date?: string
+          class_session_id?: string | null
           created_at?: string | null
           enrollment_id?: string
           id?: string
@@ -252,6 +255,13 @@ export type Database = {
           recorded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "attendance_class_session_id_fkey"
+            columns: ["class_session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "attendance_enrollment_id_fkey"
             columns: ["enrollment_id"]
@@ -335,6 +345,95 @@ export type Database = {
           },
           {
             foreignKeyName: "classes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_sessions: {
+        Row: {
+          attendance_count: number | null
+          attendance_taken: boolean | null
+          class_id: string | null
+          created_at: string | null
+          curriculum_id: string | null
+          end_time: string
+          id: string
+          lesson_plan_completed: boolean | null
+          lesson_plan_data: Json | null
+          location: string | null
+          notes: string | null
+          session_date: string
+          start_time: string
+          status: string
+          teacher_id: string
+          total_students: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          attendance_count?: number | null
+          attendance_taken?: boolean | null
+          class_id?: string | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          end_time: string
+          id?: string
+          lesson_plan_completed?: boolean | null
+          lesson_plan_data?: Json | null
+          location?: string | null
+          notes?: string | null
+          session_date: string
+          start_time: string
+          status?: string
+          teacher_id: string
+          total_students?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          attendance_count?: number | null
+          attendance_taken?: boolean | null
+          class_id?: string | null
+          created_at?: string | null
+          curriculum_id?: string | null
+          end_time?: string
+          id?: string
+          lesson_plan_completed?: boolean | null
+          lesson_plan_data?: Json | null
+          location?: string | null
+          notes?: string | null
+          session_date?: string
+          start_time?: string
+          status?: string
+          teacher_id?: string
+          total_students?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_sessions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_sessions_curriculum_id_fkey"
+            columns: ["curriculum_id"]
+            isOneToOne: false
+            referencedRelation: "curriculum"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_dashboard_view"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "class_sessions_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -1145,6 +1244,7 @@ export type Database = {
       lesson_resources: {
         Row: {
           added_by: string | null
+          class_session_id: string | null
           created_at: string | null
           curriculum_id: string
           id: string
@@ -1154,6 +1254,7 @@ export type Database = {
         }
         Insert: {
           added_by?: string | null
+          class_session_id?: string | null
           created_at?: string | null
           curriculum_id: string
           id?: string
@@ -1163,6 +1264,7 @@ export type Database = {
         }
         Update: {
           added_by?: string | null
+          class_session_id?: string | null
           created_at?: string | null
           curriculum_id?: string
           id?: string
@@ -1176,6 +1278,13 @@ export type Database = {
             columns: ["added_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_resources_class_session_id_fkey"
+            columns: ["class_session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
             referencedColumns: ["id"]
           },
           {

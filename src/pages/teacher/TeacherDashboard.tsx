@@ -2,32 +2,30 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { BookOpen, FileText, Award, BookMarked, LogOut, Calendar, BarChart3, Blocks } from 'lucide-react';
+import { Users, FileText, Award, BookMarked, LogOut, BarChart3, Target } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ProfileEditor } from '@/components/ProfileEditor';
-import MyClasses from './MyClasses';
-import CurriculumTab from './CurriculumTab';
 import Skills from './Skills';
-import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
-import { EnhancedLessonPlanner } from './EnhancedLessonPlanner';
-import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
-import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
+import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
+import TeacherStandardsBoard from '@/components/teacher/TeacherStandardsBoard';
+import CurriculumManagement from './CurriculumManagement';
+import MyClassView from './MyClassView';
 
-type TabType = 'performance' | 'calendar' | 'classes' | 'curriculum' | 'lessonbuilder' | 'assignments' | 'skills';
+type TabType = 'performance' | 'curriculum' | 'students' | 'assignments' | 'standards' | 'skills';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType | null;
-  const lessonIdFromUrl = searchParams.get('lessonId') || undefined;
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'performance');
   const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,33 +84,35 @@ const TeacherDashboard = () => {
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);
+    setActiveSessionId(null); // Clear active session when changing tabs
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', tabId);
-    if (tabId !== 'lessonbuilder') {
-      newParams.delete('lessonId');
-    }
     setSearchParams(newParams);
   };
 
-  const handleLessonEdit = (lessonId: string) => {
-    setActiveTab('lessonbuilder');
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set('tab', 'lessonbuilder');
-    newParams.set('lessonId', lessonId);
-    setSearchParams(newParams);
+  const handleStartClass = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+  };
+
+  const handleBackToCurriculum = () => {
+    setActiveSessionId(null);
   };
 
   const tabs = [
-    { id: 'performance' as TabType, label: 'My Performance', icon: BarChart3 },
-    { id: 'calendar' as TabType, label: 'Calendar', icon: Calendar },
-    { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
+    { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
     { id: 'curriculum' as TabType, label: 'Curriculum', icon: BookMarked },
-    { id: 'lessonbuilder' as TabType, label: 'Lesson Builder', icon: Blocks },
+    { id: 'students' as TabType, label: 'My Students', icon: Users },
     { id: 'assignments' as TabType, label: 'Assignments', icon: FileText },
+    { id: 'standards' as TabType, label: 'Teacher Standards', icon: Target },
     { id: 'skills' as TabType, label: 'Skills', icon: Award },
   ];
 
   const renderTabContent = () => {
+    // If actively in a class session, show MyClassView
+    if (activeSessionId) {
+      return <MyClassView sessionId={activeSessionId} onBack={handleBackToCurriculum} />;
+    }
+
     switch (activeTab) {
       case 'performance':
         return (
@@ -121,31 +121,15 @@ const TeacherDashboard = () => {
             teacherProfile={teacherProfile}
           />
         );
-      case 'calendar':
-        return (
-          <div className="space-y-4">
-            <div className="bg-background rounded-lg shadow p-6">
-              <CalendarSessionCRUD teacherId={user.id} />
-            </div>
-          </div>
-        );
-      case 'classes':
-        return <MyClasses teacherId={user.id} />;
       case 'curriculum':
+        return <CurriculumManagement teacherId={user.id} onStartClass={handleStartClass} />;
+      case 'students':
         return (
           <div className="space-y-4">
             <div className="bg-background rounded-lg shadow p-6">
-              <CurriculumCRUD teacherId={user.id} onEditLesson={handleLessonEdit} />
+              <TeacherStudentCRUD teacherId={user.id} />
             </div>
           </div>
-        );
-      case 'lessonbuilder':
-        return (
-          <EnhancedLessonPlanner
-            teacherId={user.id}
-            teacherName={`${user.name} ${user.surname}`}
-            lessonId={lessonIdFromUrl}
-          />
         );
       case 'assignments':
         return (
@@ -157,10 +141,31 @@ const TeacherDashboard = () => {
             </div>
           </div>
         );
+      case 'standards':
+        return (
+          <div className="space-y-4">
+            <div className="bg-background rounded-lg shadow p-6">
+              <h2 className="text-xl font-bold mb-4">Professional Standards Progress</h2>
+              <p className="text-muted-foreground mb-4">
+                Upload evidence, review approvals, and track your professional growth milestones.
+              </p>
+              <TeacherStandardsBoard
+                mode="teacher"
+                teacherId={user.id}
+                teacherName={`${user.name} ${user.surname}`}
+              />
+            </div>
+          </div>
+        );
       case 'skills':
         return <Skills teacherId={user.id} />;
       default:
-        return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
+        return (
+          <TeacherPerformance
+            teacherId={user.id}
+            teacherProfile={teacherProfile}
+          />
+        );
     }
   };
 
@@ -211,31 +216,33 @@ const TeacherDashboard = () => {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-background border-b">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-wrap gap-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <Button
-                  key={tab.id}
-                  variant={activeTab === tab.id ? 'default' : 'ghost'}
-                  onClick={() => handleTabChange(tab.id)}
-                  className="gap-2 rounded-none border-b-2 border-transparent data-[active=true]:border-primary whitespace-nowrap"
-                  data-active={activeTab === tab.id}
-                >
-                  <Icon size={18} />
-                  {tab.label}
-                </Button>
-              );
-            })}
+      {/* Navigation Tabs - Hidden when in active class session */}
+      {!activeSessionId && (
+        <div className="bg-background border-b">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-wrap gap-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <Button
+                    key={tab.id}
+                    variant={activeTab === tab.id ? 'default' : 'ghost'}
+                    onClick={() => handleTabChange(tab.id)}
+                    className="gap-2 rounded-none border-b-2 border-transparent data-[active=true]:border-primary whitespace-nowrap"
+                    data-active={activeTab === tab.id}
+                  >
+                    <Icon size={18} />
+                    {tab.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className={activeSessionId ? '' : 'container mx-auto px-4 py-8'}>
         {renderTabContent()}
       </div>
     </div>
