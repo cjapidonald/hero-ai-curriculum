@@ -196,27 +196,38 @@ export function ClassDetailDialog({
       const { data: enrollmentData, error: enrollmentError } = await supabase
         .from("enrollments")
         .select("id, student_id, enrollment_date, is_active")
-        .eq("class_id", classRecord.id);
+        .eq("class_id", classRecord.id)
+        .eq("is_active", true);
 
       if (enrollmentError) throw enrollmentError;
 
-      const enrollments = (enrollmentData as EnrollmentRow[]) || [];
-      if (enrollments.length === 0) {
-        setStudents([]);
-      } else {
-        const studentIds = enrollments.map((row) => row.student_id);
-        const { data: studentData, error: studentError } = await supabase
-          .from("dashboard_students")
-          .select(
-            "id, name, surname, class, level, attendance_rate, sessions_left",
-          )
-          .in("id", studentIds);
+      const enrollmentRows = (enrollmentData as EnrollmentRow[]) || [];
+      const enrollmentByStudent = new Map(
+        enrollmentRows.map((row) => [row.student_id, row]),
+      );
 
-        if (studentError) throw studentError;
+      const { data: allStudentsData, error: studentsError } = await supabase
+        .from("dashboard_students")
+        .select(
+          "id, name, surname, class, level, attendance_rate, sessions_left",
+        )
+        .eq("is_active", true)
+        .order("name", { ascending: true });
 
-        const byId = new Map(enrollments.map((row) => [row.student_id, row]));
-        const merged = (studentData as StudentRow[]).map((student) => {
-          const enrollment = byId.get(student.id);
+      if (studentsError) throw studentsError;
+
+      const allStudents = (allStudentsData as StudentRow[]) || [];
+      const normalizedClassName = (classRecord.class_name || "")
+        .trim()
+        .toLowerCase();
+
+      const assignedStudents = allStudents
+        .filter(
+          (student) =>
+            (student.class || "").trim().toLowerCase() === normalizedClassName,
+        )
+        .map((student) => {
+          const enrollment = enrollmentByStudent.get(student.id);
           return {
             ...student,
             enrollment_id: enrollment?.id ?? null,
@@ -224,21 +235,14 @@ export function ClassDetailDialog({
           };
         });
 
-        merged.sort((a, b) => a.name.localeCompare(b.name));
-        setStudents(merged);
-      }
+      assignedStudents.sort((a, b) => a.name.localeCompare(b.name));
+      setStudents(assignedStudents);
 
-      const { data: availableData, error: availableError } = await supabase
-        .from("dashboard_students")
-        .select("id, name, surname, class, level, attendance_rate, sessions_left")
-        .eq("is_active", true)
-        .order("name", { ascending: true });
-
-      if (availableError) throw availableError;
-
-      const available =
-        (availableData as StudentRow[]).filter((student) => !enrollments.find((row) => row.student_id === student.id)) ||
-        [];
+      const available = allStudents.filter(
+        (student) =>
+          (student.class || "").trim().toLowerCase() !== normalizedClassName &&
+          !enrollmentByStudent.has(student.id),
+      );
       setAvailableStudents(available);
     },
     [],
@@ -427,7 +431,7 @@ export function ClassDetailDialog({
   };
 
   const handleRemoveStudent = async (student: StudentWithEnrollment) => {
-    if (!classInfo || !student.enrollment_id) return;
+    if (!classInfo) return;
     if (!confirm(`Remove ${student.name} ${student.surname} from ${classInfo.class_name}?`)) {
       return;
     }
@@ -435,12 +439,18 @@ export function ClassDetailDialog({
     try {
       setStudentMutationLoading(true);
 
-      const { error: enrollmentDeleteError } = await supabase
-        .from("enrollments")
-        .delete()
-        .eq("id", student.enrollment_id);
+      const enrollmentResponse = student.enrollment_id
+        ? await supabase
+            .from("enrollments")
+            .delete()
+            .eq("id", student.enrollment_id)
+        : await supabase
+            .from("enrollments")
+            .delete()
+            .eq("student_id", student.id)
+            .eq("class_id", classInfo.id);
 
-      if (enrollmentDeleteError) throw enrollmentDeleteError;
+      if (enrollmentResponse.error) throw enrollmentResponse.error;
 
       const { error: studentUpdateError } = await supabase
         .from("dashboard_students")
