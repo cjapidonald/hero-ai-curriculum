@@ -22,7 +22,7 @@ export interface FilterConfig {
   category?: string;
   minAmount?: number;
   maxAmount?: number;
-  customFilters?: Record<string, any>;
+  customFilters?: Record<string, unknown>;
 }
 
 interface AdvancedFiltersProps {

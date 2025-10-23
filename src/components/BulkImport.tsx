@@ -103,7 +103,7 @@ export function BulkImport({ type, onImportComplete }: BulkImportProps) {
   };
 
   const convertStudentRow = (headers: string[], values: string[]) => {
-    const data: any = {};
+    const data: Record<string, any> = {};
     headers.forEach((header, index) => {
       const value = values[index]?.trim();
       const headerLower = header.toLowerCase();
@@ -145,7 +145,7 @@ export function BulkImport({ type, onImportComplete }: BulkImportProps) {
   };
 
   const convertTeacherRow = (headers: string[], values: string[]) => {
-    const data: any = {};
+    const data: Record<string, any> = {};
     headers.forEach((header, index) => {
       const value = values[index]?.trim();
       const headerLower = header.toLowerCase();
@@ -172,7 +172,7 @@ export function BulkImport({ type, onImportComplete }: BulkImportProps) {
   };
 
   const convertClassRow = (headers: string[], values: string[]) => {
-    const data: any = {};
+    const data: Record<string, any> = {};
     headers.forEach((header, index) => {
       const value = values[index]?.trim();
       const headerLower = header.toLowerCase();
@@ -239,7 +239,7 @@ export function BulkImport({ type, onImportComplete }: BulkImportProps) {
           const values = dataRows[i];
 
           try {
-            let data: any;
+            let data: Record<string, any>;
             if (type === 'students') {
               data = convertStudentRow(headers, values);
             } else if (type === 'teachers') {

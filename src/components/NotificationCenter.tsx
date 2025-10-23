@@ -21,7 +21,7 @@ interface Notification {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   is_read: boolean;
   action_url: string | null;
-  metadata: any;
+  metadata: Record<string, unknown>;
   created_at: string;
   read_at: string | null;
 }

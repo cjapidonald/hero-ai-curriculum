@@ -20,7 +20,7 @@ const FloatingActions = () => {
 
     try {
       const { error } = await supabase
-        .from('contact_submissions' as any)
+        .from('contact_submissions')
         .insert({
           parent_name: formData.get('parentName') as string,
           child_name: formData.get('childName') as string,

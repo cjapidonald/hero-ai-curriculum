@@ -137,7 +137,103 @@ function SortableResource({
   );
 }
 
-const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilderModalProps) => {\n  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);\n  const [availableResources, setAvailableResources] = useState<Resource[]>([]);\n  const [searchQuery, setSearchQuery] = useState(\'\');\n  const [typeFilter, setTypeFilter] = useState<string>(\'all\');\n  const [loading, setLoading] = useState(false);\n  const [saving, setSaving] = useState(false);\n\n  const { toast } = useToast();\n\n  const sensors = useSensors(\n    useSensor(PointerSensor),\n    useSensor(KeyboardSensor, {\n      coordinateGetter: sortableKeyboardCoordinates,\n    })\n  );\n\n  useEffect(() => {\n    if (open) {\n      if (lesson.lesson_plan_content) {\n        setLessonResources(lesson.lesson_plan_content.resources || []);\n      }\n      loadAvailableResources();\n    }\n  }, [open, lesson]);\n\n  const loadAvailableResources = async () => {\n    setLoading(true);\n    try {\n      // Load available resources\n      const { data: resourcesData, error: resourcesError } = await supabase\n        .from(\'resources\')\n        .select(\'id, title, description, resource_type, stage, duration_minutes, image_url\')\n        .eq(\'is_active\', true)\n        .order(\'title\');\n\n      if (resourcesError) throw resourcesError;\n\n      setAvailableResources(resourcesData || []);\n    } catch (error: any) {\n      console.error(\'Error loading resources:\', error);\n      toast({\n        title: \'Error\',\n        description: error.message || \'Failed to load resources\',\n        variant: \'destructive\',\n      });\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const handleDragEnd = (event: DragEndEvent) => {\n    const { active, over } = event;\n\n    if (over && active.id !== over.id) {\n      const oldIndex = lessonResources.findIndex((lr) => lr.id === active.id);\n      const newIndex = lessonResources.findIndex((lr) => lr.id === over.id);\n\n      const newOrder = arrayMove(lessonResources, oldIndex, newIndex);\n      setLessonResources(newOrder);\n    }\n  };\n\n  const handleAddResource = (resource: Resource) => {\n    const newLessonResource: LessonResource = {\n      id: resource.id,\n      resource_id: resource.id,\n      position: lessonResources.length,\n      notes: \'\',\n      resource: resource,\n    };\n    setLessonResources([...lessonResources, newLessonResource]);\n  };\n\n  const handleDeleteResource = (id: string) => {\n    setLessonResources(lessonResources.filter((lr) => lr.id !== id));\n  };\n\n  const handleUpdateNotes = (id: string, notes: string) => {\n    setLessonResources(\n      lessonResources.map((lr) => (lr.id === id ? { ...lr, notes } : lr))\n    );\n  };\n\n  const handleSave = () => {\n    const lessonPlanData = {\n      resources: lessonResources.map((lr, index) => ({\n        ...\lr,\n        position: index,\n      })),\n      total_duration: lessonResources.reduce(\n        (sum, lr) => sum + (lr.resource.duration_minutes || 0),\n        0\n      ),\n    };\n    onSave(lessonPlanData);\n  };
+const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilderModalProps) => {
+  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);
+  const [availableResources, setAvailableResources] = useState<Resource[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const { toast } = useToast();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    if (open) {
+      if (lesson.lesson_plan_content) {
+        setLessonResources(lesson.lesson_plan_content.resources || []);
+      }
+      loadAvailableResources();
+    }
+  }, [open, lesson]);
+
+  const loadAvailableResources = async () => {
+    setLoading(true);
+    try {
+      // Load available resources
+      const { data: resourcesData, error: resourcesError } = await supabase
+        .from('resources')
+        .select('id, title, description, resource_type, stage, duration_minutes, image_url')
+        .eq('is_active', true)
+        .order('title');
+
+      if (resourcesError) throw resourcesError;
+
+      setAvailableResources(resourcesData || []);
+    } catch (error: any) {
+      console.error('Error loading resources:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load resources',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = lessonResources.findIndex((lr) => lr.id === active.id);
+      const newIndex = lessonResources.findIndex((lr) => lr.id === over.id);
+
+      const newOrder = arrayMove(lessonResources, oldIndex, newIndex);
+      setLessonResources(newOrder);
+    }
+  };
+
+  const handleAddResource = (resource: Resource) => {
+    const newLessonResource: LessonResource = {
+      id: resource.id,
+      resource_id: resource.id,
+      position: lessonResources.length,
+      notes: '',
+      resource: resource,
+    };
+    setLessonResources([...lessonResources, newLessonResource]);
+  };
+
+  const handleDeleteResource = (id: string) => {
+    setLessonResources(lessonResources.filter((lr) => lr.id !== id));
+  };
+
+  const handleUpdateNotes = (id: string, notes: string) => {
+    setLessonResources(
+      lessonResources.map((lr) => (lr.id === id ? { ...lr, notes } : lr))
+    );
+  };
+
+  const handleSave = () => {
+    const lessonPlanData = {
+      resources: lessonResources.map((lr, index) => ({
+        ...lr,
+        position: index,
+      })),
+      total_duration: lessonResources.reduce(
+        (sum, lr) => sum + (lr.resource.duration_minutes || 0),
+        0
+      ),
+    };
+    onSave(lessonPlanData);
+  };
 
   const filteredResources = availableResources.filter((resource) => {
     const matchesSearch =
@@ -257,7 +353,7 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => handleAddResource(resource.id)}
+                          onClick={() => handleAddResource(resource)}
                           disabled={lessonResources.some((lr) => lr.resource_id === resource.id)}
                         >
                           <Plus className="w-4 h-4" />

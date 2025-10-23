@@ -29,7 +29,24 @@ interface AnalyticsMetric {
   value: number;
   change: number;
   trend: 'up' | 'down';
-  icon: any;
+  icon: React.ElementType;
+}
+
+interface TrendData {
+  month: string;
+  [key: string]: any;
+}
+
+interface ClassPerformanceData {
+  name: string;
+  students: number;
+  capacity: number;
+  fillRate: number;
+}
+
+interface LevelDistributionData {
+  level: string;
+  count: number;
 }
 
 export function AnalyticsDashboard() {
@@ -38,11 +55,11 @@ export function AnalyticsDashboard() {
   const tooltipStyles = getTooltipStyles(isDark);
 
   const [loading, setLoading] = useState(true);
-  const [enrollmentTrend, setEnrollmentTrend] = useState<any[]>([]);
-  const [revenueTrend, setRevenueTrend] = useState<any[]>([]);
-  const [classPerformance, setClassPerformance] = useState<any[]>([]);
-  const [studentRetention, setStudentRetention] = useState<any[]>([]);
-  const [levelDistribution, setLevelDistribution] = useState<any[]>([]);
+  const [enrollmentTrend, setEnrollmentTrend] = useState<TrendData[]>([]);
+  const [revenueTrend, setRevenueTrend] = useState<TrendData[]>([]);
+  const [classPerformance, setClassPerformance] = useState<ClassPerformanceData[]>([]);
+  const [studentRetention, setStudentRetention] = useState<TrendData[]>([]);
+  const [levelDistribution, setLevelDistribution] = useState<LevelDistributionData[]>([]);
 
   const [metrics, setMetrics] = useState<AnalyticsMetric[]>([
     { label: 'Total Students', value: 0, change: 0, trend: 'up', icon: Users },

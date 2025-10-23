@@ -1,5 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync } from 'fs';
+import * as readline from 'readline';
 
 console.log('🔧 Authentication Fix & Test Script\n');
 console.log('=====================================\n');
@@ -10,7 +11,7 @@ const envVars = envContent.split('\n').reduce((acc, line) => {
   const [key, ...valueParts] = line.split('=');
   if (key && valueParts.length > 0) {
     let value = valueParts.join('=').trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'" ) && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
     acc[key.trim()] = value;
@@ -23,7 +24,7 @@ const SUPABASE_KEY = envVars.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 console.log('Current Configuration:');
 console.log('  URL:', SUPABASE_URL);
-console.log('  Key:', SUPABASE_KEY?.substring(0, 20) + '...\n');
+console.log('  Key:', SUPABASE_KEY?.substring(0, 20) + '\n');
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ Missing Supabase credentials in .env\n');
@@ -31,7 +32,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 }
 
 // Test the API key
-async function testApiKey() {
+async function testApiKey(): Promise<void> {
   console.log('🔍 Testing API Key...\n');
 
   try {
@@ -54,12 +55,12 @@ async function testApiKey() {
       console.log('4. Paste it when prompted below\n');
 
       // Prompt for new key
-      const readline = require('readline').createInterface({
+      const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
       });
 
-      readline.question('Paste the correct anon public key here (or press Enter to skip): ', (newKey: string) => {
+      rl.question('Paste the correct anon public key here (or press Enter to skip): ', (newKey: string) => {
         if (newKey && newKey.trim()) {
           // Update .env file
           const updatedEnv = envContent.replace(
@@ -72,7 +73,7 @@ async function testApiKey() {
         } else {
           console.log('\nSkipped. Please update the .env file manually.');
         }
-        readline.close();
+        rl.close();
       });
     } else {
       console.log('✅ API Key is working!\n');
@@ -85,7 +86,7 @@ async function testApiKey() {
   }
 }
 
-async function testUsers(supabase: any) {
+async function testUsers(supabase: SupabaseClient): Promise<void> {
   console.log('👥 Testing User Accounts...\n');
 
   // Test admin
