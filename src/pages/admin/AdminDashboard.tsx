@@ -29,6 +29,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
+import CurriculumManagementPanel from "@/pages/admin/components/CurriculumManagementPanel";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -58,7 +59,16 @@ interface LevelDistribution {
   count: number;
 }
 
-type AdminTabType = 'overview' | 'students' | 'teachers' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
+type AdminTabType =
+  | 'overview'
+  | 'students'
+  | 'teachers'
+  | 'calendar'
+  | 'classes'
+  | 'curriculum'
+  | 'finance'
+  | 'analytics'
+  | 'audit';
 
 const ADMIN_TABS: AdminTabType[] = [
   'overview',
@@ -66,6 +76,7 @@ const ADMIN_TABS: AdminTabType[] = [
   'teachers',
   'calendar',
   'classes',
+  'curriculum',
   'finance',
   'analytics',
   'audit',
@@ -591,12 +602,13 @@ export default function AdminDashboard() {
 
         {/* Charts and Tables */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTabType)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-8 h-auto" role="tablist" aria-label="Dashboard sections">
+          <TabsList className="grid w-full grid-cols-9 h-auto" role="tablist" aria-label="Dashboard sections">
             <TabsTrigger value="overview" aria-label="Overview tab (Ctrl+1)">Overview</TabsTrigger>
             <TabsTrigger value="students" aria-label="Students tab (Ctrl+2)">Students</TabsTrigger>
             <TabsTrigger value="teachers" aria-label="Teachers tab (Ctrl+3)">Teachers</TabsTrigger>
             <TabsTrigger value="calendar" aria-label="Calendar tab">Calendar</TabsTrigger>
             <TabsTrigger value="classes" aria-label="Classes tab (Ctrl+4)">Classes</TabsTrigger>
+            <TabsTrigger value="curriculum" aria-label="Curriculum tab">Curriculum</TabsTrigger>
             <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
             <TabsTrigger value="analytics" aria-label="Analytics tab">Analytics</TabsTrigger>
             <TabsTrigger value="audit" aria-label="Audit Log tab">Audit Log</TabsTrigger>
@@ -759,6 +771,10 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="curriculum" className="space-y-4">
+            <CurriculumManagementPanel />
           </TabsContent>
 
           <TabsContent value="calendar" className="space-y-4">
