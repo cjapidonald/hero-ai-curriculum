@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   BookOpen,
@@ -134,6 +134,7 @@ const buildMaterialsFromLesson = (lesson: Tables<'curriculum'>): {
 
 const CurriculumTab = ({ teacherId, teacherName, onOpenLessonBuilder }: CurriculumTabProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [lessons, setLessons] = useState<CurriculumLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
@@ -306,6 +307,11 @@ const CurriculumTab = ({ teacherId, teacherName, onOpenLessonBuilder }: Curricul
       return;
     }
 
+    if (type === 'build') {
+      onOpenLessonBuilder?.();
+      return;
+    }
+
     setActiveAction({ type, lesson });
   };
 
@@ -375,6 +381,193 @@ const CurriculumTab = ({ teacherId, teacherName, onOpenLessonBuilder }: Curricul
           ))}
         </ul>
       );
+    };
+
+    const actionRoutes: Partial<Record<ActionType, string>> = {
+      start: `/teacher/lessons/${lesson.id}/start`,
+      evaluate: `/teacher/lessons/${lesson.id}/evaluate`,
+      printables: `/teacher/lessons/${lesson.id}/printables`,
+      homework: `/teacher/lessons/${lesson.id}/homework`,
+      quiz: `/teacher/lessons/${lesson.id}/assessments?type=quiz`,
+      assignment: `/teacher/lessons/${lesson.id}/assessments?type=assignment`,
+    };
+
+    const navigateToAction = (route: string | undefined) => {
+      if (!route) {
+        return;
+      }
+      setActiveAction(null);
+      navigate(route);
+    };
+
+    const renderActionSummary = () => {
+      switch (type) {
+        case 'start':
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Launch the live lesson workspace to start the session, log behavior highlights, and update completion
+                status.
+              </p>
+              <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                <p className="font-medium text-foreground">What you can do</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+                  <li>Open a real-time session and track progress for the class.</li>
+                  <li>Capture points, badges, and comments that sync to evaluations.</li>
+                  <li>Mark the lesson complete when everything wraps up.</li>
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => navigateToAction(actionRoutes.start)}>
+                  <Play className="h-4 w-4" />
+                  Open start flow
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        case 'evaluate':
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Review learner engagement, log feedback, and finalize lesson outcomes with the evaluation workspace.
+              </p>
+              <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                <p className="font-medium text-foreground">Inside the evaluator</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+                  <li>View aggregated behavior events and point totals per learner.</li>
+                  <li>Record narrative feedback or badges for individual students.</li>
+                  <li>Publish the lesson status once review is complete.</li>
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => navigateToAction(actionRoutes.evaluate)}>
+                  <ClipboardList className="h-4 w-4" />
+                  Open evaluation flow
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        case 'printables':
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Manage printable packets, share them with the class, and track distribution history.
+              </p>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-foreground">Linked printables</p>
+                {lesson.printableMaterials.length ? (
+                  <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                    {lesson.printableMaterials.slice(0, 3).map((material) => (
+                      <li key={material.id}>{material.label}</li>
+                    ))}
+                    {lesson.printableMaterials.length > 3 ? (
+                      <li>+{lesson.printableMaterials.length - 3} more</li>
+                    ) : null}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">No printables have been attached yet.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => navigateToAction(actionRoutes.printables)}>
+                  <FileText className="h-4 w-4" />
+                  Open printables manager
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        case 'homework':
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Plan and assign homework tasks, track due dates, and notify learners with one workspace.
+              </p>
+              <div className="space-y-2 text-sm">
+                <p className="font-medium text-foreground">Existing homework</p>
+                {lesson.homeworkMaterials.length ? (
+                  <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                    {lesson.homeworkMaterials.slice(0, 3).map((material) => (
+                      <li key={material.id}>{material.label}</li>
+                    ))}
+                    {lesson.homeworkMaterials.length > 3 ? (
+                      <li>+{lesson.homeworkMaterials.length - 3} more</li>
+                    ) : null}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">No homework is linked yet.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => navigateToAction(actionRoutes.homework)}>
+                  <StickyNote className="h-4 w-4" />
+                  Open homework planner
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        case 'quiz':
+        case 'assignment':
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Schedule upcoming {type === 'quiz' ? 'quizzes' : 'assignments'}, share reminders, and keep families aligned
+                on important dates.
+              </p>
+              <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                <p className="font-medium text-foreground">What to expect</p>
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+                  <li>Track scheduled dates and notify individual learners or the full class.</li>
+                  <li>Capture assessment notes to reuse in weekly communications.</li>
+                  <li>Keep the lesson status updated as assessments are planned.</li>
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => navigateToAction(actionRoutes[type])}>
+                  <Settings className="h-4 w-4" />
+                  Open upcoming assessments
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        case 'build':
+          return (
+            <div className="space-y-4 text-sm text-muted-foreground">
+              <p>Open the lesson builder to customize materials and sequencing for this curriculum item.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="gap-2"
+                  onClick={() => {
+                    setActiveAction(null);
+                    onOpenLessonBuilder?.();
+                  }}
+                >
+                  <Settings className="h-4 w-4" />
+                  Launch lesson builder
+                </Button>
+                <Button variant="outline" onClick={() => setActiveAction(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          );
+        default:
+          return null;
+      }
     };
 
     return (
@@ -463,20 +656,7 @@ const CurriculumTab = ({ teacherId, teacherName, onOpenLessonBuilder }: Curricul
               </div>
             </ScrollArea>
           ) : (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                The {titleMap[type]} flow is powered by the selections made in the Lesson Builder. Choose materials and activities
-                there to activate this workflow for every teacher assigned to the curriculum.
-              </p>
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm space-y-2">
-                <p className="font-medium">Next steps</p>
-                <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                  <li>Confirm lesson resources and sequencing in Lesson Builder.</li>
-                  <li>Activate the workflow for the selected class and stage.</li>
-                  <li>Collaborate with co-teachers and share updates in real time.</li>
-                </ul>
-              </div>
-            </div>
+            renderActionSummary()
           )}
         </DialogContent>
       </Dialog>
