@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,13 +14,13 @@ import { AdvancedFilters, FilterConfig } from '@/components/AdvancedFilters';
 interface AuditLog {
   id: string;
   table_name: string;
-  record_id: string;
+  record_id: string | null;
   action: 'INSERT' | 'UPDATE' | 'DELETE';
-  old_data: any;
-  new_data: any;
-  changed_fields: string[];
-  user_email: string;
-  user_role: string;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
+  changed_fields: string[] | null;
+  user_email: string | null;
+  user_role: string | null;
   created_at: string;
 }
 
@@ -37,31 +37,77 @@ export function AuditLogViewer() {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, tableFilter, actionFilter, dateFilters]);
+  }, [fetchLogs]);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
-      // Note: audit_logs table doesn't exist yet in database
-      // This is a placeholder for when it's implemented
-      setLogs([]);
-      setTotalCount(0);
+
+      let query = supabase
+        .from('audit_logs')
+        .select('*', { count: 'exact' });
+
+      if (tableFilter !== 'all') {
+        query = query.eq('table_name', tableFilter);
+      }
+
+      if (actionFilter !== 'all') {
+        query = query.eq('action', actionFilter);
+      }
+
+      if (dateFilters?.dateRange?.from) {
+        query = query.gte('created_at', dateFilters.dateRange.from.toISOString());
+      }
+
+      if (dateFilters?.dateRange?.to) {
+        const toDate = new Date(dateFilters.dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', toDate.toISOString());
+      }
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      setLogs((data as AuditLog[] | null)?.map((log) => ({
+        ...log,
+        changed_fields: log.changed_fields ?? [],
+      })) ?? []);
+      setTotalCount(count ?? 0);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
+      setLogs([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [actionFilter, dateFilters, page, tableFilter]);
 
   const filteredLogs = logs.filter((log) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      log.user_email?.toLowerCase().includes(query) ||
+      (log.user_email || '').toLowerCase().includes(query) ||
       log.table_name.toLowerCase().includes(query) ||
-      log.record_id.toLowerCase().includes(query)
+      (log.record_id || '').toLowerCase().includes(query) ||
+      log.action.toLowerCase().includes(query)
     );
   });
+
+  const handleTableFilterChange = (value: string) => {
+    setTableFilter(value);
+    setPage(1);
+  };
+
+  const handleActionFilterChange = (value: string) => {
+    setActionFilter(value);
+    setPage(1);
+  };
 
   const getActionBadgeVariant = (action: string) => {
     switch (action) {
@@ -101,7 +147,7 @@ export function AuditLogViewer() {
               />
             </div>
 
-            <Select value={tableFilter} onValueChange={setTableFilter}>
+            <Select value={tableFilter} onValueChange={handleTableFilterChange}>
               <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="Filter by table" />
               </SelectTrigger>
@@ -116,7 +162,7 @@ export function AuditLogViewer() {
               </SelectContent>
             </Select>
 
-            <Select value={actionFilter} onValueChange={setActionFilter}>
+            <Select value={actionFilter} onValueChange={handleActionFilterChange}>
               <SelectTrigger className="w-full md:w-40">
                 <SelectValue placeholder="Filter by action" />
               </SelectTrigger>
@@ -196,7 +242,7 @@ export function AuditLogViewer() {
                           </code>
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {log.record_id.substring(0, 8)}...
+                          {log.record_id ? `${log.record_id.substring(0, 8)}...` : 'N/A'}
                         </TableCell>
                         <TableCell>
                           {log.changed_fields && log.changed_fields.length > 0 ? (
@@ -238,7 +284,8 @@ export function AuditLogViewer() {
                                   <div>
                                     <p className="text-sm font-semibold mb-1">User</p>
                                     <p className="text-sm text-muted-foreground">
-                                      {log.user_email || 'System'} ({log.user_role})
+                                      {log.user_email || 'System'}
+                                      {log.user_role ? ` (${log.user_role})` : ''}
                                     </p>
                                   </div>
                                   <div>

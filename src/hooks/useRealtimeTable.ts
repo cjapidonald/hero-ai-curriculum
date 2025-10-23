@@ -171,17 +171,19 @@ export function useRealtimeTable<T extends { id: string }>(
   const remove = useCallback(
     async (id: string) => {
       try {
-        const { error: deleteError } = await supabase
+        const { data: deletedData, error: deleteError } = await supabase
           .from(tableName)
           .delete()
-          .eq('id', id);
+          .eq('id', id)
+          .select()
+          .maybeSingle();
 
         if (deleteError) throw deleteError;
 
-        return { error: null };
+        return { data: (deletedData as T | null) ?? null, error: null };
       } catch (err: any) {
         console.error(`Error deleting from ${tableName}:`, err);
-        return { error: err.message || 'Failed to delete' };
+        return { data: null, error: err.message || 'Failed to delete' };
       }
     },
     [tableName]

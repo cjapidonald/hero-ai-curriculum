@@ -81,6 +81,45 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: 'INSERT' | 'UPDATE' | 'DELETE'
+          changed_fields: string[] | null
+          created_at: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+          user_email: string | null
+          user_role: string | null
+        }
+        Insert: {
+          action: 'INSERT' | 'UPDATE' | 'DELETE'
+          changed_fields?: string[] | null
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_email?: string | null
+          user_role?: string | null
+        }
+        Update: {
+          action?: 'INSERT' | 'UPDATE' | 'DELETE'
+          changed_fields?: string[] | null
+          created_at?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_email?: string | null
+          user_role?: string | null
+        }
+        Relationships: []
+      }
       assessment: {
         Row: {
           assessment_date: string | null
