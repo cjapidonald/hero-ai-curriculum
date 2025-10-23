@@ -9,12 +9,11 @@ import type { Tables } from '@/integrations/supabase/types';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { ProfileEditor } from '@/components/ProfileEditor';
 import MyClasses from './MyClasses';
-import CurriculumTab from './CurriculumTab';
 import Skills from './Skills';
 import CalendarTab from './CalendarTab';
 import TeacherPerformance from './TeacherPerformance';
 import { EnhancedLessonPlanner } from './EnhancedLessonPlanner';
-import { CurriculumCRUD } from '@/components/crud/CurriculumCRUD';
+import TeacherCurriculumView from './TeacherCurriculumView';
 import { CalendarSessionCRUD } from '@/components/crud/CalendarSessionCRUD';
 import { AssignmentCRUD } from '@/components/crud/AssignmentCRUD';
 
@@ -25,6 +24,16 @@ const TeacherDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType | null;
   const lessonIdFromUrl = searchParams.get('lessonId') || undefined;
+  const defaultClassFromUrl = searchParams.get('class') || undefined;
+  const defaultStageFromUrl = searchParams.get('stage') || undefined;
+  const defaultSubjectFromUrl = searchParams.get('subject') || undefined;
+  const defaultSkillsFromUrl = searchParams
+    .get('skills')
+    ?.split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+  const defaultLessonTitleFromUrl = searchParams.get('lessonTitle') || undefined;
+  const defaultSuccessCriteriaFromUrl = searchParams.get('successCriteria') || undefined;
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl || 'performance');
   const [teacherProfile, setTeacherProfile] = useState<Tables<'teachers'> | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -84,12 +93,22 @@ const TeacherDashboard = () => {
     return <Navigate to="/login" replace />;
   }
 
+  const resolvedName = teacherProfile
+    ? `${teacherProfile.name} ${teacherProfile.surname}`
+    : `${user.name} ${user.surname}`;
+
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId);
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', tabId);
     if (tabId !== 'lessonbuilder') {
       newParams.delete('lessonId');
+      newParams.delete('class');
+      newParams.delete('stage');
+      newParams.delete('subject');
+      newParams.delete('skills');
+      newParams.delete('lessonTitle');
+      newParams.delete('successCriteria');
     }
     setSearchParams(newParams);
   };
@@ -99,6 +118,57 @@ const TeacherDashboard = () => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set('tab', 'lessonbuilder');
     newParams.set('lessonId', lessonId);
+    newParams.delete('class');
+    newParams.delete('stage');
+    newParams.delete('subject');
+    newParams.delete('skills');
+    newParams.delete('lessonTitle');
+    newParams.delete('successCriteria');
+    setSearchParams(newParams);
+  };
+
+  const handleLessonCreate = (defaults: {
+    className: string;
+    stage?: string;
+    subject?: string;
+    skills?: string[];
+    lessonTitle?: string;
+    successCriteria?: string;
+  }) => {
+    setActiveTab('lessonbuilder');
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', 'lessonbuilder');
+    newParams.delete('lessonId');
+    if (defaults.className) {
+      newParams.set('class', defaults.className);
+    } else {
+      newParams.delete('class');
+    }
+    if (defaults.stage) {
+      newParams.set('stage', defaults.stage);
+    } else {
+      newParams.delete('stage');
+    }
+    if (defaults.subject) {
+      newParams.set('subject', defaults.subject);
+    } else {
+      newParams.delete('subject');
+    }
+    if (defaults.skills && defaults.skills.length > 0) {
+      newParams.set('skills', defaults.skills.join(','));
+    } else {
+      newParams.delete('skills');
+    }
+    if (defaults.lessonTitle) {
+      newParams.set('lessonTitle', defaults.lessonTitle);
+    } else {
+      newParams.delete('lessonTitle');
+    }
+    if (defaults.successCriteria) {
+      newParams.set('successCriteria', defaults.successCriteria);
+    } else {
+      newParams.delete('successCriteria');
+    }
     setSearchParams(newParams);
   };
 
@@ -133,18 +203,25 @@ const TeacherDashboard = () => {
         return <MyClasses teacherId={user.id} />;
       case 'curriculum':
         return (
-          <div className="space-y-4">
-            <div className="bg-background rounded-lg shadow p-6">
-              <CurriculumCRUD teacherId={user.id} onEditLesson={handleLessonEdit} />
-            </div>
-          </div>
+          <TeacherCurriculumView
+            teacherId={user.id}
+            teacherName={resolvedName}
+            onEditLesson={handleLessonEdit}
+            onCreateLesson={handleLessonCreate}
+          />
         );
       case 'lessonbuilder':
         return (
           <EnhancedLessonPlanner
             teacherId={user.id}
-            teacherName={`${user.name} ${user.surname}`}
+            teacherName={resolvedName}
             lessonId={lessonIdFromUrl}
+            defaultClass={defaultClassFromUrl}
+            defaultStage={defaultStageFromUrl}
+            defaultSubject={defaultSubjectFromUrl}
+            defaultSkills={defaultSkillsFromUrl}
+            defaultLessonTitle={defaultLessonTitleFromUrl}
+            defaultSuccessCriteria={defaultSuccessCriteriaFromUrl}
           />
         );
       case 'assignments':
@@ -163,10 +240,6 @@ const TeacherDashboard = () => {
         return <CalendarTab teacherId={user.id} teacherName={`${user.name} ${user.surname}`} />;
     }
   };
-
-  const resolvedName = teacherProfile
-    ? `${teacherProfile.name} ${teacherProfile.surname}`
-    : `${user.name} ${user.surname}`;
 
   const teacherSubject = teacherProfile?.subject ?? user.subject ?? 'Teacher';
 

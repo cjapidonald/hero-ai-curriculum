@@ -9,8 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ResourceLibrary, Resource } from '@/components/ResourceLibrary';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Download, Plus, X, Upload, FileText } from 'lucide-react';
+import { Save, Download, Plus, X, FileText, ChevronsUpDown, Check } from 'lucide-react';
 import { SortableItem } from '@/components/SortableItem';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
+import { LESSON_SKILL_OPTIONS } from '@/constants/lessonSkills';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -42,7 +53,7 @@ interface LessonPlan {
   subject: string;
   lesson_title: string;
   lesson_date: string;
-  lesson_skills: string;
+  lesson_skills: string[];
   success_criteria: string;
   curriculum_stage: string;
   warmup_activities: LessonActivity[];
@@ -57,19 +68,36 @@ interface EnhancedLessonPlannerProps {
   teacherName?: string;
   lessonId?: string;
   onSave?: () => void;
+  defaultClass?: string;
+  defaultStage?: string;
+  defaultSubject?: string;
+  defaultSkills?: string[];
+  defaultLessonTitle?: string;
+  defaultSuccessCriteria?: string;
 }
 
-const createEmptyLessonPlan = (teacherId: string, teacherName?: string): LessonPlan => ({
+const createEmptyLessonPlan = (
+  teacherId: string,
+  teacherName?: string,
+  defaults?: {
+    className?: string;
+    subject?: string;
+    stage?: string;
+    skills?: string[];
+    lessonTitle?: string;
+    successCriteria?: string;
+  }
+): LessonPlan => ({
   teacher_id: teacherId,
   teacher_name: teacherName || '',
-  class: '',
+  class: defaults?.className || '',
   school: 'HeroSchool',
-  subject: 'English',
-  lesson_title: '',
+  subject: defaults?.subject || 'English',
+  lesson_title: defaults?.lessonTitle || '',
   lesson_date: new Date().toISOString().split('T')[0],
-  lesson_skills: '',
-  success_criteria: '',
-  curriculum_stage: '',
+  lesson_skills: defaults?.skills || [],
+  success_criteria: defaults?.successCriteria || '',
+  curriculum_stage: defaults?.stage || '',
   warmup_activities: [],
   main_activities: [],
   assessment_activities: [],
@@ -77,15 +105,36 @@ const createEmptyLessonPlan = (teacherId: string, teacherName?: string): LessonP
   printable_activities: [],
 });
 
-export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave }: EnhancedLessonPlannerProps) => {
+export const EnhancedLessonPlanner = ({
+  teacherId,
+  teacherName,
+  lessonId,
+  onSave,
+  defaultClass,
+  defaultStage,
+  defaultSubject,
+  defaultSkills,
+  defaultLessonTitle,
+  defaultSuccessCriteria,
+}: EnhancedLessonPlannerProps) => {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState<any[]>([]);
   const lessonPlanRef = useRef<HTMLDivElement>(null);
 
   const [lessonPlan, setLessonPlan] = useState<LessonPlan>(() =>
-    createEmptyLessonPlan(teacherId, teacherName)
+    createEmptyLessonPlan(teacherId, teacherName, {
+      className: defaultClass,
+      stage: defaultStage,
+      subject: defaultSubject,
+      skills: defaultSkills,
+      lessonTitle: defaultLessonTitle,
+      successCriteria: defaultSuccessCriteria,
+    })
   );
+  const [skillPopoverOpen, setSkillPopoverOpen] = useState(false);
+
+  const defaultSkillsKey = (defaultSkills ?? []).join('|');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -100,9 +149,28 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
     if (lessonId) {
       fetchLesson();
     } else {
-      setLessonPlan(createEmptyLessonPlan(teacherId, teacherName));
+      setLessonPlan(
+        createEmptyLessonPlan(teacherId, teacherName, {
+          className: defaultClass,
+          stage: defaultStage,
+          subject: defaultSubject,
+          skills: defaultSkills,
+          lessonTitle: defaultLessonTitle,
+          successCriteria: defaultSuccessCriteria,
+        })
+      );
     }
-  }, [lessonId, teacherId, teacherName]);
+  }, [
+    lessonId,
+    teacherId,
+    teacherName,
+    defaultClass,
+    defaultStage,
+    defaultSubject,
+    defaultLessonTitle,
+    defaultSuccessCriteria,
+    defaultSkillsKey,
+  ]);
 
   const fetchClasses = async () => {
     try {
@@ -191,18 +259,27 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         }
       }
 
+      const parsedSkills = Array.isArray(data.lesson_skills)
+        ? data.lesson_skills
+        : typeof data.lesson_skills === 'string'
+          ? data.lesson_skills
+              .split(',')
+              .map((skill: string) => skill.trim())
+              .filter(Boolean)
+          : [];
+
       setLessonPlan({
         id: data.id,
         teacher_id: data.teacher_id || teacherId,
         teacher_name: data.teacher_name || teacherName || '',
-        class: data.class || '',
+        class: data.class || defaultClass || '',
         school: data.school || 'HeroSchool',
-        subject: data.subject || 'English',
-        lesson_title: data.lesson_title || '',
+        subject: data.subject || defaultSubject || 'English',
+        lesson_title: data.lesson_title || defaultLessonTitle || '',
         lesson_date: data.lesson_date || new Date().toISOString().split('T')[0],
-        lesson_skills: data.lesson_skills || '',
-        success_criteria: data.success_criteria || '',
-        curriculum_stage: data.curriculum_stage || '',
+        lesson_skills: parsedSkills,
+        success_criteria: data.success_criteria || defaultSuccessCriteria || '',
+        curriculum_stage: data.curriculum_stage || defaultStage || '',
         warmup_activities: warmup,
         main_activities: main,
         assessment_activities: assessment,
@@ -217,6 +294,29 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         variant: 'destructive',
       });
     }
+  };
+
+  const toggleSkill = (skillLabel: string) => {
+    setLessonPlan((prev) => {
+      const exists = prev.lesson_skills.includes(skillLabel);
+      if (exists) {
+        return {
+          ...prev,
+          lesson_skills: prev.lesson_skills.filter((skill) => skill !== skillLabel),
+        };
+      }
+      return {
+        ...prev,
+        lesson_skills: [...prev.lesson_skills, skillLabel],
+      };
+    });
+  };
+
+  const handleRemoveSkill = (skillLabel: string) => {
+    setLessonPlan((prev) => ({
+      ...prev,
+      lesson_skills: prev.lesson_skills.filter((skill) => skill !== skillLabel),
+    }));
   };
 
   const handleDrop = (sectionType: SectionKey, resource: Resource) => {
@@ -313,7 +413,7 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
         subject: lessonPlan.subject,
         lesson_title: lessonPlan.lesson_title,
         lesson_date: lessonPlan.lesson_date,
-        lesson_skills: lessonPlan.lesson_skills,
+        lesson_skills: lessonPlan.lesson_skills.join(', '),
         success_criteria: lessonPlan.success_criteria,
         curriculum_stage: lessonPlan.curriculum_stage,
       };
@@ -381,7 +481,7 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
   };
 
   const handleExportCSV = () => {
-    const csv = `Lesson Title,${lessonPlan.lesson_title}\nDate,${lessonPlan.lesson_date}\nClass,${lessonPlan.class}\n\nWarmup Activities\n${lessonPlan.warmup_activities.map(a => a.name).join('\n')}\n\nMain Activities\n${lessonPlan.main_activities.map(a => a.name).join('\n')}`;
+    const csv = `Lesson Title,${lessonPlan.lesson_title}\nDate,${lessonPlan.lesson_date}\nClass,${lessonPlan.class}\nStage,${lessonPlan.curriculum_stage}\nSkills,${lessonPlan.lesson_skills.join(' | ')}\n\nWarmup Activities\n${lessonPlan.warmup_activities.map(a => a.name).join('\n')}\n\nMain Activities\n${lessonPlan.main_activities.map(a => a.name).join('\n')}`;
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -529,12 +629,77 @@ export const EnhancedLessonPlanner = ({ teacherId, teacherName, lessonId, onSave
 
         <div>
           <Label htmlFor="skills">Skills</Label>
-          <Input
-            id="skills"
-            value={lessonPlan.lesson_skills}
-            onChange={(e) => setLessonPlan({ ...lessonPlan, lesson_skills: e.target.value })}
-            placeholder="e.g., Speaking, Counting, Listening"
-          />
+          <Popover open={skillPopoverOpen} onOpenChange={setSkillPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                id="skills"
+                variant="outline"
+                role="combobox"
+                aria-expanded={skillPopoverOpen}
+                className="mt-1 w-full justify-between"
+              >
+                {lessonPlan.lesson_skills.length > 0
+                  ? `${lessonPlan.lesson_skills.length} skill${lessonPlan.lesson_skills.length > 1 ? 's' : ''} selected`
+                  : 'Select lesson skills'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px] p-0">
+              <Command>
+                <CommandInput placeholder="Search skills..." />
+                <CommandEmpty>No skill found.</CommandEmpty>
+                <CommandList>
+                  {['English', 'Science', 'Phonics', 'Math'].map((subject) => {
+                    const subjectSkills = LESSON_SKILL_OPTIONS.filter((option) => option.subject === subject);
+                    if (subjectSkills.length === 0) {
+                      return null;
+                    }
+                    return (
+                      <CommandGroup key={subject} heading={subject}>
+                        {subjectSkills.map((skill) => {
+                          const isSelected = lessonPlan.lesson_skills.includes(skill.label);
+                          return (
+                            <CommandItem
+                              key={skill.id}
+                              onSelect={() => toggleSkill(skill.label)}
+                              className="flex items-start justify-between gap-3"
+                            >
+                              <div>
+                                <p className="text-sm font-medium leading-tight">{skill.label}</p>
+                                <p className="text-xs text-muted-foreground">{skill.description}</p>
+                              </div>
+                              <Check className={`mt-1 h-4 w-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    );
+                  })}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {lessonPlan.lesson_skills.length > 0 ? (
+              lessonPlan.lesson_skills.map((skill) => (
+                <Badge key={skill} variant="secondary" className="flex items-center gap-1">
+                  {skill}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill)}
+                    className="rounded-full p-0.5 text-muted-foreground transition hover:bg-secondary hover:text-secondary-foreground"
+                    aria-label={`Remove ${skill}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Choose focus skills from English, Science, Phonics, or Math.
+              </span>
+            )}
+          </div>
         </div>
 
         <div>
