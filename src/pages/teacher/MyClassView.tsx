@@ -179,6 +179,19 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
 
       if (error) throw error;
 
+      const presentCount = students.filter((student) => student.present).length;
+
+      const { error: sessionUpdateError } = await supabase
+        .from('class_sessions')
+        .update({
+          attendance_taken: true,
+          attendance_count: presentCount,
+          total_students: students.length,
+        })
+        .eq('id', sessionId);
+
+      if (sessionUpdateError) throw sessionUpdateError;
+
       setAttendanceSaved(true);
       toast({
         title: 'Attendance Saved',
@@ -207,8 +220,8 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
       if (error) throw error;
 
       toast({
-        title: 'Class Ended',
-        description: 'Class has been marked as completed',
+        title: 'Lesson Marked as Taught',
+        description: 'This session is now recorded as taught.',
       });
 
       onBack();
@@ -260,7 +273,7 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
           </div>
           <Button onClick={handleEndClass} size="lg">
             <CheckCircle2 className="w-4 h-4 mr-2" />
-            End Class
+            Mark as Taught
           </Button>
         </div>
       </div>

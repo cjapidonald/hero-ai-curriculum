@@ -24,6 +24,7 @@ import { format, parseISO, isToday, isFuture, isPast } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import LessonBuilderModal from '@/components/teacher/LessonBuilderModal';
 import ViewLessonPlanModal from '@/components/teacher/ViewLessonPlanModal';
+import { formatStageLabel, getPlanStatusConfig, getTeachingStatusConfig } from '@/lib/curriculum/status-utils';
 
 interface ClassSession {
   id: string;
@@ -100,15 +101,6 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   const [selectedSession, setSelectedSession] = useState<ClassSession | null>(null);
 
   const { toast } = useToast();
-
-  const formatStageLabel = (stage?: string | null) => {
-    if (!stage) return null;
-    if (stage.toLowerCase().startsWith('stage_')) {
-      const suffix = stage.split('_')[1];
-      return `Stage ${suffix}`;
-    }
-    return stage;
-  };
 
   useEffect(() => {
     loadData();
@@ -253,7 +245,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
           start_time: classData.start_time || '09:00',
           end_time: classData.end_time || '10:30',
           status: derivedStatus,
-          lesson_plan_completed: false,
+          lesson_plan_completed: ['ready', 'in_progress', 'completed'].includes(derivedStatus),
           attendance_taken: false,
           attendance_count: 0,
           total_students:
@@ -433,17 +425,13 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     setFilteredSessions(filtered);
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string }> = {
-      scheduled: { variant: 'secondary', label: 'Scheduled' },
-      building: { variant: 'default', label: 'Building' },
-      ready: { variant: 'default', label: 'Ready' },
-      in_progress: { variant: 'default', label: 'In Progress' },
-      completed: { variant: 'outline', label: 'Completed' },
-      cancelled: { variant: 'destructive', label: 'Cancelled' },
-    };
+  const getPlanStatusBadge = (session: ClassSession) => {
+    const config = getPlanStatusConfig(session.lesson_plan_completed, session.status);
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
 
-    const config = variants[status] || variants.scheduled;
+  const getTeachingStatusBadge = (status: string) => {
+    const config = getTeachingStatusConfig(status);
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
@@ -452,11 +440,19 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       return false;
     }
 
-    return ['scheduled', 'building'].includes(session.status);
+    return true;
   };
 
   const canStartClass = (session: ClassSession) => {
     if (session.isCurriculumOnly) {
+      return false;
+    }
+
+    if (!session.lesson_plan_completed) {
+      return false;
+    }
+
+    if (['completed', 'cancelled'].includes(session.status)) {
       return false;
     }
 
@@ -465,24 +461,27 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       return true;
     }
 
-    if (session.status === 'ready' && isToday(sessionDate)) {
-      return true;
-    }
-
-    if (
-      session.status === 'scheduled' &&
-      session.lesson_plan_completed &&
-      isToday(sessionDate)
-    ) {
+    if (isToday(sessionDate) || isPast(sessionDate)) {
       return true;
     }
 
     return false;
   };
 
-  const handleBuildLesson = (session: ClassSession) => {
+  const handleBuildLesson = async (session: ClassSession) => {
     if (session.isCurriculumOnly) {
       return;
+    }
+
+    try {
+      if (!session.lesson_plan_completed && session.status === 'scheduled') {
+        await supabase
+          .from('class_sessions')
+          .update({ status: 'building' })
+          .eq('id', session.id);
+      }
+    } catch (error: unknown) {
+      console.error('Error updating session status:', error);
     }
 
     setSelectedSession(session);
@@ -586,10 +585,11 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="building">Building</SelectItem>
+                <SelectItem value="building">Planning</SelectItem>
                 <SelectItem value="ready">Ready</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="completed">Taught</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
 
@@ -618,13 +618,13 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Lesson &amp; Subject</TableHead>
+                  <TableHead>Lesson</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Stage</TableHead>
                   <TableHead>Class</TableHead>
                   <TableHead>Teacher</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Attendance</TableHead>
+                  <TableHead>Lesson Plan</TableHead>
+                  <TableHead>Teaching Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -637,14 +637,23 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
                   </TableRow>
                 ) : (
                   filteredSessions.map((session) => {
-                    const stageLabel = formatStageLabel(session.class_stage);
-                    const gradeLabel = session.class_level || stageLabel || 'Stage TBD';
+                    const stageLabel = formatStageLabel(session.class_stage) || session.class_level || 'Stage TBD';
                     const subjectLabel = session.lesson_subject || 'General English';
                     const teacherLabel = session.class_teacher || 'Assigned Teacher';
                     const startLabel = session.status === 'in_progress' ? 'Resume Lesson' : 'Start Lesson';
 
                     return (
                       <TableRow key={session.id}>
+                        <TableCell>
+                          <div className="font-medium">{session.lesson_title || 'No lesson assigned'}</div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                            <BookOpen className="w-3 h-3" />
+                            {subjectLabel}
+                          </div>
+                          {session.isCurriculumOnly && (
+                            <Badge variant="outline" className="mt-2">Curriculum Lesson</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -660,37 +669,27 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{session.lesson_title || 'No lesson assigned'}</div>
-                          <div className="text-sm text-muted-foreground">{subjectLabel}</div>
-                          {session.isCurriculumOnly && (
-                            <Badge variant="outline" className="mt-2">Curriculum Lesson</Badge>
+                          {stageLabel ? (
+                            <Badge variant="secondary">{stageLabel}</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Stage TBD</span>
+                          )}
+                          {session.class_level && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {session.class_level}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{session.class_name || 'Unassigned class'}</div>
-                          <div className="text-sm text-muted-foreground">{stageLabel || 'Stage TBD'}</div>
+                          <div className="text-sm text-muted-foreground">{session.location || 'Classroom TBD'}</div>
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{teacherLabel}</div>
                           <div className="text-sm text-muted-foreground">Lead Instructor</div>
                         </TableCell>
-                        <TableCell>
-                          {gradeLabel ? (
-                            <Badge variant="secondary">{gradeLabel}</Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(session.status)}</TableCell>
-                        <TableCell>
-                          {session.attendance_taken ? (
-                            <div className="text-sm">
-                              {session.attendance_count} / {session.total_students}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-muted-foreground">Not taken</div>
-                          )}
-                        </TableCell>
+                        <TableCell>{getPlanStatusBadge(session)}</TableCell>
+                        <TableCell>{getTeachingStatusBadge(session.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             {canBuildLesson(session) && (
@@ -700,7 +699,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
                                 onClick={() => handleBuildLesson(session)}
                               >
                                 <Pencil className="w-4 h-4 mr-1" />
-                                Build Plan
+                                Lesson Builder
                               </Button>
                             )}
                             {session.lesson_plan_completed && (
