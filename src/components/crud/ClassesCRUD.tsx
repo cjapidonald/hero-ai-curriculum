@@ -85,13 +85,13 @@ export function ClassesCRUD() {
   ];
 
   const dayOptions = [
-    { value: 'monday', label: 'Monday', short: 'Mon' },
-    { value: 'tuesday', label: 'Tuesday', short: 'Tue' },
-    { value: 'wednesday', label: 'Wednesday', short: 'Wed' },
-    { value: 'thursday', label: 'Thursday', short: 'Thu' },
-    { value: 'friday', label: 'Friday', short: 'Fri' },
-    { value: 'saturday', label: 'Saturday', short: 'Sat' },
-    { value: 'sunday', label: 'Sunday', short: 'Sun' },
+    { value: 'Monday', label: 'Monday', short: 'Mon' },
+    { value: 'Tuesday', label: 'Tuesday', short: 'Tue' },
+    { value: 'Wednesday', label: 'Wednesday', short: 'Wed' },
+    { value: 'Thursday', label: 'Thursday', short: 'Thu' },
+    { value: 'Friday', label: 'Friday', short: 'Fri' },
+    { value: 'Saturday', label: 'Saturday', short: 'Sat' },
+    { value: 'Sunday', label: 'Sunday', short: 'Sun' },
   ] as const;
 
   const getDayLabel = (value: string) =>
@@ -380,17 +380,17 @@ export function ClassesCRUD() {
               <div className="space-y-2">
                 <Label>Schedule Days</Label>
                 <div className="grid grid-cols-4 gap-2">
-                  {daysOfWeek.map((day) => (
-                    <div key={day} className="flex items-center space-x-2">
+                  {dayOptions.map((day) => (
+                    <div key={day.value} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        id={day}
-                        checked={formData.schedule_days.includes(day)}
-                        onChange={() => handleDayToggle(day)}
+                        id={day.value}
+                        checked={formData.schedule_days.includes(day.value)}
+                        onChange={() => handleDayToggle(day.value)}
                         className="rounded border-gray-300"
                       />
-                      <label htmlFor={day} className="text-sm cursor-pointer">
-                        {day.slice(0, 3)}
+                      <label htmlFor={day.value} className="text-sm cursor-pointer">
+                        {day.short}
                       </label>
                     </div>
                   ))}
