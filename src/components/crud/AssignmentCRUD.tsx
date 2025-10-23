@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAssignments, Assignment } from '@/hooks/useAssignments';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -38,12 +38,15 @@ interface AssignmentCRUDProps {
 export function AssignmentCRUD({ teacherId, studentId, classFilter, showActions = true }: AssignmentCRUDProps) {
   const { user, isAdmin, isTeacher, isStudent } = useAuth();
 
-  const filters = [];
-  if (teacherId) filters.push({ column: 'teacher_id', value: teacherId });
-  if (studentId) filters.push({ column: 'target_student_id', value: studentId });
-  if (classFilter) filters.push({ column: 'target_class', value: classFilter });
+  const filters = useMemo(() => {
+    const conditions = [] as { column: string; value: string }[];
+    if (teacherId) conditions.push({ column: 'teacher_id', value: teacherId });
+    if (studentId) conditions.push({ column: 'target_student_id', value: studentId });
+    if (classFilter) conditions.push({ column: 'target_class', value: classFilter });
+    return conditions.length > 0 ? conditions : undefined;
+  }, [teacherId, studentId, classFilter]);
 
-  const { data: assignments, loading, create, update, remove } = useAssignments(filters.length > 0 ? filters : undefined);
+  const { data: assignments, loading, create, update, remove } = useAssignments(filters);
   const { toast } = useToast();
 
   const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
