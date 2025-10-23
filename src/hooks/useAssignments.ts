@@ -15,6 +15,6 @@ export interface Assignment {
   updated_at?: string;
 }
 
-export function useAssignments(filters?: { column: string; value: any }[]) {
-  return useRealtimeTable<Assignment>('assignments' as any, '*', filters);
+export function useAssignments(filters?: { column: string; value: string }[]) {
+  return useRealtimeTable<Assignment>('assignments', '*', filters);
 }
