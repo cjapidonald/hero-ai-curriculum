@@ -30,6 +30,7 @@ interface TakeAttendanceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   className: string;
+  classId?: string;
   teacherId: string;
   students: Student[];
   onAttendanceSaved?: () => void;
@@ -46,6 +47,7 @@ const TakeAttendanceDialog = ({
   open,
   onOpenChange,
   className,
+  classId,
   teacherId,
   students,
   onAttendanceSaved,
@@ -81,7 +83,47 @@ const TakeAttendanceDialog = ({
       return;
     }
 
-    const unmarkedStudents = students.filter((student) => !attendance.has(student.id));
+    let resolvedClassId = classId ?? null;
+
+    const studentsNeedingClassId = students.filter((student) => !student.class_id);
+
+    if (studentsNeedingClassId.length > 0) {
+      if (!resolvedClassId && className) {
+        const { data: classRow, error: classError } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('class_name', className)
+          .maybeSingle();
+
+        if (classError || !classRow?.id) {
+          toast({
+            title: 'Missing class information',
+            description:
+              'Unable to determine the class enrollment. Please contact an administrator.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        resolvedClassId = classRow.id;
+      }
+
+      if (!resolvedClassId) {
+        toast({
+          title: 'Missing class information',
+          description:
+            'Unable to determine the class enrollment. Please contact an administrator.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const normalizedStudents = students.map((student) =>
+      !student.class_id && resolvedClassId ? { ...student, class_id: resolvedClassId } : student,
+    );
+
+    const unmarkedStudents = normalizedStudents.filter((student) => !attendance.has(student.id));
     if (unmarkedStudents.length > 0) {
       toast({
         title: 'Incomplete attendance',
@@ -91,11 +133,11 @@ const TakeAttendanceDialog = ({
       return;
     }
 
-    const studentsMissingEnrollment = students.filter(
+    const studentsMissingEnrollment = normalizedStudents.filter(
       (student) => attendance.has(student.id) && !student.enrollment_id,
     );
 
-    let studentsForSave: Student[] = students;
+    let studentsForSave: Student[] = normalizedStudents;
 
     if (studentsMissingEnrollment.length > 0) {
       const missingClassInfo = studentsMissingEnrollment.filter((student) => !student.class_id);
@@ -135,7 +177,7 @@ const TakeAttendanceDialog = ({
           ]),
         );
 
-        studentsForSave = students.map((student) => {
+        studentsForSave = normalizedStudents.map((student) => {
           if (student.enrollment_id || !student.class_id) {
             return student;
           }
@@ -172,6 +214,32 @@ const TakeAttendanceDialog = ({
     setSaving(true);
     try {
       const classDate = format(sessionDate, 'yyyy-MM-dd');
+
+      const enrollmentIds = Array.from(
+        new Set(studentsForSave.map((student) => student.enrollment_id!).filter(Boolean)),
+      );
+
+      const existingAttendanceMap = new Map<string, boolean>();
+
+      if (enrollmentIds.length > 0) {
+        const { data: existingRecords, error: existingRecordsError } = await supabase
+          .from('attendance' as any)
+          .select('enrollment_id, present, late')
+          .in('enrollment_id', enrollmentIds)
+          .eq('class_date', classDate);
+
+        if (existingRecordsError) {
+          throw existingRecordsError;
+        }
+
+        (existingRecords ?? []).forEach((record) => {
+          existingAttendanceMap.set(
+            record.enrollment_id,
+            Boolean(record.present) || Boolean(record.late),
+          );
+        });
+      }
+
       const attendanceRecords = studentsForSave.map((student) => {
         const status = attendance.get(student.id)!;
         const present = status === 'present' || status === 'late';
@@ -204,32 +272,42 @@ const TakeAttendanceDialog = ({
         throw error;
       }
 
-      const attendeesToUpdate = studentsForSave.filter((student) => {
-        const status = attendance.get(student.id);
-        return status === 'present' || status === 'late';
-      });
+      const sessionUpdates = studentsForSave
+        .map((student) => {
+          const status = attendance.get(student.id);
+          const isCounted = status === 'present' || status === 'late';
+          const wasCounted = existingAttendanceMap.get(student.enrollment_id!) ?? false;
 
-      if (attendeesToUpdate.length > 0) {
+          if (isCounted === wasCounted) {
+            return null;
+          }
+
+          const currentSessions = student.sessions_left ?? 0;
+          const delta = isCounted ? -1 : 1;
+          const nextSessions = Math.max(0, currentSessions + delta);
+
+          if (nextSessions === currentSessions) {
+            return null;
+          }
+
+          return { id: student.id, nextSessions };
+        })
+        .filter((update): update is { id: string; nextSessions: number } => update !== null);
+
+      if (sessionUpdates.length > 0) {
         await Promise.all(
-          attendeesToUpdate.map((student) => {
-            const currentSessions = student.sessions_left ?? 0;
-            const nextSessions = Math.max(0, currentSessions - 1);
-
-            if (nextSessions === currentSessions) {
-              return Promise.resolve();
-            }
-
-            return supabase
+          sessionUpdates.map((update) =>
+            supabase
               .from('dashboard_students')
-              .update({ sessions_left: nextSessions })
-              .eq('id', student.id);
-          }),
+              .update({ sessions_left: update.nextSessions })
+              .eq('id', update.id),
+          ),
         );
       }
 
       toast({
         title: 'Attendance saved',
-        description: `Attendance for ${students.length} student(s) has been recorded for ${format(
+        description: `Attendance for ${studentsForSave.length} student(s) has been recorded for ${format(
           sessionDate,
           'PPP',
         )}.`,

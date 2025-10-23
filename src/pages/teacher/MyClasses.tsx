@@ -18,6 +18,11 @@ interface Student {
   class_id?: string | null;
 }
 
+interface ClassInfo {
+  id: string;
+  name: string;
+}
+
 interface MyClassesProps {
   teacherId: string;
 }
@@ -26,9 +31,9 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [classes, setClasses] = useState<string[]>([]);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedClass, setSelectedClass] = useState<ClassInfo | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -66,7 +71,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       // First, get classes assigned to this teacher
       const { data: teacherClasses, error: classesError } = await supabase
         .from('classes')
-        .select('id, class_name')
+        .select('id, class_name, name')
         .eq('teacher_id', teacherId)
         .eq('is_active', true);
 
@@ -74,16 +79,26 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         throw new Error(`Failed to load classes: ${classesError.message}`);
       }
 
-      const classMap: Record<string, string> = {};
-      (teacherClasses || []).forEach((classRow: any) => {
-        const displayName = classRow?.class_name || classRow?.name;
-        if (displayName && classRow?.id) {
-          classMap[displayName] = classRow.id;
-        }
-      });
+      type TeacherClassRow = {
+        id: string;
+        class_name?: string | null;
+        name?: string | null;
+      };
 
-      const teacherClassNames = Object.keys(classMap);
-      setClasses(teacherClassNames);
+      const classEntries: ClassInfo[] = ((teacherClasses ?? []) as TeacherClassRow[])
+        .map((classRow) => {
+          const displayName = classRow.class_name ?? classRow.name;
+          if (!displayName || !classRow.id) {
+            return null;
+          }
+          return { id: classRow.id, name: displayName };
+        })
+        .filter((entry): entry is ClassInfo => entry !== null);
+
+      const classMap = new Map(classEntries.map((entry) => [entry.name, entry.id]));
+
+      const teacherClassNames = classEntries.map((entry) => entry.name);
+      setClasses(classEntries);
 
       // If teacher has no classes, show empty state
       if (teacherClassNames.length === 0) {
@@ -105,12 +120,21 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         throw new Error(`Failed to load students: ${studentsError.message}`);
       }
 
-      const studentList = data || [];
+      type StudentRow = {
+        id: string;
+        name: string;
+        surname: string;
+        class: string;
+        attendance_rate: number;
+        sessions_left: number;
+      };
+
+      const studentList = (data ?? []) as StudentRow[];
       let enrollmentMap = new Map<string, string>();
 
       if (studentList.length > 0) {
         const studentIds = studentList.map((student) => student.id);
-        const classIds = Object.values(classMap);
+        const classIds = Array.from(classMap.values());
 
         if (classIds.length > 0) {
           const { data: enrollmentData, error: enrollmentError } = await supabase
@@ -135,7 +159,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
 
       const augmentedStudents = studentList.map((student) => {
         const className = student.class ?? '';
-        const classId = classMap[className];
+        const classId = classMap.get(className);
         const enrollmentKey = classId ? `${student.id}-${classId}` : '';
         return {
           ...student,
@@ -153,8 +177,8 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
     }
   };
 
-  const handleTakeAttendance = (className: string) => {
-    setSelectedClass(className);
+  const handleTakeAttendance = (classInfo: ClassInfo) => {
+    setSelectedClass(classInfo);
     setAttendanceDialogOpen(true);
   };
 
@@ -229,8 +253,8 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
   });
 
   // Get filtered classes
-  const filteredClasses = classes.filter((className) =>
-    filteredStudents.some((s) => s.class === className)
+  const filteredClasses = classes.filter((classInfo) =>
+    filteredStudents.some((s) => s.class === classInfo.name)
   );
 
   return (
@@ -303,24 +327,24 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
 
       {/* Classes List */}
       <div className="grid gap-6">
-        {filteredClasses.map((className) => {
-          const classStudents = filteredStudents.filter(s => s.class === className);
+        {filteredClasses.map((classInfo) => {
+          const classStudents = filteredStudents.filter((s) => s.class === classInfo.name);
           const avgAttendance = classStudents.length > 0
             ? (classStudents.reduce((sum, s) => sum + (s.attendance_rate || 0), 0) / classStudents.length).toFixed(1)
             : 0;
 
           return (
-            <Card key={className}>
+            <Card key={classInfo.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{className}</span>
+                  <span>{classInfo.name}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-normal text-muted-foreground">
                       {classStudents.length} students
                     </span>
                     <Button
                       size="sm"
-                      onClick={() => handleTakeAttendance(className)}
+                      onClick={() => handleTakeAttendance(classInfo)}
                       className="ml-2"
                     >
                       <ClipboardCheck className="h-4 w-4 mr-2" />
@@ -394,9 +418,12 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       <TakeAttendanceDialog
         open={attendanceDialogOpen}
         onOpenChange={setAttendanceDialogOpen}
-        className={selectedClass}
+        className={selectedClass?.name ?? ''}
+        classId={selectedClass?.id}
         teacherId={teacherId}
-        students={students.filter((s) => s.class === selectedClass)}
+        students={
+          selectedClass ? students.filter((s) => s.class === selectedClass.name) : []
+        }
         onAttendanceSaved={handleAttendanceSaved}
       />
 
