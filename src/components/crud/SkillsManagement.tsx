@@ -455,17 +455,6 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table className="text-sm">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="whitespace-nowrap">Skill Name</TableHead>
-              <TableHead className="whitespace-nowrap">Category</TableHead>
-              <TableHead className="whitespace-nowrap">Level/Stage</TableHead>
-              <TableHead className="whitespace-nowrap">Assigned Classes</TableHead>
-              <TableHead className="whitespace-nowrap">Criteria Count</TableHead>
-              <TableHead className="whitespace-nowrap">Status</TableHead>
-              <TableHead className="whitespace-nowrap">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
           <TableBody>
             {skills.map((skill) => (
               <TableRow key={skill.id}>
@@ -525,13 +514,6 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-xl font-semibold">Curriculum Skills Library</h3>
-          <p className="text-sm text-muted-foreground">
-            Browse all skills linked to each curriculum, including the Alvin curriculum.
-          </p>
-        </div>
-
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="w-full md:w-72 space-y-1">
             <Label className="text-sm font-medium">Filter by curriculum</Label>
