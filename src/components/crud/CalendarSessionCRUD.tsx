@@ -36,7 +36,10 @@ interface CalendarSessionCRUDProps {
 
 export function CalendarSessionCRUD({ teacherId, showActions = true }: CalendarSessionCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
-  const filters = teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined;
+  const filters = useMemo(
+    () => (teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined),
+    [teacherId]
+  );
   const { data: sessions, loading, create, update, remove } = useCalendarSessions(filters);
   const { toast } = useToast();
 

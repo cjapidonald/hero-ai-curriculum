@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAssessments, Assessment } from '@/hooks/useAssessments';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -38,12 +38,15 @@ interface AssessmentCRUDProps {
 export function AssessmentCRUD({ teacherId, studentId, classFilter, showActions = true }: AssessmentCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
 
-  const filters = [];
-  if (teacherId) filters.push({ column: 'teacher_id', value: teacherId });
-  if (studentId) filters.push({ column: 'student_id', value: studentId });
-  if (classFilter) filters.push({ column: 'class', value: classFilter });
+  const filters = useMemo(() => {
+    const conditions = [] as { column: string; value: string }[];
+    if (teacherId) conditions.push({ column: 'teacher_id', value: teacherId });
+    if (studentId) conditions.push({ column: 'student_id', value: studentId });
+    if (classFilter) conditions.push({ column: 'class', value: classFilter });
+    return conditions.length > 0 ? conditions : undefined;
+  }, [teacherId, studentId, classFilter]);
 
-  const { data: assessments, loading, create, update, remove } = useAssessments(filters.length > 0 ? filters : undefined);
+  const { data: assessments, loading, create, update, remove } = useAssessments(filters);
   const { toast } = useToast();
 
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);

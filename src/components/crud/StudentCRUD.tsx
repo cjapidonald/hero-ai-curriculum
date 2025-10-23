@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useStudents, Student } from '@/hooks/useStudents';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -34,7 +34,10 @@ interface StudentCRUDProps {
 
 export function StudentCRUD({ classFilter, showActions = true }: StudentCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
-  const filters = classFilter ? [{ column: 'class', value: classFilter }] : undefined;
+  const filters = useMemo(
+    () => (classFilter ? [{ column: 'class', value: classFilter }] : undefined),
+    [classFilter]
+  );
   const { data: students, loading, create, update, remove } = useStudents(filters);
   const { toast } = useToast();
 

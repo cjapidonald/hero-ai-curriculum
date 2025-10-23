@@ -109,7 +109,10 @@ export function CurriculumCRUD({
   enableClassSelection = false,
 }: CurriculumCRUDProps) {
   const { user, isAdmin, isTeacher } = useAuth();
-  const filters = teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined;
+  const filters = useMemo(
+    () => (teacherId ? [{ column: 'teacher_id', value: teacherId }] : undefined),
+    [teacherId]
+  );
   const { data: lessonsData, loading, create, update, remove } = useCurriculum(filters);
   const { toast } = useToast();
 
