@@ -49,12 +49,34 @@ interface Resource {
   image_url: string | null;
 }
 
-interface LessonResource {
+interface BuilderLessonResource {
   id: string;
   resource_id: string;
   position: number;
   notes: string | null;
   resource: Resource;
+}
+
+interface FlattenedLessonResource {
+  id: string;
+  title: string;
+  type: string;
+  duration: number | null;
+  notes: string | null;
+  position: number;
+}
+
+interface LessonPlanData {
+  resources?: FlattenedLessonResource[];
+  total_duration?: number;
+}
+
+interface LegacyLessonPlanResource {
+  id?: string;
+  resource_id?: string;
+  position?: number;
+  notes?: string | null;
+  resource?: Resource;
 }
 
 interface ClassSession {
@@ -63,13 +85,22 @@ interface ClassSession {
   class_id: string;
   lesson_title?: string;
   lesson_subject?: string;
+  lesson_plan_data?: LessonPlanData | null;
+  lesson_plan_content?: {
+    resources?: LegacyLessonPlanResource[];
+  } | null;
 }
 
 interface LessonBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lesson: Partial<ClassSession>;
-  onSave: (lessonPlanData: Record<string, unknown>) => void;
+  onSave: (
+    lessonPlanData: {
+      resources: FlattenedLessonResource[];
+      total_duration: number;
+    }
+  ) => void | Promise<void>;
 }
 
 function SortableResource({
@@ -77,7 +108,7 @@ function SortableResource({
   onDelete,
   onUpdateNotes,
 }: {
-  lessonResource: LessonResource;
+  lessonResource: BuilderLessonResource;
   onDelete: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
 }) {
@@ -138,7 +169,7 @@ function SortableResource({
 }
 
 const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilderModalProps) => {
-  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);
+  const [lessonResources, setLessonResources] = useState<BuilderLessonResource[]>([]);
   const [availableResources, setAvailableResources] = useState<Resource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -155,15 +186,89 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
   );
 
   useEffect(() => {
-    if (open) {
-      if (lesson.lesson_plan_content) {
-        setLessonResources(lesson.lesson_plan_content.resources || []);
-      }
-      loadAvailableResources();
+    if (!open) {
+      return;
     }
+
+    let isMounted = true;
+
+    const initializeLessonPlan = async () => {
+      const resourcesList = await loadAvailableResources();
+      if (!isMounted) return;
+
+      const resourceSource = resourcesList.length > 0 ? resourcesList : availableResources;
+      const resourceMap = new Map(resourceSource.map((resource) => [resource.id, resource]));
+
+      let mappedResources: BuilderLessonResource[] = [];
+
+      const planDataResources = lesson.lesson_plan_data?.resources;
+      if (planDataResources && Array.isArray(planDataResources) && planDataResources.length > 0) {
+        mappedResources = planDataResources
+          .slice()
+          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+          .map((resource) => {
+            const resourceDetails =
+              resourceMap.get(resource.id) ||
+              ({
+                id: resource.id,
+                title: resource.title,
+                description: null,
+                resource_type: resource.type,
+                stage: null,
+                duration_minutes: resource.duration,
+                image_url: null,
+              } as Resource);
+
+            return {
+              id: resource.id,
+              resource_id: resource.id,
+              position: resource.position ?? 0,
+              notes: resource.notes ?? '',
+              resource: resourceDetails,
+            };
+          });
+      } else if (lesson.lesson_plan_content?.resources?.length) {
+        mappedResources = lesson.lesson_plan_content.resources
+          .map((resource, index) => {
+            const fallbackId = resource.resource_id || resource.resource?.id || resource.id || `resource-${index}`;
+            const resourceDetails =
+              resource.resource ||
+              resourceMap.get(fallbackId) ||
+              ({
+                id: fallbackId,
+                title: resource.resource?.title || resource.title || 'Untitled Resource',
+                description: resource.resource?.description || resource.description || null,
+                resource_type: resource.resource?.resource_type || resource.type || 'activity',
+                stage: resource.resource?.stage || null,
+                duration_minutes:
+                  resource.resource?.duration_minutes ?? resource.duration ?? null,
+                image_url: resource.resource?.image_url || null,
+              } as Resource);
+
+            return {
+              id: fallbackId,
+              resource_id: fallbackId,
+              position: resource.position ?? index,
+              notes: resource.notes ?? '',
+              resource: resourceDetails,
+            };
+          })
+          .sort((a, b) => a.position - b.position);
+      }
+
+      if (isMounted) {
+        setLessonResources(mappedResources);
+      }
+    };
+
+    initializeLessonPlan();
+
+    return () => {
+      isMounted = false;
+    };
   }, [open, lesson]);
 
-  const loadAvailableResources = async () => {
+  const loadAvailableResources = async (): Promise<Resource[]> => {
     setLoading(true);
     try {
       // Load available resources
@@ -175,7 +280,9 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
 
       if (resourcesError) throw resourcesError;
 
-      setAvailableResources(resourcesData || []);
+      const resources = resourcesData || [];
+      setAvailableResources(resources);
+      return resources;
     } catch (error: any) {
       console.error('Error loading resources:', error);
       toast({
@@ -183,6 +290,7 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
         description: error.message || 'Failed to load resources',
         variant: 'destructive',
       });
+      return [];
     } finally {
       setLoading(false);
     }
@@ -201,12 +309,12 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
   };
 
   const handleAddResource = (resource: Resource) => {
-    const newLessonResource: LessonResource = {
+    const newLessonResource: BuilderLessonResource = {
       id: resource.id,
       resource_id: resource.id,
       position: lessonResources.length,
       notes: '',
-      resource: resource,
+      resource,
     };
     setLessonResources([...lessonResources, newLessonResource]);
   };
@@ -221,18 +329,31 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
     );
   };
 
-  const handleSave = () => {
-    const lessonPlanData = {
-      resources: lessonResources.map((lr, index) => ({
-        ...lr,
-        position: index,
-      })),
-      total_duration: lessonResources.reduce(
-        (sum, lr) => sum + (lr.resource.duration_minutes || 0),
-        0
-      ),
-    };
-    onSave(lessonPlanData);
+  const handleSave = async () => {
+    setSaving(true);
+
+    const flattenedResources = lessonResources.map((lr, index) => ({
+      id: lr.resource_id,
+      title: lr.resource.title,
+      type: lr.resource.resource_type,
+      duration: lr.resource.duration_minutes ?? null,
+      notes: lr.notes?.trim() ? lr.notes : null,
+      position: index,
+    }));
+
+    const totalDuration = flattenedResources.reduce(
+      (sum, resource) => sum + (resource.duration ?? 0),
+      0
+    );
+
+    try {
+      await onSave({
+        resources: flattenedResources,
+        total_duration: totalDuration,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filteredResources = availableResources.filter((resource) => {

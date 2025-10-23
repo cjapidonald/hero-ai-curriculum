@@ -47,6 +47,47 @@ interface MyClassViewProps {
   onBack: () => void;
 }
 
+const normalizeLessonPlanData = (data: any): LessonPlanData | null => {
+  if (!data || !Array.isArray(data.resources)) {
+    return null;
+  }
+
+  const normalizedResources: LessonResource[] = data.resources
+    .map((resource: any, index: number) => {
+      if (resource.resource) {
+        const legacyId = resource.resource_id ?? resource.resource.id ?? `resource-${index}`;
+        return {
+          id: legacyId,
+          title: resource.resource.title,
+          type: resource.resource.resource_type,
+          duration: resource.resource.duration_minutes ?? null,
+          notes: resource.notes ?? null,
+          position: resource.position ?? index,
+        };
+      }
+
+      return {
+        id: resource.id ?? `resource-${index}`,
+        title: resource.title,
+        type: resource.type,
+        duration: resource.duration ?? null,
+        notes: resource.notes ?? null,
+        position: resource.position ?? index,
+      };
+    })
+    .sort((a, b) => a.position - b.position);
+
+  const totalDuration =
+    typeof data.total_duration === 'number'
+      ? data.total_duration
+      : normalizedResources.reduce((sum, resource) => sum + (resource.duration ?? 0), 0);
+
+  return {
+    resources: normalizedResources,
+    total_duration: totalDuration,
+  };
+};
+
 const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
   const [session, setSession] = useState<ClassSession | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -84,6 +125,7 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
 
       const formattedSession: ClassSession = {
         ...sessionData,
+        lesson_plan_data: normalizeLessonPlanData(sessionData.lesson_plan_data),
         class_name: sessionData.classes?.class_name,
         class_stage: sessionData.classes?.stage,
         lesson_title: sessionData.curriculum?.lesson_title,
@@ -252,7 +294,8 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
   }
 
   const lessonResources = session.lesson_plan_data?.resources
-    ?.sort((a, b) => a.position - b.position) || [];
+    ? [...session.lesson_plan_data.resources].sort((a, b) => a.position - b.position)
+    : [];
   const presentCount = students.filter((s) => s.present).length;
 
   return (

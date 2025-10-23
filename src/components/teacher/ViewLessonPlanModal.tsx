@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { FileDown, Pencil, FileText, File } from 'lucide-react';
+import { Pencil, FileText, File } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { format, parseISO } from 'date-fns';
 
@@ -49,9 +49,49 @@ interface ViewLessonPlanModalProps {
   onEdit: () => void;
 }
 
+const normalizeLessonPlanData = (data: any): LessonPlanData | null => {
+  if (!data || !Array.isArray(data.resources)) {
+    return null;
+  }
+
+  const normalizedResources: LessonResource[] = data.resources
+    .map((resource: any, index: number) => {
+      if (resource.resource) {
+        const legacyId = resource.resource_id ?? resource.resource.id ?? `resource-${index}`;
+        return {
+          id: legacyId,
+          title: resource.resource.title,
+          type: resource.resource.resource_type,
+          duration: resource.resource.duration_minutes ?? null,
+          notes: resource.notes ?? null,
+          position: resource.position ?? index,
+        };
+      }
+
+      return {
+        id: resource.id ?? `resource-${index}`,
+        title: resource.title,
+        type: resource.type,
+        duration: resource.duration ?? null,
+        notes: resource.notes ?? null,
+        position: resource.position ?? index,
+      };
+    })
+    .sort((a, b) => a.position - b.position);
+
+  const totalDuration =
+    typeof data.total_duration === 'number'
+      ? data.total_duration
+      : normalizedResources.reduce((sum, resource) => sum + (resource.duration ?? 0), 0);
+
+  return {
+    resources: normalizedResources,
+    total_duration: totalDuration,
+  };
+};
+
 const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLessonPlanModalProps) => {
   const [lessonPlan, setLessonPlan] = useState<LessonPlanData | null>(null);
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   const formatStageLabel = (stage?: string | null) => {
@@ -64,8 +104,8 @@ const ViewLessonPlanModal = ({ open, onOpenChange, session, onEdit }: ViewLesson
   };
 
   useEffect(() => {
-    if (open && session.lesson_plan_data) {
-      setLessonPlan(session.lesson_plan_data);
+    if (open) {
+      setLessonPlan(normalizeLessonPlanData(session.lesson_plan_data));
     }
   }, [open, session]);
 
