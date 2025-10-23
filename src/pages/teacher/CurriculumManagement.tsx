@@ -179,6 +179,19 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       return error.message;
     }
 
+    if (error && typeof error === 'object') {
+      const errorObject = error as { message?: unknown; error_description?: unknown; hint?: unknown };
+      if (typeof errorObject.message === 'string') {
+        return errorObject.message;
+      }
+      if (typeof errorObject.error_description === 'string') {
+        return errorObject.error_description;
+      }
+      if (typeof errorObject.hint === 'string') {
+        return errorObject.hint;
+      }
+    }
+
     return String(error);
   };
 
@@ -190,7 +203,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       const { data: curriculumData, error: curriculumError } = await supabase
         .from('curriculum')
         .select(
-          `id, lesson_title, lesson_date, status, class_id, class, stage, curriculum_stage, subject, teacher_name, description`
+          `id, lesson_title, lesson_date, status, class_id, class_name:class, stage, curriculum_stage, subject, teacher_name, description`
         )
         .eq('teacher_id', teacherId)
         .order('lesson_date', { ascending: true });
@@ -199,7 +212,9 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
         throw curriculumError;
       }
 
-      const lessons: CurriculumRow[] = (curriculumData as CurriculumRow[]) || [];
+      type CurriculumFallbackRow = CurriculumRow & { class_name?: string | null };
+
+      const lessons: CurriculumFallbackRow[] = (curriculumData as CurriculumFallbackRow[]) || [];
 
       if (lessons.length === 0) {
         setSessions([]);
@@ -217,7 +232,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
 
         if (!updatedClassDetails[fallbackClassId]) {
           updatedClassDetails[fallbackClassId] = {
-            name: lesson.class || 'Curriculum Lesson',
+            name: lesson.class_name || lesson.class || 'Curriculum Lesson',
             stage: lesson.stage || lesson.curriculum_stage,
             level: lesson.curriculum_stage || lesson.stage,
             start_time: null,
@@ -231,7 +246,10 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
         }
 
         if (!classEntries.has(fallbackClassId)) {
-          classEntries.set(fallbackClassId, updatedClassDetails[fallbackClassId].name);
+          classEntries.set(
+            fallbackClassId,
+            updatedClassDetails[fallbackClassId].name,
+          );
         }
 
         const normalizedDate = normalizeDate(lesson.lesson_date ?? undefined);

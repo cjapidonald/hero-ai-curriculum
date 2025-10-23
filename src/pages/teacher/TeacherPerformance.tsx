@@ -26,7 +26,18 @@ import PerformanceDashboard from "@/components/teacher/PerformanceDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeacherStandardsBoard } from "@/components/teacher/TeacherStandardsBoard";
 
-type TeacherPayrollRecord = Tables<"teacher_payroll">;
+type PayrollTableRecord = Tables<"payroll">;
+
+type TeacherPayrollRecord = PayrollTableRecord & {
+  session_date: string | null;
+  class_name: string | null;
+  lesson_title: string | null;
+  attendance_status: string | null;
+  payout_status: string | null;
+  hours_taught: number | null;
+  bonus_amount: number | null;
+  deduction_amount: number | null;
+};
 type TeacherRecord = Tables<"teachers">;
 
 interface TeacherPerformanceProps {
@@ -72,6 +83,9 @@ const payoutStatusLabels: Record<string, string> = {
   pending: "Pending",
   approved: "Approved",
   paid: "Paid",
+  partial: "Partial",
+  overdue: "Overdue",
+  cancelled: "Cancelled",
 };
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
@@ -85,18 +99,28 @@ const payoutBadgeClass = (status: string | null | undefined) => {
     case "paid":
       return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-100";
     case "approved":
+    case "partial":
       return "border-sky-500/40 bg-sky-500/10 text-sky-600 dark:border-sky-500/40 dark:bg-sky-500/20 dark:text-sky-100";
+    case "overdue":
+    case "cancelled":
+      return "border-red-500/40 bg-red-500/10 text-red-600 dark:border-red-500/30 dark:bg-red-500/20 dark:text-red-100";
     default:
       return "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/20 dark:text-amber-100";
   }
 };
 
 const computeNet = (record: TeacherPayrollRecord) => {
-  const hours = record.hours_taught ?? 0;
-  const rate = record.hourly_rate ?? 0;
-  const bonus = record.bonus_amount ?? 0;
-  const deduction = record.deduction_amount ?? 0;
-  return hours * rate + bonus - deduction;
+  if (typeof record.total_amount === "number") {
+    return record.total_amount;
+  }
+
+  const baseAmount =
+    typeof record.base_amount === "number"
+      ? record.base_amount
+      : (record.hours_taught ?? record.hours_worked ?? 0) * (record.hourly_rate ?? 0);
+  const bonus = record.bonus_amount ?? record.bonus ?? 0;
+  const deduction = record.deduction_amount ?? record.deductions ?? 0;
+  return baseAmount + bonus - deduction;
 };
 
 const parseSessionDate = (sessionDate: string | null) => {
@@ -109,6 +133,51 @@ const parseSessionDate = (sessionDate: string | null) => {
 
 const formatStatus = (status: string | null | undefined, labels: Record<string, string>) =>
   status ? labels[status] ?? status.replace(/_/g, " ") : "Unknown";
+
+const formatDateRangeLabel = (start?: string | null, end?: string | null) => {
+  if (!start && !end) {
+    return null;
+  }
+
+  const formatDate = (value: string) => {
+    try {
+      return format(parseISO(value), "dd MMM yyyy");
+    } catch {
+      return value;
+    }
+  };
+
+  if (start && end) {
+    return `${formatDate(start)} → ${formatDate(end)}`;
+  }
+
+  const singleValue = start ?? end;
+  return singleValue ? formatDate(singleValue) : null;
+};
+
+const transformPayrollRecord = (
+  record: PayrollTableRecord,
+  fallbackClassName?: string | null,
+): TeacherPayrollRecord => {
+  const derivedSessionDate = record.period_end ?? record.payment_date ?? record.period_start ?? null;
+  const derivedClassName = record.notes || fallbackClassName || "Teaching Sessions";
+  const derivedLessonTitle =
+    record.notes ||
+    formatDateRangeLabel(record.period_start, record.period_end) ||
+    "Payroll Record";
+
+  return {
+    ...record,
+    session_date: derivedSessionDate,
+    class_name: derivedClassName,
+    lesson_title: derivedLessonTitle,
+    attendance_status: "present",
+    payout_status: record.payment_status ?? "pending",
+    hours_taught: record.hours_worked ?? null,
+    bonus_amount: record.bonus ?? 0,
+    deduction_amount: record.deductions ?? 0,
+  };
+};
 
 const TeacherMetrics = ({ records, teacherProfile }: TeacherMetricsProps) => {
   const stats = useMemo(() => {
@@ -132,10 +201,10 @@ const TeacherMetrics = ({ records, teacherProfile }: TeacherMetricsProps) => {
     const totals = records.reduce(
       (acc, record) => {
         const net = computeNet(record);
-        acc.totalHours += record.hours_taught ?? 0;
+        acc.totalHours += record.hours_taught ?? record.hours_worked ?? 0;
         acc.totalNet += net;
-        acc.totalBonus += record.bonus_amount ?? 0;
-        acc.totalDeduction += record.deduction_amount ?? 0;
+        acc.totalBonus += record.bonus_amount ?? record.bonus ?? 0;
+        acc.totalDeduction += record.deduction_amount ?? record.deductions ?? 0;
         const statusKey = record.attendance_status ?? "pending";
         acc.attendanceCounts[statusKey] = (acc.attendanceCounts[statusKey] ?? 0) + 1;
 
@@ -189,7 +258,10 @@ const TeacherMetrics = ({ records, teacherProfile }: TeacherMetricsProps) => {
         })
       : [];
 
-    const monthHours = monthRecords.reduce((acc, record) => acc + (record.hours_taught ?? 0), 0);
+    const monthHours = monthRecords.reduce(
+      (acc, record) => acc + (record.hours_taught ?? record.hours_worked ?? 0),
+      0,
+    );
     const monthNet = monthRecords.reduce((acc, record) => acc + computeNet(record), 0);
 
     const totalSessions = records.length;
@@ -506,10 +578,10 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
       setError(null);
 
       const payrollPromise = supabase
-        .from("teacher_payroll")
+        .from("payroll")
         .select("*")
         .eq("teacher_id", teacherId)
-        .order("session_date", { ascending: false });
+        .order("period_end", { ascending: false });
 
       const [payrollResult] = await Promise.allSettled([
         payrollPromise,
@@ -523,10 +595,19 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
         const { data, error: queryError } = payrollResult.value;
         if (queryError) {
           console.error("Error loading teacher payroll:", queryError);
-          setError("Unable to load payroll information right now.");
+          setError(queryError.message ?? "Unable to load payroll information right now.");
           setRecords([]);
         } else {
-          setRecords((data as TeacherPayrollRecord[]) ?? []);
+          const payrollRecords = (data as PayrollTableRecord[]) ?? [];
+          const fallbackClassName =
+            teacherProfile?.subject ||
+            (teacherProfile?.name && teacherProfile?.surname
+              ? `${teacherProfile.name} ${teacherProfile.surname}`
+              : null);
+          const normalizedRecords = payrollRecords.map((record) =>
+            transformPayrollRecord(record, fallbackClassName),
+          );
+          setRecords(normalizedRecords);
         }
       } else {
         console.error("Unexpected payroll error:", payrollResult.reason);
@@ -542,7 +623,7 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     return () => {
       isMounted = false;
     };
-  }, [teacherId]);
+  }, [teacherId, teacherProfile?.subject, teacherProfile?.name, teacherProfile?.surname]);
 
   const teacherDisplayName = useMemo(() => {
     const parts = [teacherProfile?.name, teacherProfile?.surname].filter(
