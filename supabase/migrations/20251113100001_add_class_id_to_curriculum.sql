@@ -1,0 +1,1 @@
+ALTER TABLE curriculum ADD COLUMN class_id UUID REFERENCES classes(id) ON DELETE SET NULL;

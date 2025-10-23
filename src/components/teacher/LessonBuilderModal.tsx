@@ -68,8 +68,8 @@ interface ClassSession {
 interface LessonBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  session: ClassSession;
-  onSave: () => void;
+  lesson: any;
+  onSave: (lessonPlanData: any) => void;
 }
 
 function SortableResource({
@@ -137,243 +137,7 @@ function SortableResource({
   );
 }
 
-const LessonBuilderModal = ({ open, onOpenChange, session, onSave }: LessonBuilderModalProps) => {
-  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);
-  const [availableResources, setAvailableResources] = useState<Resource[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const { toast } = useToast();
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  useEffect(() => {
-    if (open) {
-      loadData();
-    }
-  }, [open, session.id]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // Load existing lesson resources for this session
-      const { data: lessonResourcesData, error: lessonError } = await supabase
-        .from('lesson_resources')
-        .select(`
-          id,
-          resource_id,
-          position,
-          notes,
-          resource:resource_id (
-            id,
-            title,
-            description,
-            resource_type,
-            stage,
-            duration_minutes,
-            image_url
-          )
-        `)
-        .eq('class_session_id', session.id)
-        .order('position');
-
-      if (lessonError) throw lessonError;
-
-      setLessonResources(
-        (lessonResourcesData || []).map((lr: any) => ({
-          ...lr,
-          resource: lr.resource,
-        }))
-      );
-
-      // Load available resources
-      const { data: resourcesData, error: resourcesError } = await supabase
-        .from('resources')
-        .select('id, title, description, resource_type, stage, duration_minutes, image_url')
-        .eq('is_active', true)
-        .order('title');
-
-      if (resourcesError) throw resourcesError;
-
-      setAvailableResources(resourcesData || []);
-    } catch (error: any) {
-      console.error('Error loading resources:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to load resources',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = lessonResources.findIndex((lr) => lr.id === active.id);
-      const newIndex = lessonResources.findIndex((lr) => lr.id === over.id);
-
-      const newOrder = arrayMove(lessonResources, oldIndex, newIndex);
-      setLessonResources(newOrder);
-
-      // Update positions in database
-      try {
-        const updates = newOrder.map((lr, index) => ({
-          id: lr.id,
-          position: index,
-        }));
-
-        for (const update of updates) {
-          await supabase
-            .from('lesson_resources')
-            .update({ position: update.position })
-            .eq('id', update.id);
-        }
-      } catch (error: any) {
-        console.error('Error updating positions:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to update resource order',
-          variant: 'destructive',
-        });
-      }
-    }
-  };
-
-  const handleAddResource = async (resourceId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('lesson_resources')
-        .insert({
-          class_session_id: session.id,
-          curriculum_id: session.curriculum_id || '',
-          resource_id: resourceId,
-          position: lessonResources.length,
-        })
-        .select(`
-          id,
-          resource_id,
-          position,
-          notes,
-          resource:resource_id (
-            id,
-            title,
-            description,
-            resource_type,
-            stage,
-            duration_minutes,
-            image_url
-          )
-        `)
-        .single();
-
-      if (error) throw error;
-
-      setLessonResources([...lessonResources, { ...data, resource: data.resource }]);
-      toast({
-        title: 'Resource Added',
-        description: 'Resource has been added to the lesson plan',
-      });
-    } catch (error: any) {
-      console.error('Error adding resource:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to add resource',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleDeleteResource = async (id: string) => {
-    try {
-      const { error } = await supabase.from('lesson_resources').delete().eq('id', id);
-
-      if (error) throw error;
-
-      setLessonResources(lessonResources.filter((lr) => lr.id !== id));
-      toast({
-        title: 'Resource Removed',
-        description: 'Resource has been removed from the lesson plan',
-      });
-    } catch (error: any) {
-      console.error('Error deleting resource:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to remove resource',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUpdateNotes = async (id: string, notes: string) => {
-    try {
-      const { error } = await supabase
-        .from('lesson_resources')
-        .update({ notes })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setLessonResources(
-        lessonResources.map((lr) => (lr.id === id ? { ...lr, notes } : lr))
-      );
-    } catch (error: any) {
-      console.error('Error updating notes:', error);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      // Build lesson_plan_data
-      const lessonPlanData = {
-        resources: lessonResources.map((lr) => ({
-          id: lr.resource_id,
-          title: lr.resource.title,
-          type: lr.resource.resource_type,
-          duration: lr.resource.duration_minutes,
-          notes: lr.notes,
-          position: lr.position,
-        })),
-        total_duration: lessonResources.reduce(
-          (sum, lr) => sum + (lr.resource.duration_minutes || 0),
-          0
-        ),
-      };
-
-      // Update class_session
-      const { error } = await supabase
-        .from('class_sessions')
-        .update({
-          lesson_plan_completed: true,
-          lesson_plan_data: lessonPlanData,
-          status: 'ready',
-        })
-        .eq('id', session.id);
-
-      if (error) throw error;
-
-      onSave();
-    } catch (error: any) {
-      console.error('Error saving lesson plan:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save lesson plan',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilderModalProps) => {\n  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);\n  const [availableResources, setAvailableResources] = useState<Resource[]>([]);\n  const [searchQuery, setSearchQuery] = useState(\'\');\n  const [typeFilter, setTypeFilter] = useState<string>(\'all\');\n  const [loading, setLoading] = useState(false);\n  const [saving, setSaving] = useState(false);\n\n  const { toast } = useToast();\n\n  const sensors = useSensors(\n    useSensor(PointerSensor),\n    useSensor(KeyboardSensor, {\n      coordinateGetter: sortableKeyboardCoordinates,\n    })\n  );\n\n  useEffect(() => {\n    if (open) {\n      if (lesson.lesson_plan_content) {\n        setLessonResources(lesson.lesson_plan_content.resources || []);\n      }\n      loadAvailableResources();\n    }\n  }, [open, lesson]);\n\n  const loadAvailableResources = async () => {\n    setLoading(true);\n    try {\n      // Load available resources\n      const { data: resourcesData, error: resourcesError } = await supabase\n        .from(\'resources\')\n        .select(\'id, title, description, resource_type, stage, duration_minutes, image_url\')\n        .eq(\'is_active\', true)\n        .order(\'title\');\n\n      if (resourcesError) throw resourcesError;\n\n      setAvailableResources(resourcesData || []);\n    } catch (error: any) {\n      console.error(\'Error loading resources:\', error);\n      toast({\n        title: \'Error\',\n        description: error.message || \'Failed to load resources\',\n        variant: \'destructive\',\n      });\n    } finally {\n      setLoading(false);\n    }\n  };\n\n  const handleDragEnd = (event: DragEndEvent) => {\n    const { active, over } = event;\n\n    if (over && active.id !== over.id) {\n      const oldIndex = lessonResources.findIndex((lr) => lr.id === active.id);\n      const newIndex = lessonResources.findIndex((lr) => lr.id === over.id);\n\n      const newOrder = arrayMove(lessonResources, oldIndex, newIndex);\n      setLessonResources(newOrder);\n    }\n  };\n\n  const handleAddResource = (resource: Resource) => {\n    const newLessonResource: LessonResource = {\n      id: resource.id,\n      resource_id: resource.id,\n      position: lessonResources.length,\n      notes: \'\',\n      resource: resource,\n    };\n    setLessonResources([...lessonResources, newLessonResource]);\n  };\n\n  const handleDeleteResource = (id: string) => {\n    setLessonResources(lessonResources.filter((lr) => lr.id !== id));\n  };\n\n  const handleUpdateNotes = (id: string, notes: string) => {\n    setLessonResources(\n      lessonResources.map((lr) => (lr.id === id ? { ...lr, notes } : lr))\n    );\n  };\n\n  const handleSave = () => {\n    const lessonPlanData = {\n      resources: lessonResources.map((lr, index) => ({\n        ...\lr,\n        position: index,\n      })),\n      total_duration: lessonResources.reduce(\n        (sum, lr) => sum + (lr.resource.duration_minutes || 0),\n        0\n      ),\n    };\n    onSave(lessonPlanData);\n  };
 
   const filteredResources = availableResources.filter((resource) => {
     const matchesSearch =
@@ -392,7 +156,7 @@ const LessonBuilderModal = ({ open, onOpenChange, session, onSave }: LessonBuild
         <DialogHeader>
           <DialogTitle>Build Lesson Plan</DialogTitle>
           <DialogDescription>
-            {session.lesson_title || 'Untitled Lesson'} - Add and organize resources for your lesson
+            {lesson.lesson_title || 'Untitled Lesson'} - Add and organize resources for your lesson
           </DialogDescription>
         </DialogHeader>
 
@@ -403,7 +167,7 @@ const LessonBuilderModal = ({ open, onOpenChange, session, onSave }: LessonBuild
               <h3 className="font-semibold">Lesson Plan ({lessonResources.length} resources)</h3>
               <Button onClick={handleSave} disabled={saving || lessonResources.length === 0}>
                 <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Saving...' : 'Save & Mark Ready'}
+                {saving ? 'Saving...' : 'Save & Mark as Done'}
               </Button>
             </div>
 

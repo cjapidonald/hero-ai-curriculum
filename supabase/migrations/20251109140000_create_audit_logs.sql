@@ -20,13 +20,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(create
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Allow application clients to read audit history
-CREATE POLICY IF NOT EXISTS "Allow all for audit logs"
+CREATE POLICY "Allow all for audit logs"
   ON public.audit_logs
   FOR SELECT
   USING (true);
 
 -- Allow application clients to write audit entries
-CREATE POLICY IF NOT EXISTS "Allow insert for audit logs"
+CREATE POLICY "Allow insert for audit logs"
   ON public.audit_logs
   FOR INSERT
   WITH CHECK (true);

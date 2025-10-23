@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Trash2, Plus, Loader2, Calendar } from 'lucide-react';
+import { Pencil, Trash2, Plus, Loader2, Calendar, BookOpen, Play } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
   AlertDialog,
@@ -28,6 +28,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import LessonBuilderModal from '@/components/teacher/LessonBuilderModal';
+import InLesson from '@/components/crud/InLesson';
+import { Badge } from '@/components/ui/badge';
+
 
 interface CurriculumCRUDProps {
   teacherId?: string;
@@ -47,7 +51,7 @@ type ExtendedCurriculum = Curriculum & {
   title?: string | null;
   stage?: string | null;
   curriculum_stage?: string | null;
-  class?: string | null;
+  class_name?: string | null;
   class_id?: string | null;
   description?: string | null;
   lesson_number?: number | null;
@@ -134,6 +138,12 @@ export function CurriculumCRUD({
     teacher: '',
   });
 
+  const [lessonBuilderOpen, setLessonBuilderOpen] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<ExtendedCurriculum | null>(null);
+  const [inLessonView, setInLessonView] = useState(false);
+  const [lessonForInLessonView, setLessonForInLessonView] = useState<ExtendedCurriculum | null>(null);
+
+
   const [editingLesson, setEditingLesson] = useState<ExtendedCurriculum | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -217,6 +227,16 @@ export function CurriculumCRUD({
       ...prev,
       [key]: value,
     }));
+  };
+
+  const handleBuildLesson = (lesson: ExtendedCurriculum) => {
+    setSelectedLesson(lesson);
+    setLessonBuilderOpen(true);
+  };
+
+  const handleStartLesson = (lesson: ExtendedCurriculum) => {
+    setLessonForInLessonView(lesson);
+    setInLessonView(true);
   };
 
   const handleResetFilters = () => {
@@ -410,6 +430,15 @@ export function CurriculumCRUD({
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (inLessonView && lessonForInLessonView) {
+    return (
+      <div>
+        <Button onClick={() => setInLessonView(false)}>Back to Curriculum</Button>
+        <InLesson lesson={lessonForInLessonView} />
       </div>
     );
   }
@@ -778,8 +807,8 @@ export function CurriculumCRUD({
               <TableHead>Subject</TableHead>
               <TableHead>Stage</TableHead>
               <TableHead>Class</TableHead>
-              <TableHead>Skills</TableHead>
               <TableHead>Teacher</TableHead>
+              <TableHead>Status</TableHead>
               {showActions && canEdit && <TableHead>Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -808,12 +837,31 @@ export function CurriculumCRUD({
                   <TableCell className="font-medium">{lesson.lesson_title}</TableCell>
                   <TableCell>{lesson.subject || '-'}</TableCell>
                   <TableCell>{lesson.stage || lesson.curriculum_stage || '-'}</TableCell>
-                  <TableCell>{lesson.class || '-'}</TableCell>
-                  <TableCell className="max-w-xs truncate">{lesson.lesson_skills || '-'}</TableCell>
+                  <TableCell>{lesson.class_name || '-'}</TableCell>
                   <TableCell>{lesson.teacher_name || '-'}</TableCell>
+                  <TableCell><Badge variant={lesson.status === 'taught' ? 'success' : lesson.status === 'done' ? 'secondary' : 'outline'}>{lesson.status}</Badge></TableCell>
                   {showActions && canEdit && (
                     <TableCell>
                       <div className="flex gap-2">
+                        {(lesson.status === 'pending' || lesson.status === 'done') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleBuildLesson(lesson)}
+                          >
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Lesson Builder
+                          </Button>
+                        )}
+                        {lesson.status === 'done' && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleStartLesson(lesson)}
+                          >
+                            <Play className="h-4 w-4 mr-2" />
+                            Start Lesson
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -857,6 +905,20 @@ export function CurriculumCRUD({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {selectedLesson && (
+        <LessonBuilderModal
+          open={lessonBuilderOpen}
+          onOpenChange={setLessonBuilderOpen}
+          session={selectedLesson as any}
+          onSave={(lessonPlanData) => {
+            if (selectedLesson) {
+              update(selectedLesson.id, { status: 'done', lesson_plan_content: lessonPlanData });
+            }
+            setLessonBuilderOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -37,12 +37,12 @@ BEGIN
   END IF;
 
   -- Add teacher_id column
-  -- IF NOT EXISTS (
-  --   SELECT 1 FROM information_schema.columns
-  --   WHERE table_name = 'classes' AND column_name = 'teacher_id'
-  -- ) THEN
-  --   ALTER TABLE classes ADD COLUMN teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL;
-  -- END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'classes' AND column_name = 'teacher_id'
+  ) THEN
+    ALTER TABLE classes ADD COLUMN teacher_id UUID REFERENCES teachers(id) ON DELETE SET NULL;
+  END IF;
 
   -- Add schedule column
   IF NOT EXISTS (

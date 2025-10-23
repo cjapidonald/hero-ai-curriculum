@@ -185,11 +185,9 @@ BEGIN
   END IF;
 
   -- Seed sample curriculum lessons for Donald
-  INSERT INTO public.curriculum (
+INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
-    class,
-    class_id,
     stage,
     curriculum_stage,
     title,
@@ -214,8 +212,6 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
-    'Alvin Stage 1',
-    v_class_starters,
     'Stage 1',
     'Stage 1',
     'Alvin Stage 1 - Unit 1: Welcome to Class',
@@ -248,8 +244,6 @@ BEGIN
   INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
-    class,
-    class_id,
     stage,
     curriculum_stage,
     title,
@@ -274,8 +268,6 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
-    'Alvin Stage 2',
-    v_class_movers,
     'Stage 2',
     'Stage 2',
     'Alvin Stage 2 - Project: My Town',
@@ -308,8 +300,6 @@ BEGIN
   INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
-    class,
-    class_id,
     stage,
     curriculum_stage,
     title,
@@ -334,8 +324,6 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
-    'Alvin Stage 3',
-    v_class_flyers,
     'Stage 3',
     'Stage 3',
     'Alvin Stage 3 - Reading Adventure',
