@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+type TableFilter = { column: string; value: unknown };
 
 /**
  * Generic hook for real-time table synchronization with CRUD operations
@@ -9,33 +11,43 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 export function useRealtimeTable<T extends { id: string }>(
   tableName: string,
   selectQuery?: string,
-  filters?: { column: string; value: any }[]
+  filters?: TableFilter[]
 ) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
+  const filterKey = useMemo(() => JSON.stringify(filters ?? []), [filters]);
+
+  const normalizedFilters = useMemo<TableFilter[]>(() => {
+    const parsedFilters = JSON.parse(filterKey) as TableFilter[];
+    return parsedFilters.map((filter) => ({ ...filter }));
+  }, [filterKey]);
+
   const matchesFilters = useCallback(
     (item: T) => {
-      if (!filters || filters.length === 0) {
+      if (normalizedFilters.length === 0) {
         return true;
       }
 
-      return filters.every(({ column, value }) => {
-        const itemValue = (item as any)[column];
+      return normalizedFilters.every(({ column, value }) => {
+        const typedItem = item as Record<string, unknown>;
+        const itemValue = typedItem[column];
         if (value === null) {
           return itemValue === null;
         }
         if (Array.isArray(value)) {
-          return Array.isArray(itemValue)
-            ? value.every((val) => itemValue.includes(val))
-            : value.includes(itemValue);
+          if (!Array.isArray(itemValue)) {
+            return false;
+          }
+
+          return value.every((val) => itemValue.includes(val));
         }
         return itemValue === value;
       });
     },
-    [filters]
+    [normalizedFilters]
   );
 
   // Fetch initial data
@@ -47,9 +59,9 @@ export function useRealtimeTable<T extends { id: string }>(
       let query = supabase.from(tableName).select(selectQuery || '*');
 
       // Apply filters if provided
-      if (filters && filters.length > 0) {
-        filters.forEach(({ column, value }) => {
-          query = query.eq(column, value);
+      if (normalizedFilters.length > 0) {
+        normalizedFilters.forEach(({ column, value }) => {
+          query = query.eq(column as never, value as never);
         });
       }
 
@@ -58,13 +70,14 @@ export function useRealtimeTable<T extends { id: string }>(
       if (fetchError) throw fetchError;
 
       setData((fetchedData as T[]) || []);
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       console.error(`Error fetching ${tableName}:`, err);
-      setError(err.message || 'Failed to fetch data');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [tableName, selectQuery, JSON.stringify(filters)]);
+  }, [tableName, selectQuery, normalizedFilters]);
 
   // Set up real-time subscription
   useEffect(() => {
@@ -139,9 +152,10 @@ export function useRealtimeTable<T extends { id: string }>(
         if (createError) throw createError;
 
         return { data: createdData as T, error: null };
-      } catch (err: any) {
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to create';
         console.error(`Error creating in ${tableName}:`, err);
-        return { data: null, error: err.message || 'Failed to create' };
+        return { data: null, error: errorMessage };
       }
     },
     [tableName]
@@ -160,9 +174,10 @@ export function useRealtimeTable<T extends { id: string }>(
         if (updateError) throw updateError;
 
         return { data: updatedData as T, error: null };
-      } catch (err: any) {
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update';
         console.error(`Error updating in ${tableName}:`, err);
-        return { data: null, error: err.message || 'Failed to update' };
+        return { data: null, error: errorMessage };
       }
     },
     [tableName]
@@ -181,9 +196,10 @@ export function useRealtimeTable<T extends { id: string }>(
         if (deleteError) throw deleteError;
 
         return { data: (deletedData as T | null) ?? null, error: null };
-      } catch (err: any) {
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to delete';
         console.error(`Error deleting from ${tableName}:`, err);
-        return { data: null, error: err.message || 'Failed to delete' };
+        return { data: null, error: errorMessage };
       }
     },
     [tableName]
