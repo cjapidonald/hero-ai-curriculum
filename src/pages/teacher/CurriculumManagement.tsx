@@ -461,6 +461,28 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     setFilteredSessions(filtered);
   };
 
+  const updateCurriculumStatus = async (
+    curriculumId: string | null,
+    status: ClassSession['status'],
+  ) => {
+    if (!curriculumId) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('curriculum')
+        .update({ status })
+        .eq('id', curriculumId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error updating curriculum status:', error);
+    }
+  };
+
   const getPlanStatusBadge = (session: ClassSession) => {
     const config = getPlanStatusConfig(session.lesson_plan_completed, session.status);
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -510,11 +532,15 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     }
 
     try {
-      if (!session.lesson_plan_completed && session.status === 'scheduled') {
-        await supabase
-          .from('class_sessions')
-          .update({ status: 'building' })
-          .eq('id', session.id);
+      if (!session.isCurriculumOnly) {
+        if (!session.lesson_plan_completed && session.status === 'scheduled') {
+          await supabase
+            .from('class_sessions')
+            .update({ status: 'building' })
+            .eq('id', session.id);
+        }
+
+        await updateCurriculumStatus(session.curriculum_id, 'building');
       }
     } catch (error: unknown) {
       console.error('Error updating session status:', error);
@@ -542,6 +568,8 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
           .eq('id', session.id);
 
         if (error) throw error;
+
+        await updateCurriculumStatus(session.curriculum_id, 'in_progress');
 
         toast({
           title: 'Class Started',
@@ -579,16 +607,20 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     }
 
     try {
-      const { error } = await supabase
-        .from('class_sessions')
-        .update({
-          lesson_plan_data: lessonPlanData,
-          lesson_plan_completed: true,
-          status: 'ready',
-        })
-        .eq('id', selectedSession.id);
+      if (!selectedSession.isCurriculumOnly) {
+        const { error } = await supabase
+          .from('class_sessions')
+          .update({
+            lesson_plan_data: lessonPlanData,
+            lesson_plan_completed: true,
+            status: 'ready',
+          })
+          .eq('id', selectedSession.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+
+      await updateCurriculumStatus(selectedSession.curriculum_id, 'ready');
 
       setLessonBuilderOpen(false);
       await loadData(); // Reload to get updated status
@@ -683,15 +715,15 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Lesson</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Teacher</TableHead>
-                  <TableHead>Lesson Plan</TableHead>
-                  <TableHead>Teaching Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
+                <TableHead>Lesson Title</TableHead>
+                <TableHead>Lesson Date</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>Teacher</TableHead>
+                <TableHead>Plan Status</TableHead>
+                <TableHead>Teaching Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSessions.length === 0 ? (
@@ -764,7 +796,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
                                 onClick={() => handleBuildLesson(session)}
                               >
                                 <Pencil className="w-4 h-4 mr-1" />
-                                Lesson Builder
+                                Open Lesson Builder
                               </Button>
                             )}
                             {session.lesson_plan_completed && (

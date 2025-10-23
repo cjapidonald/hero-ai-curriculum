@@ -238,6 +238,28 @@ const CurriculumManagementPanel = () => {
     setFilteredSessions(filtered);
   }, [filteredByTeacher, selectedStatus, dateFilter]);
 
+  const updateCurriculumStatus = async (
+    curriculumId: string | null,
+    status: AdminClassSession['status'],
+  ) => {
+    if (!curriculumId) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('curriculum')
+        .update({ status })
+        .eq('id', curriculumId);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error syncing curriculum status from admin panel:', error);
+    }
+  };
+
   const getPlanStatusBadge = (session: AdminClassSession) => {
     const config = getPlanStatusConfig(session.lesson_plan_completed, session.status);
     return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -256,6 +278,8 @@ const CurriculumManagementPanel = () => {
           .update({ status: 'building' })
           .eq('id', session.id);
       }
+
+      await updateCurriculumStatus(session.curriculum_id, 'building');
     } catch (error) {
       console.error('Error updating session status before building:', error);
     }
@@ -291,6 +315,8 @@ const CurriculumManagementPanel = () => {
 
       if (error) throw error;
 
+      await updateCurriculumStatus(selectedSession.curriculum_id, 'ready');
+
       setLessonBuilderOpen(false);
       await loadData();
       toast({
@@ -314,6 +340,8 @@ const CurriculumManagementPanel = () => {
           .from('class_sessions')
           .update({ status: 'in_progress' })
           .eq('id', session.id);
+
+        await updateCurriculumStatus(session.curriculum_id, 'in_progress');
       }
 
       toast({
@@ -410,12 +438,12 @@ const CurriculumManagementPanel = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Lesson</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Lesson Title</TableHead>
+                <TableHead>Lesson Date</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead>Teacher</TableHead>
-                <TableHead>Lesson Plan</TableHead>
+                <TableHead>Plan Status</TableHead>
                 <TableHead>Teaching Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -489,7 +517,7 @@ const CurriculumManagementPanel = () => {
                             onClick={() => handleBuildLesson(session)}
                           >
                             <Pencil className="w-4 h-4 mr-1" />
-                            Lesson Builder
+                            Open Lesson Builder
                           </Button>
                           {session.lesson_plan_completed && (
                             <Button

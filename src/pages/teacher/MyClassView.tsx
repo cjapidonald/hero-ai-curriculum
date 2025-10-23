@@ -35,6 +35,7 @@ interface ClassSession {
   session_date: string;
   start_time: string;
   end_time: string;
+  curriculum_id: string | null;
   lesson_plan_data: LessonPlanData | null;
   lesson_plan_content?: {
     resources?: unknown[];
@@ -150,6 +151,7 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
         class_stage: sessionData.classes?.stage,
         lesson_title: sessionData.curriculum?.lesson_title,
         lesson_subject: sessionData.curriculum?.subject,
+        curriculum_id: sessionData.curriculum_id,
       };
 
       setSession(formattedSession);
@@ -276,6 +278,25 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
     }
   };
 
+  const updateCurriculumStatus = async (status: string) => {
+    if (!session?.curriculum_id) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('curriculum')
+        .update({ status })
+        .eq('id', session.curriculum_id);
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error updating curriculum status from lesson dashboard:', error);
+    }
+  };
+
   const handleEndClass = async () => {
     try {
       // Update session status to completed
@@ -285,6 +306,8 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
         .eq('id', sessionId);
 
       if (error) throw error;
+
+      await updateCurriculumStatus('completed');
 
       toast({
         title: 'Lesson Marked as Taught',
