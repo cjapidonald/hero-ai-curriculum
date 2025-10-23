@@ -32,6 +32,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
+import CurriculumManagementPanel from "@/pages/admin/components/CurriculumManagementPanel";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -769,6 +770,8 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="curriculum" className="space-y-4">
+            <CurriculumManagementPanel />
+
             <Card>
               <CardHeader>
                 <CardTitle>Curriculum Management</CardTitle>
