@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CheckCircle2, UserCheck, Clock, Save } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { format, parseISO } from 'date-fns';
+import StudentDashboardModal from './StudentDashboardModal';
 
 interface Student {
   id: string;
@@ -53,6 +54,11 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [attendanceSaved, setAttendanceSaved] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -155,6 +161,11 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
 
   const handleMarkAllAbsent = () => {
     setStudents(students.map((s) => ({ ...s, present: false })));
+  };
+
+  const handleViewStudent = (student: Student) => {
+    setSelectedStudent({ id: student.id, name: student.full_name });
+    setIsStudentModalOpen(true);
   };
 
   const handleSaveAttendance = async () => {
@@ -327,6 +338,13 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
                     <div className="flex-1">
                       <p className="font-medium">{student.full_name}</p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewStudent(student)}
+                    >
+                      View Dashboard
+                    </Button>
                     {student.present && (
                       <Badge variant="default">Present</Badge>
                     )}
@@ -416,6 +434,18 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
           </div>
         </CardContent>
       </Card>
+
+      <StudentDashboardModal
+        open={isStudentModalOpen}
+        onOpenChange={(open) => {
+          setIsStudentModalOpen(open);
+          if (!open) {
+            setSelectedStudent(null);
+          }
+        }}
+        studentId={selectedStudent?.id}
+        studentName={selectedStudent?.name}
+      />
     </div>
   );
 };
