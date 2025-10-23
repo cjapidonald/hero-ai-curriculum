@@ -568,13 +568,42 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     }
   };
 
-  const handleLessonSaved = () => {
-    setLessonBuilderOpen(false);
-    loadData(); // Reload to get updated status
-    toast({
-      title: 'Lesson Saved',
-      description: 'Your lesson plan has been saved successfully.',
-    });
+  const handleLessonSaved = async (lessonPlanData: Record<string, unknown>) => {
+    if (!selectedSession) {
+      toast({
+        title: 'Unable to save lesson',
+        description: 'No session is currently selected.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('class_sessions')
+        .update({
+          lesson_plan_data: lessonPlanData,
+          lesson_plan_completed: true,
+          status: 'ready',
+        })
+        .eq('id', selectedSession.id);
+
+      if (error) throw error;
+
+      setLessonBuilderOpen(false);
+      await loadData(); // Reload to get updated status
+      toast({
+        title: 'Lesson Saved',
+        description: 'Your lesson plan has been saved successfully.',
+      });
+    } catch (error: unknown) {
+      console.error('Error saving lesson plan:', error);
+      toast({
+        title: 'Error saving lesson plan',
+        description: getErrorMessage(error) || 'Failed to save lesson plan.',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (loading) {

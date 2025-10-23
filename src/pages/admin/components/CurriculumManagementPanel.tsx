@@ -97,6 +97,32 @@ const CurriculumManagementPanel = () => {
 
   const { toast } = useToast();
 
+  const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (error && typeof error === 'object') {
+      const errorObject = error as {
+        message?: unknown;
+        error_description?: unknown;
+        hint?: unknown;
+      };
+
+      if (typeof errorObject.message === 'string') {
+        return errorObject.message;
+      }
+      if (typeof errorObject.error_description === 'string') {
+        return errorObject.error_description;
+      }
+      if (typeof errorObject.hint === 'string') {
+        return errorObject.hint;
+      }
+    }
+
+    return String(error);
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -243,13 +269,42 @@ const CurriculumManagementPanel = () => {
     setViewLessonPlanOpen(true);
   };
 
-  const handleLessonSaved = () => {
-    setLessonBuilderOpen(false);
-    loadData();
-    toast({
-      title: 'Lesson Saved',
-      description: 'Lesson plan has been updated successfully.',
-    });
+  const handleLessonSaved = async (lessonPlanData: Record<string, unknown>) => {
+    if (!selectedSession) {
+      toast({
+        title: 'Unable to save lesson',
+        description: 'No session is currently selected.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('class_sessions')
+        .update({
+          lesson_plan_data: lessonPlanData,
+          lesson_plan_completed: true,
+          status: 'ready',
+        })
+        .eq('id', selectedSession.id);
+
+      if (error) throw error;
+
+      setLessonBuilderOpen(false);
+      await loadData();
+      toast({
+        title: 'Lesson Saved',
+        description: 'Lesson plan has been updated successfully.',
+      });
+    } catch (error) {
+      console.error('Error saving lesson plan from admin dashboard:', error);
+      toast({
+        title: 'Error saving lesson plan',
+        description: getErrorMessage(error) || 'Failed to save lesson plan.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleStartLesson = async (session: AdminClassSession) => {
