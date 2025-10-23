@@ -139,8 +139,6 @@ const TeacherDashboard = () => {
         return (
           <div className="space-y-4">
             <div className="bg-background rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Manage Curriculum</h2>
-              <p className="text-muted-foreground mb-4">Create and edit lessons with resources and materials</p>
               <CurriculumCRUD teacherId={user.id} onEditLesson={handleLessonEdit} />
             </div>
           </div>

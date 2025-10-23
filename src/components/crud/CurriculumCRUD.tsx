@@ -126,12 +126,11 @@ export function CurriculumCRUD({
   );
 
   const [columnFilters, setColumnFilters] = useState({
-    date: '',
-    lessonTitle: '',
+    dateStart: '',
+    dateEnd: '',
     subject: '',
     stage: '',
     className: '',
-    skills: '',
     teacher: '',
   });
 
@@ -222,24 +221,25 @@ export function CurriculumCRUD({
 
   const handleResetFilters = () => {
     setColumnFilters({
-      date: '',
-      lessonTitle: '',
+      dateStart: '',
+      dateEnd: '',
       subject: '',
       stage: '',
       className: '',
-      skills: '',
       teacher: '',
     });
   };
 
   const filteredLessons = useMemo(() => {
     return lessons.filter((lesson) => {
-      const matchesDate = columnFilters.date
-        ? (lesson.lesson_date || '').startsWith(columnFilters.date)
+      const lessonDateValue = lesson.lesson_date ? lesson.lesson_date.slice(0, 10) : '';
+      const matchesDateStart = columnFilters.dateStart
+        ? lessonDateValue !== '' && lessonDateValue >= columnFilters.dateStart
         : true;
-      const matchesLessonTitle = columnFilters.lessonTitle
-        ? (lesson.lesson_title || '').toLowerCase().includes(columnFilters.lessonTitle.toLowerCase())
+      const matchesDateEnd = columnFilters.dateEnd
+        ? lessonDateValue !== '' && lessonDateValue <= columnFilters.dateEnd
         : true;
+      const matchesDate = columnFilters.dateStart || columnFilters.dateEnd ? lessonDateValue !== '' : true;
       const matchesSubject = columnFilters.subject
         ? (lesson.subject || '').toLowerCase().includes(columnFilters.subject.toLowerCase())
         : true;
@@ -249,20 +249,17 @@ export function CurriculumCRUD({
       const matchesClass = columnFilters.className
         ? (lesson.class || '').toLowerCase().includes(columnFilters.className.toLowerCase())
         : true;
-      const matchesSkills = columnFilters.skills
-        ? (lesson.lesson_skills || '').toLowerCase().includes(columnFilters.skills.toLowerCase())
-        : true;
       const matchesTeacher = columnFilters.teacher
         ? (lesson.teacher_name || '').toLowerCase().includes(columnFilters.teacher.toLowerCase())
         : true;
 
       return (
         matchesDate &&
-        matchesLessonTitle &&
+        matchesDateStart &&
+        matchesDateEnd &&
         matchesSubject &&
         matchesStage &&
         matchesClass &&
-        matchesSkills &&
         matchesTeacher
       );
     });
@@ -709,21 +706,21 @@ export function CurriculumCRUD({
       <div className="space-y-4 mb-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
-            <Label htmlFor="filter-date">Date</Label>
+            <Label htmlFor="filter-date-start">Start Date</Label>
             <Input
-              id="filter-date"
+              id="filter-date-start"
               type="date"
-              value={columnFilters.date}
-              onChange={(event) => handleFilterChange('date', event.target.value)}
+              value={columnFilters.dateStart}
+              onChange={(event) => handleFilterChange('dateStart', event.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="filter-lesson-title">Lesson Title</Label>
+            <Label htmlFor="filter-date-end">End Date</Label>
             <Input
-              id="filter-lesson-title"
-              placeholder="Search lesson title"
-              value={columnFilters.lessonTitle}
-              onChange={(event) => handleFilterChange('lessonTitle', event.target.value)}
+              id="filter-date-end"
+              type="date"
+              value={columnFilters.dateEnd}
+              onChange={(event) => handleFilterChange('dateEnd', event.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -745,7 +742,7 @@ export function CurriculumCRUD({
             />
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="filter-class">Class</Label>
             <Input
@@ -753,15 +750,6 @@ export function CurriculumCRUD({
               placeholder="Search class"
               value={columnFilters.className}
               onChange={(event) => handleFilterChange('className', event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="filter-skills">Skills</Label>
-            <Input
-              id="filter-skills"
-              placeholder="Search skills"
-              value={columnFilters.skills}
-              onChange={(event) => handleFilterChange('skills', event.target.value)}
             />
           </div>
           <div className="space-y-2">
