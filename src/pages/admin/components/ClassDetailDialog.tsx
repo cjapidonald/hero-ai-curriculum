@@ -250,44 +250,57 @@ export function ClassDetailDialog({
 
   const loadPerformance = useCallback(
     async (classRecord: ClassRecord) => {
-      const { data: assessmentData, error: assessmentError } = await supabase
-        .from("assessment")
-        .select("assessment_date, total_score")
-        .eq("class", classRecord.class_name)
-        .order("assessment_date", { ascending: true });
+      const { data: evaluationsData, error: evaluationsError } = await supabase
+        .from("skill_evaluations")
+        .select(
+          `score, evaluation_date, skills:skill_id (skill_name, subject, category)`
+        )
+        .eq("class_id", classRecord.id)
+        .order("evaluation_date", { ascending: true });
 
-      if (assessmentError) throw assessmentError;
+      if (evaluationsError) throw evaluationsError;
 
-      const timeline =
-        (assessmentData || []).map((item) => ({
-          date: formatDate(item.assessment_date),
-          score: Number(item.total_score) || 0,
-        })) ?? [];
-      setScoreTrend(timeline);
-
-      const { data: skillsData, error: skillsError } = await supabase
-        .from("skills_evaluation")
-        .select("skill_name, skill_category, average_score")
-        .eq("class", classRecord.class_name);
-
-      if (skillsError) throw skillsError;
-
+      const trendMap = new Map<string, { total: number; count: number }>();
       const skillMap = new Map<string, { total: number; count: number }>();
-      (skillsData || []).forEach((row) => {
-        const key = row.skill_name || row.skill_category || "Unspecified";
-        if (!row.average_score) return;
-        const bucket = skillMap.get(key) ?? { total: 0, count: 0 };
-        bucket.total += Number(row.average_score);
-        bucket.count += 1;
-        skillMap.set(key, bucket);
+
+      (evaluationsData || []).forEach((row) => {
+        if (row.evaluation_date) {
+          const dateKey = new Date(row.evaluation_date).toISOString().slice(0, 10);
+          if (row.score !== null) {
+            const trendBucket = trendMap.get(dateKey) ?? { total: 0, count: 0 };
+            trendBucket.total += Number(row.score);
+            trendBucket.count += 1;
+            trendMap.set(dateKey, trendBucket);
+          }
+        }
+
+        if (row.score !== null) {
+          const skillName =
+            row.skills?.skill_name ||
+            row.skills?.subject ||
+            row.skills?.category ||
+            "Unspecified";
+          const skillBucket = skillMap.get(skillName) ?? { total: 0, count: 0 };
+          skillBucket.total += Number(row.score);
+          skillBucket.count += 1;
+          skillMap.set(skillName, skillBucket);
+        }
       });
 
-      const breakdown = Array.from(skillMap.entries()).map(([skill, bucket]) => ({
-        skill,
-        average: Number((bucket.total / bucket.count).toFixed(1)),
-      }));
+      const timeline = Array.from(trendMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, bucket]) => ({
+          date: formatDate(date),
+          score: bucket.count ? Number((bucket.total / bucket.count).toFixed(1)) : 0,
+        }));
+      setScoreTrend(timeline);
 
-      breakdown.sort((a, b) => b.average - a.average);
+      const breakdown = Array.from(skillMap.entries())
+        .map(([skill, bucket]) => ({
+          skill,
+          average: bucket.count ? Number((bucket.total / bucket.count).toFixed(1)) : 0,
+        }))
+        .sort((a, b) => b.average - a.average);
       setSkillBreakdown(breakdown);
     },
     [],
