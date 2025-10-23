@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
+import { DAYS_OF_WEEK } from "@/constants/days";
 import {
   BookOpen,
   GraduationCap,
@@ -110,8 +111,6 @@ const stageOptions = [
   { value: "stage_5", label: "Stage 5" },
   { value: "stage_6", label: "Stage 6" },
 ];
-
-const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const formatDate = (value: string | null) => {
   if (!value) return "N/A";
@@ -1125,7 +1124,7 @@ export function ClassDetailDialog({
                   <div className="space-y-2">
                     <span className="text-sm font-medium">Schedule Days</span>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {daysOfWeek.map((day) => (
+                      {DAYS_OF_WEEK.map((day) => (
                         <button
                           key={day}
                           type="button"

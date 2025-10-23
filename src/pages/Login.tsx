@@ -52,7 +52,7 @@ const Login = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-            <img src="/logo.png" alt="HeroSchool Logo" className="w-10 h-10" />
+            <img src="/logo.svg" alt="HeroSchool Logo" className="w-10 h-10" />
           </div>
           <CardTitle className="text-2xl">HeroSchool Login</CardTitle>
           <CardDescription>Sign in to access your dashboard</CardDescription>
