@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, Calendar, Clock, ClipboardCheck, Search } from 'lucide-react';
 import TakeAttendanceDialog from '@/components/teacher/TakeAttendanceDialog';
+import StudentDashboardModal from './StudentDashboardModal';
 
 interface Student {
   id: string;
@@ -28,6 +29,9 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
   const [attendanceDialogOpen, setAttendanceDialogOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedStudentName, setSelectedStudentName] = useState<string>('');
 
   useEffect(() => {
     loadStudents();
@@ -150,6 +154,20 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
   const handleTakeAttendance = (className: string) => {
     setSelectedClass(className);
     setAttendanceDialogOpen(true);
+  };
+
+  const handleStudentClick = (student: Student) => {
+    setSelectedStudentId(student.id);
+    setSelectedStudentName(`${student.name} ${student.surname}`.trim());
+    setDashboardOpen(true);
+  };
+
+  const handleDashboardOpenChange = (open: boolean) => {
+    setDashboardOpen(open);
+    if (!open) {
+      setSelectedStudentId(null);
+      setSelectedStudentName('');
+    }
   };
 
   const handleAttendanceSaved = () => {
@@ -315,9 +333,11 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {classStudents.map((student) => (
-                    <div
+                    <button
                       key={student.id}
-                      className="p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                      type="button"
+                      onClick={() => handleStudentClick(student)}
+                      className="text-left p-3 border rounded-lg hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
                       <div className="font-medium">
                         {student.name} {student.surname}
@@ -328,7 +348,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
                       <div className="text-sm text-muted-foreground">
                         Sessions left: {student.sessions_left || 0}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -376,6 +396,13 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         teacherId={teacherId}
         students={students.filter((s) => s.class === selectedClass)}
         onAttendanceSaved={handleAttendanceSaved}
+      />
+
+      <StudentDashboardModal
+        open={dashboardOpen}
+        onOpenChange={handleDashboardOpenChange}
+        studentId={selectedStudentId}
+        studentName={selectedStudentName}
       />
     </div>
   );
