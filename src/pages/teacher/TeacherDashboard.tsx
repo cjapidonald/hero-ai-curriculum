@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Users, BookOpen, FileText, LogOut, BarChart3 } from 'lucide-react';
+import {
+  Users,
+  BookOpen,
+  FileText,
+  LogOut,
+  BarChart3,
+  Layers,
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -11,14 +18,26 @@ import { ProfileEditor } from '@/components/ProfileEditor';
 import TeacherPerformance from './TeacherPerformance';
 import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
 import LessonBuilder from './LessonBuilder';
+import CurriculumTab from './CurriculumTab';
 import MyClasses from './MyClasses';
 
-type TabType = 'performance' | 'classes' | 'students' | 'lessonBuilder';
+type TabType =
+  | 'performance'
+  | 'classes'
+  | 'students'
+  | 'lessonBuilder'
+  | 'curriculum';
 
 const TeacherDashboard = () => {
   const { user, logout, isTeacher } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs: TabType[] = ['performance', 'classes', 'students', 'lessonBuilder'];
+  const validTabs: TabType[] = [
+    'performance',
+    'classes',
+    'students',
+    'lessonBuilder',
+    'curriculum',
+  ];
   const tabFromUrlParam = searchParams.get('tab');
   const tabFromUrl = validTabs.includes(tabFromUrlParam as TabType)
     ? (tabFromUrlParam as TabType)
@@ -94,6 +113,7 @@ const TeacherDashboard = () => {
     { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
     { id: 'lessonBuilder' as TabType, label: 'Lesson Builder', icon: FileText },
+    { id: 'curriculum' as TabType, label: 'Curriculum', icon: Layers },
   ];
 
   const renderTabContent = () => {
@@ -117,6 +137,14 @@ const TeacherDashboard = () => {
         );
       case 'lessonBuilder':
         return <LessonBuilder teacherId={user.id} />;
+      case 'curriculum':
+        return (
+          <CurriculumTab
+            teacherId={user.id}
+            teacherName={resolvedName}
+            onOpenLessonBuilder={() => handleTabChange('lessonBuilder')}
+          />
+        );
       default:
         return (
           <TeacherPerformance
