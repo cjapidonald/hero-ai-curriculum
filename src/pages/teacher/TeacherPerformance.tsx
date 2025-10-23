@@ -546,9 +546,6 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     <Card>
       <CardHeader>
         <CardTitle>Evaluation Feedback</CardTitle>
-        <CardDescription>
-          Scores and notes shared by admin so you can track your teaching impact.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <EvaluationsList mode="teacher" />
