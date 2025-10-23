@@ -63,8 +63,8 @@ BEGIN
     start_date
   )
   VALUES (
-    'Starters A',
-    'stage_2'::public.cambridge_stage,
+    'Alvin Stage 1',
+    'stage_1'::public.cambridge_stage,
     'Donald Cjapi',
     v_teacher_id,
     12,
@@ -91,7 +91,7 @@ BEGIN
   RETURNING id INTO v_class_starters;
 
   IF v_class_starters IS NULL THEN
-    SELECT id INTO v_class_starters FROM public.classes WHERE class_name = 'Starters A' LIMIT 1;
+    SELECT id INTO v_class_starters FROM public.classes WHERE class_name = 'Alvin Stage 1' LIMIT 1;
   END IF;
 
   INSERT INTO public.classes (
@@ -108,8 +108,8 @@ BEGIN
     start_date
   )
   VALUES (
-    'Movers B',
-    'stage_3'::public.cambridge_stage,
+    'Alvin Stage 2',
+    'stage_2'::public.cambridge_stage,
     'Donald Cjapi',
     v_teacher_id,
     10,
@@ -136,7 +136,7 @@ BEGIN
   RETURNING id INTO v_class_movers;
 
   IF v_class_movers IS NULL THEN
-    SELECT id INTO v_class_movers FROM public.classes WHERE class_name = 'Movers B' LIMIT 1;
+    SELECT id INTO v_class_movers FROM public.classes WHERE class_name = 'Alvin Stage 2' LIMIT 1;
   END IF;
 
   INSERT INTO public.classes (
@@ -153,8 +153,8 @@ BEGIN
     start_date
   )
   VALUES (
-    'Flyers C',
-    'stage_4'::public.cambridge_stage,
+    'Alvin Stage 3',
+    'stage_3'::public.cambridge_stage,
     'Donald Cjapi',
     v_teacher_id,
     8,
@@ -181,13 +181,18 @@ BEGIN
   RETURNING id INTO v_class_flyers;
 
   IF v_class_flyers IS NULL THEN
-    SELECT id INTO v_class_flyers FROM public.classes WHERE class_name = 'Flyers C' LIMIT 1;
+    SELECT id INTO v_class_flyers FROM public.classes WHERE class_name = 'Alvin Stage 3' LIMIT 1;
   END IF;
 
   -- Seed sample curriculum lessons for Donald
   INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
+    class,
+    class_id,
+    stage,
+    curriculum_stage,
+    title,
     subject,
     lesson_title,
     lesson_date,
@@ -209,8 +214,13 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
+    'Alvin Stage 1',
+    v_class_starters,
+    'Stage 1',
+    'Stage 1',
+    'Alvin Stage 1 - Unit 1: Welcome to Class',
     'English',
-    'Starters A - Unit 1: Welcome to Class',
+    'Alvin Stage 1 - Unit 1: Welcome to Class',
     CURRENT_DATE + 1,
     'Speaking, Listening',
     'Students can greet classmates and share one fact about themselves.',
@@ -222,22 +232,27 @@ BEGIN
     'https://activities.heroschool.com/classroom-scavenger',
     'assessment',
     'Exit Ticket: Share One New Friend''s Name',
-    'https://forms.heroschool.com/starters-welcome-checkout',
+    'https://forms.heroschool.com/alvin-stage1-welcome-checkout',
     'homework',
     'Family Interview: My School Day',
     'https://printables.heroschool.com/family-interview'
   WHERE NOT EXISTS (
-    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Starters A - Unit 1: Welcome to Class'
+    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Alvin Stage 1 - Unit 1: Welcome to Class'
   );
 
   SELECT id INTO v_curriculum_starters
   FROM public.curriculum
-  WHERE lesson_title = 'Starters A - Unit 1: Welcome to Class'
+  WHERE lesson_title = 'Alvin Stage 1 - Unit 1: Welcome to Class'
   LIMIT 1;
 
   INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
+    class,
+    class_id,
+    stage,
+    curriculum_stage,
+    title,
     subject,
     lesson_title,
     lesson_date,
@@ -259,8 +274,13 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
+    'Alvin Stage 2',
+    v_class_movers,
+    'Stage 2',
+    'Stage 2',
+    'Alvin Stage 2 - Project: My Town',
     'English',
-    'Movers B - Project: My Town',
+    'Alvin Stage 2 - Project: My Town',
     CURRENT_DATE + 3,
     'Project Work, Writing',
     'Students can describe three key places in a town using complete sentences.',
@@ -272,22 +292,27 @@ BEGIN
     'https://projects.heroschool.com/ideal-town-map',
     'assessment',
     'Gallery Walk Peer Feedback',
-    'https://rubrics.heroschool.com/movers-peer-feedback',
+    'https://rubrics.heroschool.com/alvin-stage2-peer-feedback',
     'homework',
     'Write a Postcard from Your Town',
     'https://assignments.heroschool.com/postcard-template'
   WHERE NOT EXISTS (
-    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Movers B - Project: My Town'
+    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Alvin Stage 2 - Project: My Town'
   );
 
   SELECT id INTO v_curriculum_movers
   FROM public.curriculum
-  WHERE lesson_title = 'Movers B - Project: My Town'
+  WHERE lesson_title = 'Alvin Stage 2 - Project: My Town'
   LIMIT 1;
 
   INSERT INTO public.curriculum (
     teacher_id,
     teacher_name,
+    class,
+    class_id,
+    stage,
+    curriculum_stage,
+    title,
     subject,
     lesson_title,
     lesson_date,
@@ -309,8 +334,13 @@ BEGIN
   SELECT
     v_teacher_id,
     'Donald Cjapi',
+    'Alvin Stage 3',
+    v_class_flyers,
+    'Stage 3',
+    'Stage 3',
+    'Alvin Stage 3 - Reading Adventure',
     'English',
-    'Flyers C - Reading Adventure',
+    'Alvin Stage 3 - Reading Adventure',
     CURRENT_DATE + 5,
     'Reading, Discussion',
     'Students can summarise a narrative text and identify the main problem and solution.',
@@ -322,17 +352,17 @@ BEGIN
     'https://activities.heroschool.com/jigsaw-reading',
     'assessment',
     'Exit Quiz: Plot & Problem',
-    'https://quizzes.heroschool.com/plot-problem-check',
+    'https://quizzes.heroschool.com/alvin-stage3-plot-problem',
     'homework',
     'Reading Log: Adventure Stories',
-    'https://printables.heroschool.com/reading-log'
+    'https://printables.heroschool.com/alvin-stage3-reading-log'
   WHERE NOT EXISTS (
-    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Flyers C - Reading Adventure'
+    SELECT 1 FROM public.curriculum WHERE lesson_title = 'Alvin Stage 3 - Reading Adventure'
   );
 
   SELECT id INTO v_curriculum_flyers
   FROM public.curriculum
-  WHERE lesson_title = 'Flyers C - Reading Adventure'
+  WHERE lesson_title = 'Alvin Stage 3 - Reading Adventure'
   LIMIT 1;
 
   -- Create linked class sessions so teachers can see scheduling examples

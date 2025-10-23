@@ -253,6 +253,6 @@ INSERT INTO teachers (name, surname, email, password, subject) VALUES
   ('Michael', 'Chen', 'michael@heroschool.com', 'teacher123', 'English');
 
 INSERT INTO dashboard_students (name, surname, email, password, class, gender, subject, level, birthday, attendance_rate, parent_name, parent_zalo_nr, sessions, sessions_left) VALUES
-  ('Emma', 'Nguyen', 'emma@student.com', 'student123', 'Starters A', 'Female', 'English', 'Pre-A1', '2016-05-15', 95.5, 'Mrs. Nguyen', '0987654321', 40, 20),
-  ('Liam', 'Tran', 'liam@student.com', 'student123', 'Movers B', 'Male', 'English', 'A1', '2015-08-22', 88.3, 'Mr. Tran', '0987654322', 50, 15),
-  ('Olivia', 'Le', 'olivia@student.com', 'student123', 'Starters A', 'Female', 'English', 'Pre-A1', '2016-03-10', 92.0, 'Mrs. Le', '0987654323', 35, 25);
+  ('Emma', 'Nguyen', 'emma@student.com', 'student123', 'Alvin Stage 1', 'Female', 'English', 'Pre-A1', '2016-05-15', 95.5, 'Mrs. Nguyen', '0987654321', 40, 20),
+  ('Liam', 'Tran', 'liam@student.com', 'student123', 'Alvin Stage 2', 'Male', 'English', 'A1', '2015-08-22', 88.3, 'Mr. Tran', '0987654322', 50, 15),
+  ('Olivia', 'Le', 'olivia@student.com', 'student123', 'Alvin Stage 1', 'Female', 'English', 'Pre-A1', '2016-03-10', 92.0, 'Mrs. Le', '0987654323', 35, 25);
