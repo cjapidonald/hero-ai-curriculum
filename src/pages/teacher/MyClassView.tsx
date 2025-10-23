@@ -346,88 +346,8 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Left: Attendance */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Attendance</CardTitle>
-              <div className="flex items-center gap-2 text-sm">
-                <UserCheck className="w-4 h-4" />
-                <span className="font-semibold">
-                  {presentCount} / {students.length}
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Quick Actions */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMarkAllPresent}
-                >
-                  Mark All Present
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleMarkAllAbsent}
-                >
-                  Mark All Absent
-                </Button>
-              </div>
-
-              {/* Student List */}
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {students.map((student) => (
-                  <div
-                    key={student.id}
-                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent"
-                  >
-                    <Checkbox
-                      checked={student.present}
-                      onCheckedChange={() => handleToggleAttendance(student.id)}
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium">{student.full_name}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewStudent(student)}
-                    >
-                      View Dashboard
-                    </Button>
-                    {student.present && (
-                      <Badge variant="default">Present</Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Save Button */}
-              <Button
-                onClick={handleSaveAttendance}
-                disabled={saving}
-                className="w-full"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? 'Saving...' : attendanceSaved ? 'Update Attendance' : 'Save Attendance'}
-              </Button>
-
-              {attendanceSaved && (
-                <p className="text-sm text-center text-muted-foreground">
-                  Last saved: {new Date().toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Right: Lesson Plan */}
-        <Card>
+        {/* Left: Lesson Plan */}
+        <Card className="order-1">
           <CardHeader>
             <CardTitle>Lesson Plan</CardTitle>
           </CardHeader>
@@ -468,6 +388,68 @@ const MyClassView = ({ sessionId, onBack }: MyClassViewProps) => {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Right: Attendance & Students */}
+        <Card className="order-2">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Students & Attendance</CardTitle>
+              <div className="flex items-center gap-2 text-sm">
+                <UserCheck className="w-4 h-4" />
+                <span className="font-semibold">
+                  {presentCount} / {students.length}
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleMarkAllPresent}>
+                  Mark All Present
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleMarkAllAbsent}>
+                  Mark All Absent
+                </Button>
+              </div>
+
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {students.map((student) => (
+                  <div
+                    key={student.id}
+                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/70 transition-colors"
+                  >
+                    <Checkbox
+                      checked={student.present}
+                      onCheckedChange={() => handleToggleAttendance(student.id)}
+                      aria-label={`Mark ${student.full_name} present`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleViewStudent(student)}
+                      className="flex-1 text-left"
+                    >
+                      <p className="font-medium hover:underline">{student.full_name}</p>
+                      <p className="text-xs text-muted-foreground">Click to open dashboard</p>
+                    </button>
+                    {student.present && <Badge variant="default">Present</Badge>}
+                  </div>
+                ))}
+              </div>
+
+              <Button onClick={handleSaveAttendance} disabled={saving} className="w-full">
+                <Save className="w-4 h-4 mr-2" />
+                {saving ? 'Saving...' : attendanceSaved ? 'Update Attendance' : 'Save Attendance'}
+              </Button>
+
+              {attendanceSaved && (
+                <p className="text-sm text-center text-muted-foreground">
+                  Last saved: {new Date().toLocaleTimeString()}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

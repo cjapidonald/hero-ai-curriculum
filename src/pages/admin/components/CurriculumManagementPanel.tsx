@@ -3,14 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -18,26 +10,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, BookOpen, Pencil, Eye, Play } from 'lucide-react';
-import { format, isPast, isToday, parseISO } from 'date-fns';
+import { isPast, isToday, parseISO } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import LessonBuilderModal from '@/components/teacher/LessonBuilderModal';
 import ViewLessonPlanModal from '@/components/teacher/ViewLessonPlanModal';
 import MyClassView from '@/pages/teacher/MyClassView';
-import {
-  formatStageLabel,
-  getPlanStatusConfig,
-  getTeachingStatusConfig,
-} from '@/lib/curriculum/status-utils';
+import CurriculumSessionTable from '@/components/curriculum/CurriculumSessionTable';
+import type { CurriculumSessionRow } from '@/components/curriculum/CurriculumSessionTable';
 
-interface AdminClassSession {
-  id: string;
-  session_date: string;
-  start_time: string;
-  end_time: string;
-  status: 'scheduled' | 'building' | 'ready' | 'in_progress' | 'completed' | 'cancelled';
-  lesson_plan_completed: boolean;
+interface AdminClassSession extends CurriculumSessionRow {
   attendance_taken: boolean;
   attendance_count: number;
   total_students: number;
@@ -46,12 +27,6 @@ interface AdminClassSession {
   teacher_id: string;
   notes: string | null;
   location: string | null;
-  class_name?: string;
-  class_stage?: string;
-  class_level?: string | null;
-  class_teacher?: string | null;
-  lesson_title?: string;
-  lesson_subject?: string;
   teacher_name?: string | null;
 }
 
@@ -238,16 +213,6 @@ const CurriculumManagementPanel = () => {
     setFilteredSessions(filtered);
   }, [filteredByTeacher, selectedStatus, dateFilter]);
 
-  const getPlanStatusBadge = (session: AdminClassSession) => {
-    const config = getPlanStatusConfig(session.lesson_plan_completed, session.status);
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const getTeachingStatusBadge = (status: string) => {
-    const config = getTeachingStatusConfig(status);
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
   const handleBuildLesson = async (session: AdminClassSession) => {
     try {
       if (!session.lesson_plan_completed && session.status === 'scheduled') {
@@ -406,116 +371,15 @@ const CurriculumManagementPanel = () => {
           </Select>
         </div>
 
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Lesson</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Lesson Plan</TableHead>
-                <TableHead>Teaching Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    Loading sessions...
-                  </TableCell>
-                </TableRow>
-              ) : filteredSessions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    No sessions match the selected filters.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredSessions.map((session) => {
-                  const stageLabel =
-                    formatStageLabel(session.class_stage) || session.class_level || 'Stage TBD';
-                  const subjectLabel = session.lesson_subject || 'General English';
-                  const teacherLabel = session.teacher_name || 'Assigned Teacher';
-                  const startLabel = session.status === 'in_progress' ? 'Resume Lesson' : 'Start Lesson';
-
-                  return (
-                    <TableRow key={session.id}>
-                      <TableCell>
-                        <div className="font-medium">{session.lesson_title || 'No lesson assigned'}</div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <BookOpen className="w-3 h-3" />
-                          {subjectLabel}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <div>
-                            <div className="font-medium">
-                              {format(parseISO(session.session_date), 'EEE, MMM d')}
-                            </div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {session.start_time} - {session.end_time}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {stageLabel ? (
-                          <Badge variant="secondary">{stageLabel}</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Stage TBD</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{session.class_name || 'Unassigned class'}</div>
-                        <div className="text-sm text-muted-foreground">{session.location || 'Classroom TBD'}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{teacherLabel}</div>
-                        <div className="text-sm text-muted-foreground">Lead Instructor</div>
-                      </TableCell>
-                      <TableCell>{getPlanStatusBadge(session)}</TableCell>
-                      <TableCell>{getTeachingStatusBadge(session.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleBuildLesson(session)}
-                          >
-                            <Pencil className="w-4 h-4 mr-1" />
-                            Lesson Builder
-                          </Button>
-                          {session.lesson_plan_completed && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewLesson(session)}
-                            >
-                              <Eye className="w-4 h-4 mr-1" />
-                              View Plan
-                            </Button>
-                          )}
-                          {canStartLesson(session) && (
-                            <Button size="sm" onClick={() => handleStartLesson(session)}>
-                              <Play className="w-4 h-4 mr-1" />
-                              {startLabel}
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <CurriculumSessionTable
+          sessions={filteredSessions}
+          loading={loading}
+          emptyState="No sessions match the selected filters."
+          onBuildLesson={handleBuildLesson}
+          onViewLesson={handleViewLesson}
+          onStartLesson={handleStartLesson}
+          canStartLesson={canStartLesson}
+        />
       </CardContent>
 
       {selectedSession && (
