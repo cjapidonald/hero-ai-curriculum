@@ -23,6 +23,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { AlertCircle, Clock, DollarSign, TrendingUp, MessageSquare, Award } from "lucide-react";
 import EvaluationsList from "@/components/teacher/EvaluationsList";
 import PerformanceDashboard from "@/components/teacher/PerformanceDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TeacherStandardsBoard } from "@/components/teacher/TeacherStandardsBoard";
 
 type TeacherPayrollRecord = Tables<"teacher_payroll">;
 type TeacherRecord = Tables<"teachers">;
@@ -542,6 +544,13 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     };
   }, [teacherId]);
 
+  const teacherDisplayName = useMemo(() => {
+    const parts = [teacherProfile?.name, teacherProfile?.surname].filter(
+      (part): part is string => Boolean(part),
+    );
+    return parts.length ? parts.join(" ") : undefined;
+  }, [teacherProfile]);
+
   const evaluationSection = (
     <Card>
       <CardHeader>
@@ -556,38 +565,37 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
     </Card>
   );
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Evaluation Feedback</CardTitle>
-            <CardDescription>Loading the latest evaluation insights...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="h-20 animate-pulse rounded-lg bg-muted" />
-              <div className="h-32 animate-pulse rounded-lg bg-muted" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance & Payroll</CardTitle>
-            <CardDescription>Loading your recent payroll information...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-32 animate-pulse rounded-lg bg-muted" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const renderOverviewContent = () => {
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Overview</CardTitle>
+              <CardDescription>Loading your teaching insights...</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="h-6 w-1/3 animate-pulse rounded bg-muted" />
+                <div className="h-40 animate-pulse rounded bg-muted" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance & Payroll</CardTitle>
+              <CardDescription>Loading your recent payroll information...</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-32 animate-pulse rounded bg-muted" />
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
-  if (error) {
-    return (
-      <div className="space-y-6">
-        {evaluationSection}
+    if (error) {
+      return (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -603,14 +611,11 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
             <p className="text-sm text-destructive">{error}</p>
           </CardContent>
         </Card>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!records.length) {
-    return (
-      <div className="space-y-6">
-        {evaluationSection}
+    if (!records.length) {
+      return (
         <Card>
           <CardHeader>
             <CardTitle>Performance & Payroll</CardTitle>
@@ -623,15 +628,90 @@ const TeacherPerformance = ({ teacherId, teacherProfile }: TeacherPerformancePro
             </p>
           </CardContent>
         </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <PerformanceDashboard teacherId={teacherId} />
+        <TeacherMetrics records={records} teacherProfile={teacherProfile} />
       </div>
     );
-  }
+  };
+
+  const renderTeacherStandardsContent = () => (
+    <div className="space-y-6">
+      <TeacherStandardsBoard mode="teacher" teacherId={teacherId} teacherName={teacherDisplayName} />
+    </div>
+  );
+
+  const renderPlaceholderCard = (
+    title: string,
+    description: string,
+    Icon: typeof Clock,
+    helper?: string,
+  ) => (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <CardTitle>{title}</CardTitle>
+        </div>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      {helper ? (
+        <CardContent>
+          <p className="text-sm text-muted-foreground">{helper}</p>
+        </CardContent>
+      ) : null}
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
-      <PerformanceDashboard teacherId={teacherId} />
-      {evaluationSection}
-      <TeacherMetrics records={records} teacherProfile={teacherProfile} />
+      <Tabs defaultValue="evaluations" className="space-y-6">
+        <TabsList className="flex flex-wrap gap-2">
+          <TabsTrigger value="evaluations">Evaluations</TabsTrigger>
+          <TabsTrigger value="overview">Performance Overview</TabsTrigger>
+          <TabsTrigger value="standards">Teacher Standards</TabsTrigger>
+          <TabsTrigger value="pd">PD Trainings</TabsTrigger>
+          <TabsTrigger value="research">My Research</TabsTrigger>
+          <TabsTrigger value="notebook">My Notebook</TabsTrigger>
+        </TabsList>
+        <TabsContent value="evaluations" className="space-y-6">
+          {evaluationSection}
+        </TabsContent>
+        <TabsContent value="overview" className="space-y-6">
+          {renderOverviewContent()}
+        </TabsContent>
+        <TabsContent value="standards" className="space-y-6">
+          {renderTeacherStandardsContent()}
+        </TabsContent>
+        <TabsContent value="pd" className="space-y-6">
+          {renderPlaceholderCard(
+            "PD Trainings",
+            "Plan and reflect on professional development milestones.",
+            Clock,
+            "Track completed and upcoming training sessions in a central place soon.",
+          )}
+        </TabsContent>
+        <TabsContent value="research" className="space-y-6">
+          {renderPlaceholderCard(
+            "My Research",
+            "Document classroom research initiatives and share impact findings.",
+            TrendingUp,
+            "You'll soon be able to capture action research cycles, evidence, and outcomes here.",
+          )}
+        </TabsContent>
+        <TabsContent value="notebook" className="space-y-6">
+          {renderPlaceholderCard(
+            "My Notebook",
+            "Capture daily reflections and keep private teaching notes.",
+            MessageSquare,
+            "A personal notebook experience is on the way so you can jot down insights from each lesson.",
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
