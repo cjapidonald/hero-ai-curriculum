@@ -14,6 +14,7 @@ interface Student {
   attendance_rate: number;
   sessions_left: number;
   enrollment_id?: string | null;
+  class_id?: string | null;
 }
 
 interface MyClassesProps {
@@ -135,6 +136,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
         return {
           ...student,
           enrollment_id: enrollmentKey ? enrollmentMap.get(enrollmentKey) ?? null : null,
+          class_id: classId ?? null,
         };
       });
 
