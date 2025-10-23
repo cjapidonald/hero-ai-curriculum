@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -49,12 +49,19 @@ interface Resource {
   image_url: string | null;
 }
 
-interface LessonResource {
+interface LessonPlanResource {
   id: string;
-  resource_id: string;
-  position: number;
+  title: string;
+  type: string;
+  duration: number | null;
   notes: string | null;
-  resource: Resource;
+  position: number;
+  description?: string | null;
+}
+
+interface LessonPlanData {
+  resources: LessonPlanResource[];
+  total_duration: number;
 }
 
 interface ClassSession {
@@ -63,16 +70,18 @@ interface ClassSession {
   class_id: string;
   lesson_title?: string;
   lesson_subject?: string;
+  lesson_plan_data?: LessonPlanData | null;
   lesson_plan_content?: {
-    resources?: LessonResource[];
+    resources?: unknown[];
   };
 }
 
 interface LessonBuilderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  lesson: Partial<ClassSession>;
-  onSave: (lessonPlanData: Record<string, unknown>) => void | Promise<void>;
+  lesson?: Partial<ClassSession>;
+  session?: Partial<ClassSession>;
+  onSave: (lessonPlanData: LessonPlanData) => void | Promise<void>;
 }
 
 function SortableResource({
@@ -80,7 +89,7 @@ function SortableResource({
   onDelete,
   onUpdateNotes,
 }: {
-  lessonResource: LessonResource;
+  lessonResource: LessonPlanResource;
   onDelete: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
 }) {
@@ -104,11 +113,11 @@ function SortableResource({
         <div className="flex-1">
           <div className="flex items-start justify-between mb-2">
             <div>
-              <h4 className="font-medium">{lessonResource.resource.title}</h4>
+              <h4 className="font-medium">{lessonResource.title}</h4>
               <div className="flex gap-2 mt-1">
-                <Badge variant="outline">{lessonResource.resource.resource_type}</Badge>
-                {lessonResource.resource.duration_minutes && (
-                  <Badge variant="secondary">{lessonResource.resource.duration_minutes} min</Badge>
+                <Badge variant="outline">{lessonResource.type}</Badge>
+                {lessonResource.duration !== null && (
+                  <Badge variant="secondary">{lessonResource.duration} min</Badge>
                 )}
               </div>
             </div>
@@ -121,9 +130,9 @@ function SortableResource({
             </Button>
           </div>
 
-          {lessonResource.resource.description && (
+          {lessonResource.description && (
             <p className="text-sm text-muted-foreground mb-2">
-              {lessonResource.resource.description}
+              {lessonResource.description}
             </p>
           )}
 
@@ -140,8 +149,15 @@ function SortableResource({
   );
 }
 
-const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilderModalProps) => {
-  const [lessonResources, setLessonResources] = useState<LessonResource[]>([]);
+const LessonBuilderModal = ({
+  open,
+  onOpenChange,
+  lesson,
+  session,
+  onSave,
+}: LessonBuilderModalProps) => {
+  const lessonData = (lesson || session || {}) as Partial<ClassSession>;
+  const [lessonResources, setLessonResources] = useState<LessonPlanResource[]>([]);
   const [availableResources, setAvailableResources] = useState<Resource[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -157,16 +173,53 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
     })
   );
 
-  useEffect(() => {
-    if (open) {
-      if (lesson.lesson_plan_content) {
-        setLessonResources(lesson.lesson_plan_content.resources || []);
-      }
-      loadAvailableResources();
-    }
-  }, [open, lesson]);
+  const mapStoredResources = (resources: unknown[] = []): LessonPlanResource[] => {
+    return resources
+      .map((resource, index) => {
+        if (!resource || typeof resource !== 'object') {
+          return null;
+        }
 
-  const loadAvailableResources = async () => {
+        const typedResource = resource as Record<string, unknown>;
+        const nestedResource = typedResource.resource as Record<string, unknown> | undefined;
+
+        const id =
+          (typedResource.id as string | undefined) ||
+          (typedResource.resource_id as string | undefined) ||
+          (nestedResource?.id as string | undefined);
+
+        if (!id) {
+          return null;
+        }
+
+        return {
+          id,
+          title:
+            (typedResource.title as string | undefined) ||
+            (nestedResource?.title as string | undefined) ||
+            'Untitled Resource',
+          type:
+            (typedResource.type as string | undefined) ||
+            (nestedResource?.resource_type as string | undefined) ||
+            'resource',
+          duration:
+            (typedResource.duration as number | null | undefined) ??
+            (nestedResource?.duration_minutes as number | null | undefined) ??
+            null,
+          notes: (typedResource.notes as string | null | undefined) ?? null,
+          position: (typedResource.position as number | undefined) ?? index,
+          description:
+            (typedResource.description as string | null | undefined) ??
+            (nestedResource?.description as string | null | undefined) ??
+            null,
+        };
+      })
+      .filter((resource): resource is LessonPlanResource => resource !== null)
+      .sort((a, b) => a.position - b.position)
+      .map((resource, index) => ({ ...resource, position: index }));
+  };
+
+  const loadAvailableResources = useCallback(async () => {
     setLoading(true);
     try {
       // Load available resources
@@ -179,59 +232,94 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
       if (resourcesError) throw resourcesError;
 
       setAvailableResources(resourcesData || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading resources:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load resources',
+        description: error instanceof Error ? error.message : 'Failed to load resources',
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (open) {
+      const currentLesson = (lesson || session || {}) as Partial<ClassSession>;
+      const storedResources =
+        currentLesson.lesson_plan_data?.resources ||
+        currentLesson.lesson_plan_content?.resources ||
+        [];
+      setLessonResources(mapStoredResources(storedResources));
+      void loadAvailableResources();
+    }
+  }, [open, lesson, session, loadAvailableResources]);
+
+  const normalizePositions = (resources: LessonPlanResource[]) =>
+    resources.map((resource, index) => ({ ...resource, position: index }));
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = lessonResources.findIndex((lr) => lr.id === active.id);
-      const newIndex = lessonResources.findIndex((lr) => lr.id === over.id);
+      setLessonResources((prev) => {
+        const oldIndex = prev.findIndex((lr) => lr.id === active.id);
+        const newIndex = prev.findIndex((lr) => lr.id === over.id);
 
-      const newOrder = arrayMove(lessonResources, oldIndex, newIndex);
-      setLessonResources(newOrder);
+        if (oldIndex === -1 || newIndex === -1) {
+          return prev;
+        }
+
+        return normalizePositions(arrayMove(prev, oldIndex, newIndex));
+      });
     }
   };
 
   const handleAddResource = (resource: Resource) => {
-    const newLessonResource: LessonResource = {
-      id: resource.id,
-      resource_id: resource.id,
-      position: lessonResources.length,
-      notes: '',
-      resource: resource,
-    };
-    setLessonResources([...lessonResources, newLessonResource]);
+    setLessonResources((prev) => {
+      if (prev.some((lr) => lr.id === resource.id)) {
+        return prev;
+      }
+
+      const newLessonResource: LessonPlanResource = {
+        id: resource.id,
+        title: resource.title,
+        type: resource.resource_type,
+        duration: resource.duration_minutes,
+        notes: '',
+        position: prev.length,
+        description: resource.description,
+      };
+
+      return normalizePositions([...prev, newLessonResource]);
+    });
   };
 
   const handleDeleteResource = (id: string) => {
-    setLessonResources(lessonResources.filter((lr) => lr.id !== id));
+    setLessonResources((prev) => normalizePositions(prev.filter((lr) => lr.id !== id)));
   };
 
   const handleUpdateNotes = (id: string, notes: string) => {
-    setLessonResources(
-      lessonResources.map((lr) => (lr.id === id ? { ...lr, notes } : lr))
+    setLessonResources((prev) =>
+      normalizePositions(prev.map((lr) => (lr.id === id ? { ...lr, notes } : lr)))
     );
   };
 
   const handleSave = async () => {
-    const lessonPlanData = {
-      resources: lessonResources.map((lr, index) => ({
-        ...lr,
-        position: index,
-      })),
-      total_duration: lessonResources.reduce(
-        (sum, lr) => sum + (lr.resource.duration_minutes || 0),
+    const normalizedResources = lessonResources.map((lr, index) => ({
+      id: lr.id,
+      title: lr.title,
+      type: lr.type,
+      duration: lr.duration,
+      notes: lr.notes,
+      position: index,
+    }));
+
+    const lessonPlanData: LessonPlanData = {
+      resources: normalizedResources,
+      total_duration: normalizedResources.reduce(
+        (sum, lr) => sum + (lr.duration ?? 0),
         0
       ),
     };
@@ -260,7 +348,7 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
         <DialogHeader>
           <DialogTitle>Build Lesson Plan</DialogTitle>
           <DialogDescription>
-            {lesson.lesson_title || 'Untitled Lesson'} - Add and organize resources for your lesson
+            {lessonData.lesson_title || 'Untitled Lesson'} - Add and organize resources for your lesson
           </DialogDescription>
         </DialogHeader>
 
@@ -362,7 +450,7 @@ const LessonBuilderModal = ({ open, onOpenChange, lesson, onSave }: LessonBuilde
                           size="sm"
                           variant="ghost"
                           onClick={() => handleAddResource(resource)}
-                          disabled={lessonResources.some((lr) => lr.resource_id === resource.id)}
+                          disabled={lessonResources.some((lr) => lr.id === resource.id)}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
