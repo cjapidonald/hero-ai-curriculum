@@ -31,7 +31,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
-import EvaluationsList from "@/components/teacher/EvaluationsList";
 import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
 
 type DashboardStudent = Tables<"dashboard_students">;
@@ -62,7 +61,20 @@ interface LevelDistribution {
   count: number;
 }
 
-type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit' | 'evaluations';
+type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
+
+const ADMIN_TABS: AdminTabType[] = [
+  'overview',
+  'students',
+  'teachers',
+  'curriculum',
+  'skills',
+  'calendar',
+  'classes',
+  'finance',
+  'analytics',
+  'audit',
+];
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -72,7 +84,8 @@ export default function AdminDashboard() {
   const chartTheme = useChartTheme(isDark);
   const tooltipStyles = getTooltipStyles(isDark);
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab') as AdminTabType | null;
+  const tabParam = searchParams.get('tab');
+  const tabFromUrl = ADMIN_TABS.includes(tabParam as AdminTabType) ? (tabParam as AdminTabType) : null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(tabFromUrl || 'overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -594,7 +607,6 @@ export default function AdminDashboard() {
             <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
             <TabsTrigger value="analytics" aria-label="Analytics tab">Analytics</TabsTrigger>
             <TabsTrigger value="audit" aria-label="Audit Log tab">Audit Log</TabsTrigger>
-            <TabsTrigger value="evaluations" aria-label="Evaluations tab">Evaluations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -849,20 +861,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="audit" className="space-y-4">
             <AuditLogViewer />
-          </TabsContent>
-
-          <TabsContent value="evaluations" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Teacher Evaluations</CardTitle>
-                <CardDescription>View and manage all teacher evaluations</CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <EvaluationsList mode="admin" />
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>
