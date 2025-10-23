@@ -6,7 +6,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Line, ComposedChart
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { format, subMonths, subWeeks } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import type { Tables } from "@/integrations/supabase/types";
 
 interface AssessmentProgressProps {
   studentId: string;
@@ -14,12 +13,18 @@ interface AssessmentProgressProps {
 
 type TimeFilter = '1week' | '1month' | '3months' | '6months' | '9months';
 
-type AssessmentRecord = Tables<"assessment">;
-
-const RUBRIC_KEYS = ["r1", "r2", "r3", "r4", "r5"] as const;
+interface EvaluationRecord {
+  score: number | null;
+  evaluation_date: string | null;
+  text_feedback?: string | null;
+  skills: {
+    skill_name?: string | null;
+    subject?: string | null;
+  } | null;
+}
 
 export default function AssessmentProgress({ studentId }: AssessmentProgressProps) {
-  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
+  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('1month');
@@ -43,24 +48,25 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
       }
     };
 
-    const fetchAssessments = async () => {
+    const fetchEvaluations = async () => {
       try {
         setLoading(true);
         setError(null);
         const dateFilter = getDateFilter();
 
         const { data, error } = await supabase
-          .from("assessment")
-          .select("*")
+          .from("skill_evaluations")
+          .select(
+            `score, text_feedback, evaluation_date, skills:skill_id (skill_name, subject)`
+          )
           .eq("student_id", studentId)
-          .eq("published", true)
-          .gte("assessment_date", dateFilter.toISOString())
-          .order("assessment_date", { ascending: true });
+          .gte("evaluation_date", dateFilter.toISOString())
+          .order("evaluation_date", { ascending: true });
 
         if (error) throw error;
-        setAssessments((data ?? []) as AssessmentRecord[]);
+        setEvaluations((data ?? []) as EvaluationRecord[]);
       } catch (error: any) {
-        console.error("Error fetching assessments:", error);
+        console.error("Error fetching evaluations:", error);
         setError(error.message);
       } finally {
         setLoading(false);
@@ -68,49 +74,67 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
     };
 
     if (studentId) {
-      fetchAssessments();
+      fetchEvaluations();
     }
   }, [studentId, timeFilter]);
 
-  const prepareLineChartData = () =>
-    assessments
-      .filter((assessment) => Boolean(assessment.assessment_date))
-      .map((assessment) => {
-        const dateLabel = assessment.assessment_date
-          ? format(new Date(assessment.assessment_date), "MMM dd")
-          : "Unknown";
-        return {
-          date: dateLabel,
-          score: assessment.total_score ?? 0,
-          test: assessment.test_name,
-        };
-      });
+  const prepareLineChartData = () => {
+    const grouped = evaluations.reduce<Record<string, { total: number; count: number }>>((acc, evaluation) => {
+      if (!evaluation.evaluation_date || evaluation.score === null) {
+        return acc;
+      }
 
-  const prepareBarChartData = () =>
-    assessments.map((assessment) => {
-      const label =
-        assessment.test_name.length > 20
-          ? `${assessment.test_name.substring(0, 20)}...`
-          : assessment.test_name;
-      return {
-        test: label,
-        r1: assessment.r1_score ?? 0,
-        r2: assessment.r2_score ?? 0,
-        r3: assessment.r3_score ?? 0,
-        r4: assessment.r4_score ?? 0,
-        r5: assessment.r5_score ?? 0,
-      };
-    });
+      const dateKey = new Date(evaluation.evaluation_date).toISOString().slice(0, 10);
+      if (!acc[dateKey]) {
+        acc[dateKey] = { total: 0, count: 0 };
+      }
+
+      acc[dateKey].total += Number(evaluation.score);
+      acc[dateKey].count += 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, bucket]) => ({
+        date: format(new Date(date), "MMM dd"),
+        score: bucket.count ? Number((bucket.total / bucket.count).toFixed(2)) : 0,
+      }));
+  };
+
+  const prepareBarChartData = () => {
+    const grouped = evaluations.reduce<Record<string, { total: number; count: number }>>((acc, evaluation) => {
+      if (evaluation.score === null) {
+        return acc;
+      }
+
+      const label = evaluation.skills?.skill_name || evaluation.skills?.subject || "Unspecified";
+      if (!acc[label]) {
+        acc[label] = { total: 0, count: 0 };
+      }
+
+      acc[label].total += Number(evaluation.score);
+      acc[label].count += 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([label, bucket]) => ({
+        label,
+        average: bucket.count ? Number((bucket.total / bucket.count).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => b.average - a.average);
+  };
 
   const calculateAverageScore = () => {
-    if (!assessments.length) return 0;
-    const sum = assessments.reduce((acc, assessment) => acc + (assessment.total_score || 0), 0);
-    return (sum / assessments.length).toFixed(2);
+    if (!evaluations.length) return 0;
+    const sum = evaluations.reduce((acc, evaluation) => acc + (evaluation.score || 0), 0);
+    return evaluations.length ? (sum / evaluations.length).toFixed(2) : "0";
   };
 
   const getLatestScore = () => {
-    if (!assessments.length) return 0;
-    return assessments[assessments.length - 1].total_score || 0;
+    if (!evaluations.length) return 0;
+    return evaluations[evaluations.length - 1].score || 0;
   };
 
   const lineChartData = prepareLineChartData();
@@ -118,30 +142,14 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
 
   const chartConfig = {
     score: {
-      label: 'Total Score',
+      label: 'Average Score',
       color: 'hsl(var(--chart-1))',
     },
-    r1: {
-      label: 'Rubric 1',
-      color: 'hsl(var(--chart-1))',
-    },
-    r2: {
-      label: 'Rubric 2',
+    average: {
+      label: 'Average Score',
       color: 'hsl(var(--chart-2))',
     },
-    r3: {
-      label: 'Rubric 3',
-      color: 'hsl(var(--chart-3))',
-    },
-    r4: {
-      label: 'Rubric 4',
-      color: 'hsl(var(--chart-4))',
-    },
-    r5: {
-      label: 'Rubric 5',
-      color: 'hsl(var(--chart-5))',
-    },
-  };
+  } as const;
 
   if (loading) {
     return (
@@ -155,7 +163,7 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-2">
-          <p className="text-lg font-semibold text-destructive">Failed to load assessments</p>
+          <p className="text-lg font-semibold text-destructive">Failed to load evaluations</p>
           <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
@@ -167,8 +175,8 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
       {/* Filters and Stats */}
       <Card>
         <CardHeader>
-          <CardTitle>Assessment Performance</CardTitle>
-          <CardDescription>Track your test scores and progress</CardDescription>
+          <CardTitle>Evaluation Performance</CardTitle>
+          <CardDescription>Track your curriculum-aligned evaluations over time</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-6">
@@ -197,8 +205,8 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
               <p className="text-3xl font-bold">{getLatestScore()}</p>
             </div>
             <div className="bg-muted/50 p-4 rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Assessments</p>
-              <p className="text-3xl font-bold">{assessments.length}</p>
+              <p className="text-sm text-muted-foreground">Total Evaluations</p>
+              <p className="text-3xl font-bold">{evaluations.length}</p>
             </div>
           </div>
         </CardContent>
@@ -208,7 +216,7 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
       <Card>
         <CardHeader>
           <CardTitle>Score Trend</CardTitle>
-          <CardDescription>Your assessment scores over time</CardDescription>
+          <CardDescription>Your evaluation scores over time</CardDescription>
         </CardHeader>
         <CardContent>
           {lineChartData.length > 0 ? (
@@ -234,8 +242,8 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
                   tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
                   tickLine={false}
                   axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
-                  domain={[0, 5]}
-                  ticks={[0, 1, 2, 3, 4, 5]}
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
                 />
                 <ChartTooltip
                   content={
@@ -255,17 +263,17 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground">
-              <p>No assessments available for the selected period</p>
+              <p>No evaluations available for the selected period</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Rubric Breakdown Bar Chart */}
+      {/* Skill Breakdown Bar Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Rubric Breakdown</CardTitle>
-          <CardDescription>Performance by assessment criteria</CardDescription>
+          <CardTitle>Skill Breakdown</CardTitle>
+          <CardDescription>Average performance by evaluated skill</CardDescription>
         </CardHeader>
         <CardContent>
           {barChartData.length > 0 ? (
@@ -275,16 +283,14 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
             >
               <BarChart data={barChartData}>
                 <defs>
-                  {RUBRIC_KEYS.map((rubric, index) => (
-                    <linearGradient key={rubric} id={`${rubric}Gradient`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={`var(--color-${rubric})`} stopOpacity={0.85 - index * 0.08} />
-                      <stop offset="95%" stopColor={`var(--color-${rubric})`} stopOpacity={0.15} />
-                    </linearGradient>
-                  ))}
+                  <linearGradient id="evaluationSkillGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--color-average)" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="var(--color-average)" stopOpacity={0.2} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(148,163,184,0.25)" vertical={false} strokeDasharray="4 8" />
                 <XAxis
-                  dataKey="test"
+                  dataKey="label"
                   tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 11, fontWeight: 500 }}
                   tickLine={false}
                   axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
@@ -296,25 +302,20 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
                   tick={{ fill: "rgba(71,85,105,0.75)", fontSize: 12 }}
                   tickLine={false}
                   axisLine={{ stroke: "rgba(148,163,184,0.3)" }}
-                  domain={[0, 5]}
-                  ticks={[0, 1, 2, 3, 4, 5]}
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
                 />
                 <ChartTooltip
                   content={
                     <ChartTooltipContent className="border border-slate-700/60 bg-slate-900/75 text-slate-100 backdrop-blur-xl" />
                   }
                 />
-                <Legend wrapperStyle={{ fontSize: 12, fontWeight: 500 }} />
-                <Bar dataKey="r1" fill="url(#r1Gradient)" radius={[8, 8, 8, 8]} />
-                <Bar dataKey="r2" fill="url(#r2Gradient)" radius={[8, 8, 8, 8]} />
-                <Bar dataKey="r3" fill="url(#r3Gradient)" radius={[8, 8, 8, 8]} />
-                <Bar dataKey="r4" fill="url(#r4Gradient)" radius={[8, 8, 8, 8]} />
-                <Bar dataKey="r5" fill="url(#r5Gradient)" radius={[8, 8, 8, 8]} />
+                <Bar dataKey="average" fill="url(#evaluationSkillGradient)" radius={[8, 8, 8, 8]} />
               </BarChart>
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center h-[350px] text-muted-foreground">
-              <p>No rubric data available</p>
+              <p>No skill evaluation data available</p>
             </div>
           )}
         </CardContent>
@@ -323,32 +324,36 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
       {/* Assessment List */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Assessments</CardTitle>
-          <CardDescription>Detailed view of your assessments</CardDescription>
+          <CardTitle>Recent Evaluations</CardTitle>
+          <CardDescription>Detailed view of your latest skill evaluations</CardDescription>
         </CardHeader>
         <CardContent>
-          {assessments.length > 0 ? (
+          {evaluations.length > 0 ? (
             <div className="space-y-4">
-              {assessments.map((assessment) => (
+              {evaluations.map((evaluation, index) => (
                 <div
-                  key={assessment.id}
+                  key={`${evaluation.evaluation_date}-${index}`}
                   className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="font-semibold">{assessment.test_name}</h3>
+                      <h3 className="font-semibold">
+                        {evaluation.skills?.skill_name || evaluation.skills?.subject || 'Curriculum Skill'}
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(assessment.assessment_date), 'MMMM dd, yyyy')}
+                        {evaluation.evaluation_date
+                          ? format(new Date(evaluation.evaluation_date), 'MMMM dd, yyyy')
+                          : 'Date unavailable'}
                       </p>
                     </div>
                     <Badge variant="default" className="text-lg">
-                      {assessment.total_score}
+                      {evaluation.score ?? 'N/A'}
                     </Badge>
                   </div>
-                  {assessment.feedback && (
+                  {evaluation.text_feedback && (
                     <div className="mt-3 p-3 bg-muted/30 rounded-md">
                       <p className="text-sm font-medium mb-1">Teacher Feedback:</p>
-                      <p className="text-sm text-muted-foreground">{assessment.feedback}</p>
+                      <p className="text-sm text-muted-foreground">{evaluation.text_feedback}</p>
                     </div>
                   )}
                 </div>
@@ -356,7 +361,7 @@ export default function AssessmentProgress({ studentId }: AssessmentProgressProp
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              No assessments available for the selected period
+              No evaluations available for the selected period
             </p>
           )}
         </CardContent>

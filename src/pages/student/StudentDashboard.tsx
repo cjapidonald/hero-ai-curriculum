@@ -19,8 +19,15 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 import { ProfileEditor } from "@/components/ProfileEditor";
 
 type DashboardStudent = Tables<"dashboard_students">;
-type SkillsEvaluationRecord = Tables<"skills_evaluation">;
-type AssessmentRecord = Tables<"assessment">;
+interface SkillEvaluationRecord {
+  score: number | null;
+  evaluation_date: string | null;
+  skills: {
+    skill_name?: string | null;
+    subject?: string | null;
+    category?: string | null;
+  } | null;
+}
 
 interface RadarDataPoint {
   subject: string;
@@ -35,8 +42,7 @@ export default function StudentDashboard() {
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recentSkills, setRecentSkills] = useState<SkillsEvaluationRecord[]>([]);
-  const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
+  const [recentEvaluations, setRecentEvaluations] = useState<SkillEvaluationRecord[]>([]);
   const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
   const fetchStudentData = useCallback(async () => {
@@ -63,33 +69,40 @@ export default function StudentDashboard() {
       const student = data as DashboardStudent;
       setStudentData(student);
 
-      const { data: skillsData, error: skillsError } = await supabase
-        .from("skills_evaluation")
-        .select("*")
+      const { data: evaluationData, error: evaluationsError } = await supabase
+        .from("skill_evaluations")
+        .select(
+          `score, evaluation_date, skills:skill_id (skill_name, subject, category)`
+        )
         .eq("student_id", student.id)
         .order("evaluation_date", { ascending: false })
-        .limit(20);
+        .limit(100);
 
-      if (skillsError) {
-        console.error('Error loading skills:', skillsError);
-        setError(`Warning: Could not load skills data. ${skillsError.message}`);
+      if (evaluationsError) {
+        console.error('Error loading evaluations:', evaluationsError);
+        setError(`Warning: Could not load evaluation data. ${evaluationsError.message}`);
       }
 
-      if (skillsData) {
-        const typedSkills = skillsData as SkillsEvaluationRecord[];
-        setRecentSkills(typedSkills);
+      if (evaluationData) {
+        const typedEvaluations = (evaluationData as SkillEvaluationRecord[]) ?? [];
+        setRecentEvaluations(typedEvaluations);
 
-        const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
-          if (!skill.skill_category) {
+        const categoryAverages = typedEvaluations.reduce<Record<string, { total: number; count: number }>>((acc, evaluation) => {
+          if (evaluation.score === null) {
             return acc;
           }
 
-          const categoryKey = skill.skill_category;
+          const categoryKey =
+            evaluation.skills?.subject ||
+            evaluation.skills?.category ||
+            evaluation.skills?.skill_name ||
+            "Other";
+
           if (!acc[categoryKey]) {
             acc[categoryKey] = { total: 0, count: 0 };
           }
 
-          acc[categoryKey].total += skill.average_score ?? 0;
+          acc[categoryKey].total += Number(evaluation.score);
           acc[categoryKey].count += 1;
           return acc;
         }, {});
@@ -97,26 +110,9 @@ export default function StudentDashboard() {
         const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
           subject: category,
           score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-          fullMark: 5,
+          fullMark: 100,
         }));
         setSkillsRadarData(radarData);
-      }
-
-      const { data: assessmentsData, error: assessmentsError } = await supabase
-        .from("assessment")
-        .select("*")
-        .eq("student_id", student.id)
-        .eq("published", true)
-        .order("assessment_date", { ascending: false })
-        .limit(5);
-
-      if (assessmentsError) {
-        console.error('Error loading assessments:', assessmentsError);
-        setError(`Warning: Could not load assessment data. ${assessmentsError.message}`);
-      }
-
-      if (assessmentsData) {
-        setRecentAssessments(assessmentsData as AssessmentRecord[]);
       }
     } catch (error: any) {
       console.error("Error fetching student data:", error);
@@ -144,30 +140,14 @@ export default function StudentDashboard() {
       return;
     }
 
-    const skillsChannel = supabase
-      .channel('student-skills-updates')
+    const evaluationsChannel = supabase
+      .channel('student-skill-evaluations')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'skills_evaluation',
-          filter: `student_id=eq.${studentData.id}`,
-        },
-        () => {
-          void fetchStudentData();
-        }
-      )
-      .subscribe();
-
-    const assessmentChannel = supabase
-      .channel('student-assessment-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'assessment',
+          table: 'skill_evaluations',
           filter: `student_id=eq.${studentData.id}`,
         },
         () => {
@@ -177,16 +157,15 @@ export default function StudentDashboard() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(skillsChannel);
-      supabase.removeChannel(assessmentChannel);
+      supabase.removeChannel(evaluationsChannel);
     };
   }, [fetchStudentData, studentData?.id]);
 
-  const averageAssessmentScore = useMemo(() => {
-    if (!recentAssessments.length) return 0;
-    const total = recentAssessments.reduce((acc, assessment) => acc + (assessment.total_score ?? 0), 0);
-    return total / recentAssessments.length;
-  }, [recentAssessments]);
+  const averageEvaluationScore = useMemo(() => {
+    if (!recentEvaluations.length) return 0;
+    const total = recentEvaluations.reduce((acc, evaluation) => acc + (evaluation.score ?? 0), 0);
+    return recentEvaluations.length ? total / recentEvaluations.length : 0;
+  }, [recentEvaluations]);
 
   const handleLogout = () => {
     logout();
@@ -432,13 +411,13 @@ export default function StudentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-orange-600">
-                {recentAssessments.length > 0 ? averageAssessmentScore.toFixed(1) : "N/A"}
+                {recentEvaluations.length > 0 ? averageEvaluationScore.toFixed(1) : "N/A"}
               </div>
               <Progress
-                value={recentAssessments.length > 0 ? (averageAssessmentScore / 5) * 100 : 0}
+                value={recentEvaluations.length > 0 ? averageEvaluationScore : 0}
                 className="mt-2 h-2"
               />
-              <p className="text-xs text-muted-foreground mt-2">average assessment score</p>
+              <p className="text-xs text-muted-foreground mt-2">average evaluation score</p>
             </CardContent>
           </Card>
         </div>
@@ -535,7 +514,7 @@ export default function StudentDashboard() {
                   />
                   <PolarRadiusAxis
                     angle={90}
-                    domain={[0, 5]}
+                    domain={[0, 100]}
                     tick={{ fill: "rgba(100,116,139,0.65)", fontSize: 10 }}
                     tickLine={false}
                     axisLine={false}
@@ -569,7 +548,7 @@ export default function StudentDashboard() {
         <Tabs defaultValue="skills" className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="skills">Skills Progress</TabsTrigger>
-            <TabsTrigger value="assessments">Assessments</TabsTrigger>
+            <TabsTrigger value="assessments">Evaluations</TabsTrigger>
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="homework">Homework</TabsTrigger>
           </TabsList>
