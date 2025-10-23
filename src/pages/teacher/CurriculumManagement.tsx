@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import type { Tables } from '@/integrations/supabase/types';
 import {
   Select,
   SelectContent,
@@ -47,7 +47,36 @@ interface ClassSession {
   class_teacher?: string | null;
   lesson_title?: string;
   lesson_subject?: string;
+  isCurriculumOnly?: boolean;
 }
+
+interface ClassDetail {
+  name: string;
+  stage: string | null;
+  level: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  teacher_name: string | null;
+  current_students: number | null;
+  max_students: number | null;
+  classroom: string | null;
+  classroom_location: string | null;
+}
+
+type CurriculumRow = Tables<'curriculum'>;
+type ClassRow = Tables<'classes'>;
+type SessionQueryRow = ClassSession & {
+  classes?: {
+    class_name: ClassRow['class_name'] | null;
+    stage: ClassRow['stage'] | null;
+    level: ClassRow['level'];
+    teacher_name: ClassRow['teacher_name'] | null;
+  } | null;
+  curriculum?: {
+    lesson_title: CurriculumRow['lesson_title'] | null;
+    subject: CurriculumRow['subject'] | null;
+  } | null;
+};
 
 interface CurriculumManagementProps {
   teacherId: string;
@@ -62,6 +91,8 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('upcoming');
   const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+  const [classDetails, setClassDetails] = useState<Record<string, ClassDetail>>({});
+  const [usingCurriculumFallback, setUsingCurriculumFallback] = useState(false);
 
   // Modal states
   const [lessonBuilderOpen, setLessonBuilderOpen] = useState(false);
@@ -108,26 +139,204 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
     applyFilters();
   }, [sessions, selectedClassId, selectedStatus, dateFilter]);
 
+  const VALID_SESSION_STATUSES: ClassSession['status'][] = [
+    'scheduled',
+    'building',
+    'ready',
+    'in_progress',
+    'completed',
+    'cancelled',
+  ];
+
+  const normalizeDate = (value?: string | null) => {
+    if (!value) {
+      return format(new Date(), 'yyyy-MM-dd');
+    }
+
+    const parsed = parseISO(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return format(parsed, 'yyyy-MM-dd');
+    }
+
+    const fallbackDate = new Date(value);
+    if (!Number.isNaN(fallbackDate.getTime())) {
+      return format(fallbackDate, 'yyyy-MM-dd');
+    }
+
+    return format(new Date(), 'yyyy-MM-dd');
+  };
+
+  const determineStatus = (status: string | null, sessionDate: Date): ClassSession['status'] => {
+    if (status && VALID_SESSION_STATUSES.includes(status as ClassSession['status'])) {
+      return status as ClassSession['status'];
+    }
+
+    if (isToday(sessionDate)) {
+      return 'ready';
+    }
+
+    if (isPast(sessionDate)) {
+      return 'completed';
+    }
+
+    return 'scheduled';
+  };
+
+  const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return String(error);
+  };
+
+  const loadCurriculumFallback = async (
+    existingClassDetails: Record<string, ClassDetail>,
+    existingClasses: { id: string; name: string }[],
+  ) => {
+    try {
+      const { data: curriculumData, error: curriculumError } = await supabase
+        .from('curriculum')
+        .select(
+          `id, lesson_title, lesson_date, status, class_id, class, stage, curriculum_stage, subject, teacher_name, description`
+        )
+        .eq('teacher_id', teacherId)
+        .order('lesson_date', { ascending: true });
+
+      if (curriculumError) {
+        throw curriculumError;
+      }
+
+      const lessons: CurriculumRow[] = (curriculumData as CurriculumRow[]) || [];
+
+      if (lessons.length === 0) {
+        setSessions([]);
+        setUsingCurriculumFallback(false);
+        return;
+      }
+
+      const updatedClassDetails: Record<string, ClassDetail> = {
+        ...existingClassDetails,
+      };
+      const classEntries = new Map(existingClasses.map((c) => [c.id, c.name]));
+
+      const fallbackSessions: ClassSession[] = lessons.map((lesson) => {
+        const fallbackClassId = lesson.class_id || `curriculum-${lesson.id}`;
+
+        if (!updatedClassDetails[fallbackClassId]) {
+          updatedClassDetails[fallbackClassId] = {
+            name: lesson.class || 'Curriculum Lesson',
+            stage: lesson.stage || lesson.curriculum_stage,
+            level: lesson.curriculum_stage || lesson.stage,
+            start_time: null,
+            end_time: null,
+            teacher_name: lesson.teacher_name,
+            current_students: null,
+            max_students: null,
+            classroom: null,
+            classroom_location: null,
+          };
+        }
+
+        if (!classEntries.has(fallbackClassId)) {
+          classEntries.set(fallbackClassId, updatedClassDetails[fallbackClassId].name);
+        }
+
+        const normalizedDate = normalizeDate(lesson.lesson_date ?? undefined);
+        const dateForStatus = parseISO(normalizedDate);
+        const derivedStatus = determineStatus(lesson.status ?? null, dateForStatus);
+        const classData = updatedClassDetails[fallbackClassId];
+
+        return {
+          id: `curriculum-${lesson.id}`,
+          session_date: normalizedDate,
+          start_time: classData.start_time || '09:00',
+          end_time: classData.end_time || '10:30',
+          status: derivedStatus,
+          lesson_plan_completed: false,
+          attendance_taken: false,
+          attendance_count: 0,
+          total_students:
+            classData.current_students ?? classData.max_students ?? 0,
+          class_id: fallbackClassId,
+          curriculum_id: lesson.id,
+          teacher_id: teacherId,
+          notes: lesson.description,
+          location: classData.classroom_location || classData.classroom,
+          class_name: classData.name,
+          class_stage: classData.stage || undefined,
+          class_level: classData.level,
+          class_teacher: classData.teacher_name,
+          lesson_title: lesson.lesson_title,
+          lesson_subject: lesson.subject,
+          isCurriculumOnly: true,
+        };
+      });
+
+      setClassDetails(updatedClassDetails);
+      setClasses(
+        Array.from(classEntries.entries()).map(([id, name]) => ({ id, name }))
+      );
+      setSessions(fallbackSessions);
+      setUsingCurriculumFallback(true);
+    } catch (fallbackError: unknown) {
+      console.error('Error loading curriculum fallback:', fallbackError);
+      setUsingCurriculumFallback(false);
+      toast({
+        title: 'Unable to load curriculum data',
+        description: getErrorMessage(fallbackError) ||
+          'Failed to load curriculum lessons for this teacher.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
+    setUsingCurriculumFallback(false);
+
+    let localClassDetails: Record<string, ClassDetail> = {};
+    let localClassList: { id: string; name: string }[] = [];
+
     try {
-      // Load teacher's classes
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
-        .select('id, class_name, stage')
+        .select(
+          'id, class_name, stage, level, start_time, end_time, teacher_name, current_students, max_students, classroom, classroom_location'
+        )
         .eq('teacher_id', teacherId)
         .eq('is_active', true);
 
       if (classesError) throw classesError;
 
-      setClasses(
-        (classesData || []).map((c) => ({
-          id: c.id,
-          name: c.class_name,
-        }))
-      );
+      const classRecords: ClassRow[] = (classesData as ClassRow[]) || [];
 
-      // Load class sessions with joined data
+      localClassList = classRecords.map((c) => ({
+        id: c.id,
+        name: c.class_name,
+      }));
+
+      const details: Record<string, ClassDetail> = {};
+      classRecords.forEach((c) => {
+        details[c.id] = {
+          name: c.class_name,
+          stage: c.stage,
+          level: c.level,
+          start_time: c.start_time,
+          end_time: c.end_time,
+          teacher_name: c.teacher_name,
+          current_students: c.current_students,
+          max_students: c.max_students,
+          classroom: c.classroom,
+          classroom_location: c.classroom_location,
+        };
+      });
+
+      localClassDetails = details;
+
+      setClasses(localClassList);
+      setClassDetails(details);
+
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('class_sessions')
         .select(`
@@ -147,26 +356,46 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
         .order('session_date', { ascending: true })
         .order('start_time', { ascending: true });
 
-      if (sessionsError) throw sessionsError;
+      if (sessionsError) {
+        console.warn('Falling back to curriculum data due to session load error:', sessionsError);
+        await loadCurriculumFallback(localClassDetails, localClassList);
+        return;
+      }
 
-      const formattedSessions = (sessionsData || []).map((session: any) => ({
+      if (!sessionsData || sessionsData.length === 0) {
+        await loadCurriculumFallback(localClassDetails, localClassList);
+        return;
+      }
+
+      const sessionRecords: SessionQueryRow[] = (sessionsData as SessionQueryRow[]) || [];
+
+      const formattedSessions = sessionRecords.map((session) => ({
         ...session,
-        class_name: session.classes?.class_name,
-        class_stage: session.classes?.stage,
-        class_level: session.classes?.level,
-        class_teacher: session.classes?.teacher_name,
-        lesson_title: session.curriculum?.lesson_title,
-        lesson_subject: session.curriculum?.subject,
+        class_name: session.classes?.class_name ?? session.class_name,
+        class_stage: session.classes?.stage ?? session.class_stage,
+        class_level: session.classes?.level ?? session.class_level,
+        class_teacher: session.classes?.teacher_name ?? session.class_teacher,
+        lesson_title: session.curriculum?.lesson_title ?? session.lesson_title,
+        lesson_subject: session.curriculum?.subject ?? session.lesson_subject,
       }));
 
       setSessions(formattedSessions);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading data:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to load sessions',
+        description: getErrorMessage(error) || 'Failed to load sessions',
         variant: 'destructive',
       });
+
+      const fallbackDetails = Object.keys(localClassDetails).length
+        ? localClassDetails
+        : classDetails;
+      const fallbackClasses = localClassList.length ? localClassList : classes;
+
+      if (!usingCurriculumFallback) {
+        await loadCurriculumFallback(fallbackDetails, fallbackClasses);
+      }
     } finally {
       setLoading(false);
     }
@@ -205,7 +434,7 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; label: string }> = {
+    const variants: Record<string, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string }> = {
       scheduled: { variant: 'secondary', label: 'Scheduled' },
       building: { variant: 'default', label: 'Building' },
       ready: { variant: 'default', label: 'Ready' },
@@ -219,10 +448,18 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   };
 
   const canBuildLesson = (session: ClassSession) => {
+    if (session.isCurriculumOnly) {
+      return false;
+    }
+
     return ['scheduled', 'building'].includes(session.status);
   };
 
   const canStartClass = (session: ClassSession) => {
+    if (session.isCurriculumOnly) {
+      return false;
+    }
+
     const sessionDate = parseISO(session.session_date);
     if (session.status === 'in_progress') {
       return true;
@@ -244,11 +481,19 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
   };
 
   const handleBuildLesson = (session: ClassSession) => {
+    if (session.isCurriculumOnly) {
+      return;
+    }
+
     setSelectedSession(session);
     setLessonBuilderOpen(true);
   };
 
   const handleViewLesson = (session: ClassSession) => {
+    if (session.isCurriculumOnly) {
+      return;
+    }
+
     setSelectedSession(session);
     setViewLessonPlanOpen(true);
   };
@@ -278,11 +523,11 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
       if (onStartClass) {
         onStartClass(session.id);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error starting class:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to start class',
+        description: getErrorMessage(error) || 'Failed to start class',
         variant: 'destructive',
       });
     }
@@ -361,6 +606,13 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
             </Select>
           </div>
 
+          {usingCurriculumFallback && (
+            <div className="mb-4 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/40 p-4 text-sm text-muted-foreground">
+              No scheduled class sessions were found for this teacher. Displaying
+              lessons directly from the curriculum library so you can review upcoming plans.
+            </div>
+          )}
+
           {/* Sessions Table */}
           <div className="rounded-md border">
             <Table>
@@ -410,6 +662,9 @@ const CurriculumManagement = ({ teacherId, onStartClass }: CurriculumManagementP
                         <TableCell>
                           <div className="font-medium">{session.lesson_title || 'No lesson assigned'}</div>
                           <div className="text-sm text-muted-foreground">{subjectLabel}</div>
+                          {session.isCurriculumOnly && (
+                            <Badge variant="outline" className="mt-2">Curriculum Lesson</Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{session.class_name || 'Unassigned class'}</div>
