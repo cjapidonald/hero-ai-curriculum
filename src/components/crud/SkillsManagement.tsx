@@ -1,42 +1,45 @@
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Edit, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 interface SkillsManagementProps {
   showHeader?: boolean;
 }
 
+type SkillCategory =
+  | "listening"
+  | "speaking"
+  | "reading"
+  | "writing"
+  | "vocabulary"
+  | "grammar"
+  | "pronunciation"
+  | "fluency"
+  | "comprehension"
+  | "social_skills";
+
+type StageValue = "stage_1" | "stage_2" | "stage_3" | "stage_4" | "stage_5" | "stage_6";
+
 interface Skill {
   id: string;
   skill_name: string;
-  skill_category: string;
-  skill_description: string | null;
-  level: string | null;
-  stage: string | null;
-  assigned_classes: string[] | null;
-  evaluation_criteria: string[] | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface CurriculumSkill {
-  id: string;
-  skill_name?: string | null;
-  description?: string | null;
-  skill_code?: string | null;
-  subject?: string | null;
-  strand?: string | null;
-  substrand?: string | null;
-  curriculum_id?: string | null;
+  skill_code: string;
+  category: SkillCategory;
+  description: string | null;
+  target_stage: StageValue[] | null;
+  curriculum_id: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
   curriculum?: {
     id: string;
     lesson_title: string | null;
@@ -48,114 +51,148 @@ interface CurriculumOption {
   lesson_title: string | null;
 }
 
+const SKILL_CATEGORIES: { value: SkillCategory; label: string }[] = [
+  { value: "listening", label: "Listening" },
+  { value: "speaking", label: "Speaking" },
+  { value: "reading", label: "Reading" },
+  { value: "writing", label: "Writing" },
+  { value: "vocabulary", label: "Vocabulary" },
+  { value: "grammar", label: "Grammar" },
+  { value: "pronunciation", label: "Pronunciation" },
+  { value: "fluency", label: "Fluency" },
+  { value: "comprehension", label: "Comprehension" },
+  { value: "social_skills", label: "Social Skills" },
+];
+
+const STAGE_OPTIONS: { value: StageValue; label: string }[] = [
+  { value: "stage_1", label: "Stage 1" },
+  { value: "stage_2", label: "Stage 2" },
+  { value: "stage_3", label: "Stage 3" },
+  { value: "stage_4", label: "Stage 4" },
+  { value: "stage_5", label: "Stage 5" },
+  { value: "stage_6", label: "Stage 6" },
+];
+
+const createDefaultFormState = () => ({
+  skill_name: "",
+  skill_code: "",
+  category: SKILL_CATEGORIES[0]?.value ?? "listening",
+  description: "",
+  target_stage: [] as StageValue[],
+  curriculum_id: "",
+  is_active: true,
+});
+
 export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) => {
   const { toast } = useToast();
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [curriculumSkills, setCurriculumSkills] = useState<CurriculumSkill[]>([]);
   const [curriculums, setCurriculums] = useState<CurriculumOption[]>([]);
-  const [selectedCurriculum, setSelectedCurriculum] = useState<string>('all');
+  const [selectedCurriculum, setSelectedCurriculum] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | SkillCategory>("all");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
-
-  const [formData, setFormData] = useState({
-    skill_name: '',
-    skill_category: '',
-    skill_description: '',
-    level: '',
-    stage: '',
-    assigned_classes: [] as string[],
-    evaluation_criteria: [''] as string[],
-    is_active: true,
-  });
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [formData, setFormData] = useState(() => createDefaultFormState());
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      const [skillsRes, classesRes, curriculumSkillsRes, curriculumsRes] = await Promise.all([
-        supabase.from('skills_master' as any).select('*').order('created_at', { ascending: false }),
-        supabase.from('classes').select('*').eq('is_active', true),
+      const [skillsRes, curriculumsRes] = await Promise.all([
         supabase
-          .from('skills' as any)
-          .select('id, skill_name, description, skill_code, subject, strand, substrand, curriculum_id, curriculum:curriculum(id, lesson_title)')
-          .order('subject', { ascending: true })
-          .order('skill_code', { ascending: true }),
-        supabase.from('curriculum').select('id, lesson_title').order('lesson_title', { ascending: true }),
+          .from("skills")
+          .select(
+            "id, skill_name, skill_code, category, description, target_stage, curriculum_id, is_active, created_at, curriculum:curriculum(id, lesson_title)"
+          )
+          .order("skill_code", { ascending: true }),
+        supabase.from("curriculum").select("id, lesson_title").order("lesson_title", { ascending: true }),
       ]);
 
       if (skillsRes.error) throw skillsRes.error;
-      if (classesRes.error) throw classesRes.error;
-      if (curriculumSkillsRes.error) throw curriculumSkillsRes.error;
       if (curriculumsRes.error) throw curriculumsRes.error;
 
-      if (skillsRes.data) setSkills(skillsRes.data as any);
-      if (classesRes.data) setClasses(classesRes.data);
-      if (curriculumSkillsRes.data) setCurriculumSkills(curriculumSkillsRes.data as any);
-      if (curriculumsRes.data) setCurriculums(curriculumsRes.data as any);
+      setSkills((skillsRes.data ?? []) as Skill[]);
+      setCurriculums((curriculumsRes.data ?? []) as CurriculumOption[]);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching skills:", error);
       toast({
-        title: 'Error',
-        description: 'Failed to load skills',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to load skills",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    void fetchData();
+  }, []);
+
+  const resetForm = () => {
+    setEditingSkill(null);
+    setFormData(createDefaultFormState());
+  };
+
+  const toggleStage = (stage: StageValue) => {
+    setFormData((current) => {
+      const alreadySelected = current.target_stage.includes(stage);
+      const target_stage = alreadySelected
+        ? current.target_stage.filter((value) => value !== stage)
+        : [...current.target_stage, stage];
+
+      return { ...current, target_stage };
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.skill_name.trim() || !formData.skill_code.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Skill name and code are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload = {
+      skill_name: formData.skill_name.trim(),
+      skill_code: formData.skill_code.trim(),
+      category: formData.category,
+      description: formData.description.trim() || null,
+      target_stage: formData.target_stage.length > 0 ? formData.target_stage : null,
+      curriculum_id: formData.curriculum_id ? formData.curriculum_id : null,
+      is_active: formData.is_active,
+    };
+
     try {
-      // Filter out empty criteria
-      const filteredCriteria = formData.evaluation_criteria.filter(c => c.trim() !== '');
-
-      const dataToSave = {
-        ...formData,
-        evaluation_criteria: filteredCriteria,
-      };
-
       if (editingSkill) {
-        const { error } = await supabase
-          .from('skills_master' as any)
-          .update(dataToSave)
-          .eq('id', editingSkill.id);
-
+        const { error } = await supabase.from("skills").update(payload).eq("id", editingSkill.id);
         if (error) throw error;
-
         toast({
-          title: 'Success',
-          description: 'Skill updated successfully',
+          title: "Skill updated",
+          description: "The skill was updated successfully.",
         });
       } else {
-        const { error } = await supabase
-          .from('skills_master' as any)
-          .insert([dataToSave]);
-
+        const { error } = await supabase.from("skills").insert(payload);
         if (error) throw error;
-
         toast({
-          title: 'Success',
-          description: 'Skill created successfully',
+          title: "Skill created",
+          description: "The skill was created successfully.",
         });
       }
 
       setDialogOpen(false);
       resetForm();
-      fetchData();
+      await fetchData();
     } catch (error: any) {
-      console.error('Error saving skill:', error);
+      console.error("Error saving skill:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to save skill',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message ?? "Failed to save skill",
+        variant: "destructive",
       });
     }
   };
@@ -164,107 +201,93 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
     setEditingSkill(skill);
     setFormData({
       skill_name: skill.skill_name,
-      skill_category: skill.skill_category,
-      skill_description: skill.skill_description || '',
-      level: skill.level || '',
-      stage: skill.stage || '',
-      assigned_classes: skill.assigned_classes || [],
-      evaluation_criteria: skill.evaluation_criteria && skill.evaluation_criteria.length > 0
-        ? skill.evaluation_criteria
-        : [''],
-      is_active: skill.is_active,
+      skill_code: skill.skill_code,
+      category: skill.category,
+      description: skill.description ?? "",
+      target_stage: skill.target_stage ?? [],
+      curriculum_id: skill.curriculum_id ?? "",
+      is_active: skill.is_active ?? true,
     });
     setDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this skill?')) return;
+    if (!confirm("Are you sure you want to delete this skill?")) return;
 
     try {
-      const { error } = await supabase
-        .from('skills_master' as any)
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from("skills").delete().eq("id", id);
       if (error) throw error;
 
       toast({
-        title: 'Success',
-        description: 'Skill deleted successfully',
+        title: "Skill deleted",
+        description: "The skill was removed successfully.",
       });
 
-      fetchData();
+      await fetchData();
     } catch (error: any) {
+      console.error("Error deleting skill:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete skill',
-        variant: 'destructive',
+        title: "Error",
+        description: error.message ?? "Failed to delete skill",
+        variant: "destructive",
       });
     }
-  };
-
-  const resetForm = () => {
-    setEditingSkill(null);
-    setFormData({
-      skill_name: '',
-      skill_category: '',
-      skill_description: '',
-      level: '',
-      stage: '',
-      assigned_classes: [],
-      evaluation_criteria: [''],
-      is_active: true,
-    });
-  };
-
-  const addCriterion = () => {
-    setFormData({
-      ...formData,
-      evaluation_criteria: [...formData.evaluation_criteria, ''],
-    });
-  };
-
-  const removeCriterion = (index: number) => {
-    setFormData({
-      ...formData,
-      evaluation_criteria: formData.evaluation_criteria.filter((_, i) => i !== index),
-    });
-  };
-
-  const updateCriterion = (index: number, value: string) => {
-    const updated = [...formData.evaluation_criteria];
-    updated[index] = value;
-    setFormData({ ...formData, evaluation_criteria: updated });
   };
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'Speaking':
-        return 'bg-blue-100 text-blue-700';
-      case 'Reading':
-        return 'bg-green-100 text-green-700';
-      case 'Writing':
-        return 'bg-purple-100 text-purple-700';
-      case 'Listening':
-        return 'bg-orange-100 text-orange-700';
+      case "listening":
+        return "bg-blue-100 text-blue-700";
+      case "speaking":
+        return "bg-green-100 text-green-700";
+      case "reading":
+        return "bg-purple-100 text-purple-700";
+      case "writing":
+        return "bg-orange-100 text-orange-700";
+      case "vocabulary":
+        return "bg-yellow-100 text-yellow-700";
+      case "grammar":
+        return "bg-red-100 text-red-700";
+      case "pronunciation":
+        return "bg-teal-100 text-teal-700";
+      case "fluency":
+        return "bg-pink-100 text-pink-700";
+      case "comprehension":
+        return "bg-indigo-100 text-indigo-700";
+      case "social_skills":
+        return "bg-slate-100 text-slate-700";
       default:
-        return 'bg-gray-100 text-gray-700';
+        return "bg-muted text-foreground";
     }
   };
 
+  const getStageLabel = (stage: StageValue) => {
+    const match = STAGE_OPTIONS.find((option) => option.value === stage);
+    return match?.label ?? stage;
+  };
+
+  const filteredSkills = useMemo(() => {
+    if (categoryFilter === "all") {
+      return skills;
+    }
+
+    return skills.filter((skill) => skill.category === categoryFilter);
+  }, [skills, categoryFilter]);
+
   const curriculumNameMap = useMemo(() => {
     return curriculums.reduce((acc, curriculum) => {
-      acc[curriculum.id] = curriculum.lesson_title || 'Untitled curriculum';
+      acc[curriculum.id] = curriculum.lesson_title || "Untitled curriculum";
       return acc;
     }, {} as Record<string, string>);
   }, [curriculums]);
 
   const filteredCurriculumSkills = useMemo(() => {
-    if (selectedCurriculum === 'all') {
-      return curriculumSkills;
+    if (selectedCurriculum === "all") {
+      return skills;
     }
-    return curriculumSkills.filter((skill) => skill.curriculum_id === selectedCurriculum);
-  }, [curriculumSkills, selectedCurriculum]);
+
+    return skills.filter((skill) => skill.curriculum_id === selectedCurriculum);
+  }, [skills, selectedCurriculum]);
 
   if (loading) {
     return <div className="text-center py-8">Loading skills...</div>;
@@ -272,32 +295,35 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
 
   return (
     <div className="space-y-4">
-      <div className={showHeader ? 'flex justify-between items-center' : 'flex justify-end'}>
+      <div className={showHeader ? "flex justify-between items-center" : "flex justify-end"}>
         {showHeader && (
           <div>
             <h2 className="text-2xl font-bold">Skills Management</h2>
             <p className="text-sm text-muted-foreground">
-              Create and manage skills that can be assigned to classes
+              Create and manage skills that can be assigned across the curriculum
             </p>
           </div>
         )}
-        <Dialog open={dialogOpen} onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog
+          open={dialogOpen}
+          onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Add Skill
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingSkill ? 'Edit Skill' : 'Add New Skill'}</DialogTitle>
+              <DialogTitle>{editingSkill ? "Edit Skill" : "Add New Skill"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="skill_name">Skill Name *</Label>
                   <Input
                     id="skill_name"
@@ -308,47 +334,47 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
                   />
                 </div>
                 <div>
+                  <Label htmlFor="skill_code">Skill Code *</Label>
+                  <Input
+                    id="skill_code"
+                    value={formData.skill_code}
+                    onChange={(e) => setFormData({ ...formData, skill_code: e.target.value })}
+                    required
+                    placeholder="e.g., 1Nc.01"
+                  />
+                </div>
+                <div>
                   <Label htmlFor="skill_category">Category *</Label>
                   <Select
-                    value={formData.skill_category}
-                    onValueChange={(value) => setFormData({ ...formData, skill_category: value })}
-                    required
+                    value={formData.category}
+                    onValueChange={(value: SkillCategory) => setFormData({ ...formData, category: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Speaking">Speaking</SelectItem>
-                      <SelectItem value="Reading">Reading</SelectItem>
-                      <SelectItem value="Writing">Writing</SelectItem>
-                      <SelectItem value="Listening">Listening</SelectItem>
+                      {SKILL_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="level">Level</Label>
-                  <Select value={formData.level} onValueChange={(value) => setFormData({ ...formData, level: value })}>
+                  <Label htmlFor="curriculum_id">Curriculum Link</Label>
+                  <Select
+                    value={formData.curriculum_id || ""}
+                    onValueChange={(value) => setFormData({ ...formData, curriculum_id: value })}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
+                      <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Beginner">Beginner</SelectItem>
-                      <SelectItem value="Pre-A1">Pre-A1</SelectItem>
-                      <SelectItem value="A1">A1</SelectItem>
-                      <SelectItem value="A2">A2</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2">
-                  <Label htmlFor="stage">Stage</Label>
-                  <Select value={formData.stage} onValueChange={(value) => setFormData({ ...formData, stage: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5', 'Stage 6'].map((stage) => (
-                        <SelectItem key={stage} value={stage}>
-                          {stage}
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {curriculums.map((curriculum) => (
+                        <SelectItem key={curriculum.id} value={curriculum.id}>
+                          {curriculum.lesson_title || "Untitled curriculum"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -357,160 +383,165 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
               </div>
 
               <div>
-                <Label htmlFor="skill_description">Description</Label>
+                <Label htmlFor="description">Description</Label>
                 <Textarea
-                  id="skill_description"
-                  value={formData.skill_description}
-                  onChange={(e) => setFormData({ ...formData, skill_description: e.target.value })}
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Describe what students should be able to do"
                   rows={3}
                 />
               </div>
 
-              <div>
-                <Label>Evaluation Criteria</Label>
-                <div className="space-y-2">
-                  {formData.evaluation_criteria.map((criterion, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        value={criterion}
-                        onChange={(e) => updateCriterion(index, e.target.value)}
-                        placeholder={`Criterion ${index + 1}`}
-                      />
-                      {formData.evaluation_criteria.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeCriterion(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addCriterion}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Criterion
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label>Assign to Classes</Label>
-                <div className="border rounded-lg p-4 space-y-2 max-h-40 overflow-y-auto">
-                  {classes.map((cls) => {
-                    const className = cls.name ?? cls.class_name ?? 'Unnamed class';
+              <div className="space-y-2">
+                <Label>Target Stages</Label>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {STAGE_OPTIONS.map((stage) => {
+                    const checked = formData.target_stage.includes(stage.value);
                     return (
-                      <div key={cls.id} className="flex items-center gap-2">
+                      <label
+                        key={stage.value}
+                        className="flex items-center gap-2 rounded-md border p-2 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
-                          id={`skill-class-${cls.id}`}
-                          checked={formData.assigned_classes.includes(className)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData({
-                                ...formData,
-                                assigned_classes: [...formData.assigned_classes, className],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                assigned_classes: formData.assigned_classes.filter((c) => c !== className),
-                              });
-                            }
-                          }}
+                          className="form-checkbox"
+                          checked={checked}
+                          onChange={() => toggleStage(stage.value)}
                         />
-                        <Label htmlFor={`skill-class-${cls.id}`}>
-                          {className} - {cls.level} ({cls.stage})
-                        </Label>
-                      </div>
+                        <span>{stage.label}</span>
+                      </label>
                     );
                   })}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Switch
                   id="is_active"
                   checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  Reset
                 </Button>
-                <Button type="submit">
-                  {editingSkill ? 'Update' : 'Create'} Skill
-                </Button>
+                <Button type="submit">{editingSkill ? "Save Changes" : "Create Skill"}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <Table className="text-sm">
-          <TableBody>
-            {skills.map((skill) => (
-              <TableRow key={skill.id}>
-                <TableCell className="font-medium whitespace-nowrap">{skill.skill_name}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <Badge className={getCategoryColor(skill.skill_category)}>
-                    {skill.skill_category}
-                  </Badge>
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {skill.level && <Badge variant="outline">{skill.level}</Badge>}
-                  {skill.stage && <Badge variant="outline" className="ml-1">{skill.stage}</Badge>}
-                </TableCell>
-                <TableCell className="min-w-[150px]">
-                  {skill.assigned_classes && skill.assigned_classes.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {skill.assigned_classes.map((cls, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {cls}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No classes</span>
-                  )}
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {skill.evaluation_criteria?.length || 0} criteria
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <Badge variant={skill.is_active ? 'default' : 'secondary'}>
-                    {skill.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="whitespace-nowrap">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEdit(skill)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(skill.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:w-72 space-y-1">
+            <Label className="text-sm font-medium">Filter by category</Label>
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => setCategoryFilter(value as "all" | SkillCategory)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {SKILL_CATEGORIES.map((category) => (
+                  <SelectItem key={category.value} value={category.value}>
+                    {category.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Showing {filteredSkills.length} of {skills.length} skills
+          </div>
+        </div>
+
+        <div className="border rounded-lg overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-[160px]">Skill</TableHead>
+                <TableHead className="min-w-[120px]">Code</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="min-w-[160px]">Target Stages</TableHead>
+                <TableHead>Curriculum</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[120px]">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredSkills.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    No skills found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredSkills.map((skill) => (
+                  <TableRow key={skill.id}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span>{skill.skill_name}</span>
+                        {skill.description && (
+                          <span className="text-xs text-muted-foreground truncate">
+                            {skill.description}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{skill.skill_code}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <Badge className={getCategoryColor(skill.category)}>
+                        {SKILL_CATEGORIES.find((item) => item.value === skill.category)?.label ?? skill.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {skill.target_stage && skill.target_stage.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {skill.target_stage.map((stage) => (
+                            <Badge key={stage} variant="outline" className="text-xs">
+                              {getStageLabel(stage)}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">All stages</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {skill.curriculum_id ? (
+                        <span>{skill.curriculum?.lesson_title ?? curriculumNameMap[skill.curriculum_id] ?? "Linked curriculum"}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Unassigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <Badge variant={skill.is_active ? "default" : "secondary"}>
+                        {skill.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(skill)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(skill.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -525,7 +556,7 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
                 <SelectItem value="all">All curriculums</SelectItem>
                 {curriculums.map((curriculum) => (
                   <SelectItem key={curriculum.id} value={curriculum.id}>
-                    {curriculum.lesson_title || 'Untitled curriculum'}
+                    {curriculum.lesson_title || "Untitled curriculum"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -533,7 +564,7 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
           </div>
 
           <div className="text-sm text-muted-foreground">
-            Showing {filteredCurriculumSkills.length} of {curriculumSkills.length} skills
+            Showing {filteredCurriculumSkills.length} of {skills.length} skills
           </div>
         </div>
 
@@ -545,15 +576,14 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
                   <TableHead>Curriculum</TableHead>
                   <TableHead>Skill</TableHead>
                   <TableHead>Code</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Strand</TableHead>
-                  <TableHead>Substrand</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Target Stages</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCurriculumSkills.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       No skills found for the selected curriculum.
                     </TableCell>
                   </TableRow>
@@ -561,15 +591,29 @@ export const SkillsManagement = ({ showHeader = true }: SkillsManagementProps) =
                   filteredCurriculumSkills.map((skill) => (
                     <TableRow key={skill.id}>
                       <TableCell>
-                        {skill.curriculum?.lesson_title || (skill.curriculum_id ? curriculumNameMap[skill.curriculum_id] : 'Unassigned')}
+                        {skill.curriculum?.lesson_title ||
+                          (skill.curriculum_id ? curriculumNameMap[skill.curriculum_id] : "Unassigned")}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {skill.skill_name || skill.description || 'Untitled skill'}
+                        {skill.skill_name || skill.description || "Untitled skill"}
                       </TableCell>
-                      <TableCell>{skill.skill_code || '-'}</TableCell>
-                      <TableCell>{skill.subject || '-'}</TableCell>
-                      <TableCell>{skill.strand || '-'}</TableCell>
-                      <TableCell>{skill.substrand || '-'}</TableCell>
+                      <TableCell>{skill.skill_code}</TableCell>
+                      <TableCell>
+                        {SKILL_CATEGORIES.find((item) => item.value === skill.category)?.label ?? skill.category}
+                      </TableCell>
+                      <TableCell>
+                        {skill.target_stage && skill.target_stage.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {skill.target_stage.map((stage) => (
+                              <Badge key={stage} variant="outline" className="text-xs">
+                                {getStageLabel(stage)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">All stages</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

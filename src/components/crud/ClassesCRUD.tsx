@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { ClassDetailDialog } from "@/pages/admin/components/ClassDetailDialog";
+import { DAY_OPTIONS } from "@/constants/days";
 
 interface ClassRecord {
   id: string;
@@ -84,18 +85,8 @@ export function ClassesCRUD() {
     { value: 'stage_6', label: 'Stage 6' },
   ];
 
-  const dayOptions = [
-    { value: 'Monday', label: 'Monday', short: 'Mon' },
-    { value: 'Tuesday', label: 'Tuesday', short: 'Tue' },
-    { value: 'Wednesday', label: 'Wednesday', short: 'Wed' },
-    { value: 'Thursday', label: 'Thursday', short: 'Thu' },
-    { value: 'Friday', label: 'Friday', short: 'Fri' },
-    { value: 'Saturday', label: 'Saturday', short: 'Sat' },
-    { value: 'Sunday', label: 'Sunday', short: 'Sun' },
-  ] as const;
-
   const getDayLabel = (value: string) =>
-    dayOptions.find((option) => option.value === value)?.label ?? value;
+    DAY_OPTIONS.find((option) => option.value === value)?.label ?? value;
 
   useEffect(() => {
     fetchClasses();
@@ -380,7 +371,7 @@ export function ClassesCRUD() {
               <div className="space-y-2">
                 <Label>Schedule Days</Label>
                 <div className="grid grid-cols-4 gap-2">
-                  {dayOptions.map((day) => (
+                  {DAY_OPTIONS.map((day) => (
                     <div key={day.value} className="flex items-center space-x-2">
                       <input
                         type="checkbox"
