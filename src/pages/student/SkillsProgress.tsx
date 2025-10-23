@@ -1,12 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Label } from "@/components/ui/label";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 interface SkillsProgressProps {
   studentId: string;
+}
+
+interface SkillProgressEvaluation {
+  score: number | null;
+  text_feedback: string | null;
+  evaluation_date: string;
+  teacher_id: string | null;
 }
 
 interface SkillProgress {
@@ -14,17 +32,28 @@ interface SkillProgress {
   skill_name: string;
   skill_code: string;
   subject: string;
-  strand: string;
-  substrand: string;
+  strand?: string | null;
+  substrand?: string | null;
   latest_score: number;
   average_score: number;
   evaluation_count: number;
-  evaluations: Array<{
-    score: number;
-    text_feedback: string;
-    evaluation_date: string;
-    teacher_id: string;
-  }>;
+  evaluations: SkillProgressEvaluation[];
+}
+
+interface SkillEvaluationResponse {
+  skill_id: string | null;
+  score: number | null;
+  text_feedback: string | null;
+  evaluation_date: string;
+  teacher_id: string | null;
+  skills: {
+    skill_name?: string | null;
+    skill_code?: string | null;
+    subject?: string | null;
+    strand?: string | null;
+    substrand?: string | null;
+    category?: string | null;
+  } | null;
 }
 
 const COLORS = ['#0088FE', '#E0E0E0'];
@@ -41,15 +70,97 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
         setLoading(true);
         setError(null);
 
-        const { data, error } = await supabase.rpc("get_student_skill_progress", {
-          p_student_id: studentId,
-        });
+        const { data, error } = await supabase
+          .from("skill_evaluations")
+          .select(
+            `
+            skill_id,
+            score,
+            text_feedback,
+            evaluation_date,
+            teacher_id,
+            skills (
+              skill_name,
+              skill_code,
+              subject,
+              strand,
+              substrand,
+              category
+            )
+          `,
+          )
+          .eq("student_id", studentId)
+          .not("skill_id", "is", null)
+          .order("evaluation_date", { ascending: true });
 
         if (error) throw error;
-        setSkillsProgress((data ?? []) as SkillProgress[]);
-      } catch (error: any) {
+
+        const grouped = (data as SkillEvaluationResponse[] | null)?.reduce(
+          (acc, evaluation) => {
+            if (!evaluation.skill_id) {
+              return acc;
+            }
+
+            if (!acc.has(evaluation.skill_id)) {
+              const skillMeta = evaluation.skills;
+              acc.set(evaluation.skill_id, {
+                skill_id: evaluation.skill_id,
+                skill_name:
+                  skillMeta?.skill_name ||
+                  skillMeta?.skill_code ||
+                  "Untitled Skill",
+                skill_code: skillMeta?.skill_code || "",
+                subject:
+                  skillMeta?.subject || skillMeta?.category || "General",
+                strand: skillMeta?.strand,
+                substrand: skillMeta?.substrand,
+                evaluations: [] as SkillProgressEvaluation[],
+              });
+            }
+
+            const skillProgress = acc.get(evaluation.skill_id)!;
+            skillProgress.evaluations.push({
+              score: evaluation.score,
+              text_feedback: evaluation.text_feedback,
+              evaluation_date: evaluation.evaluation_date,
+              teacher_id: evaluation.teacher_id,
+            });
+
+            return acc;
+          },
+          new Map<string, Omit<SkillProgress, "latest_score" | "average_score" | "evaluation_count">>(),
+        );
+
+        const formattedSkills: SkillProgress[] = Array.from(
+          grouped?.values() || [],
+        ).map((skill) => {
+          const scores = skill.evaluations
+            .map((evaluation) => evaluation.score)
+            .filter((score): score is number => typeof score === "number");
+
+          const latest_score = scores.length
+            ? Math.round(scores[scores.length - 1])
+            : 0;
+          const average_score = scores.length
+            ? Math.round(
+                scores.reduce((sum, value) => sum + value, 0) / scores.length,
+              )
+            : 0;
+
+          return {
+            ...skill,
+            latest_score,
+            average_score,
+            evaluation_count: skill.evaluations.length,
+          };
+        });
+
+        formattedSkills.sort((a, b) => a.skill_name.localeCompare(b.skill_name));
+        setSkillsProgress(formattedSkills);
+
+      } catch (error) {
         console.error("Error fetching skills progress:", error);
-        setError(error.message);
+        setError(error instanceof Error ? error.message : "Failed to load skills data");
       } finally {
         setLoading(false);
       }
@@ -60,12 +171,24 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
     }
   }, [studentId]);
 
-  // Calculate overall percentage
-  const overallPercentage = skillsProgress && skillsProgress.length > 0
-    ? Math.round(
-        skillsProgress.reduce((sum, skill) => sum + (skill.latest_score || 0), 0) / skillsProgress.length
-      )
-    : 0;
+  useEffect(() => {
+    if (!selectedSkillId && skillsProgress.length > 0) {
+      setSelectedSkillId(skillsProgress[0].skill_id);
+    }
+  }, [selectedSkillId, skillsProgress]);
+
+  const overallPercentage = useMemo(() => {
+    if (!skillsProgress.length) {
+      return 0;
+    }
+
+    const total = skillsProgress.reduce(
+      (sum, skill) => sum + (skill.latest_score || 0),
+      0,
+    );
+
+    return Math.round(total / skillsProgress.length);
+  }, [skillsProgress]);
 
   // Data for donut chart
   const donutData = [
@@ -78,8 +201,8 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
 
   // Data for line chart (skill progress over time)
   const lineChartData = selectedSkill?.evaluations?.map((evaluation, index) => ({
-    name: `Attempt ${index + 1}`,
-    score: evaluation.score,
+    name: `Milestone ${index + 1}`,
+    score: evaluation.score ?? 0,
     date: new Date(evaluation.evaluation_date).toLocaleDateString(),
   })) || [];
 
@@ -183,18 +306,11 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
 
       {/* Individual Skill Progress */}
       <Card>
-        <CardHeader>
-          <CardTitle>Individual Skill Progress</CardTitle>
-          <CardDescription>
-            Select a skill to see your progress over time
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Select Skill</Label>
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-xl font-semibold">
             <Select value={selectedSkillId} onValueChange={setSelectedSkillId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a skill to view progress" />
+              <SelectTrigger className="h-auto border-none bg-transparent px-0 py-0 text-left text-xl font-semibold focus:ring-0 focus:ring-offset-0">
+                <SelectValue placeholder="Select a skill to view progress" />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(skillsBySubject).map(([subject, skills]) => (
@@ -204,24 +320,35 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
                     </div>
                     {skills.map((skill) => (
                       <SelectItem key={skill.skill_id} value={skill.skill_id}>
-                        {skill.skill_code} - {skill.skill_name}
+                        {skill.skill_code ? `${skill.skill_code} · ` : ""}
+                        {skill.skill_name}
                       </SelectItem>
                     ))}
                   </div>
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </CardTitle>
+          <CardDescription>
+            Track detailed milestones for each evaluated skill. Click the title to switch skills.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!selectedSkill && (
+            <p className="text-sm text-muted-foreground">
+              Select a skill from the dropdown above to explore progress milestones.
+            </p>
+          )}
 
           {selectedSkill && (
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-sm font-medium">Latest Score</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{selectedSkill.latest_score || 0}%</div>
+                    <div className="text-2xl font-bold">{selectedSkill.latest_score ?? 0}%</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -230,7 +357,7 @@ export default function SkillsProgress({ studentId }: SkillsProgressProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {Math.round(selectedSkill.average_score || 0)}%
+                      {Math.round(selectedSkill.average_score ?? 0)}%
                     </div>
                   </CardContent>
                 </Card>
