@@ -129,8 +129,6 @@ const TeacherDashboard = () => {
         return (
           <div className="space-y-4">
             <div className="bg-background rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Manage Class Sessions</h2>
-              <p className="text-muted-foreground mb-4">Schedule and manage your class sessions with real-time sync</p>
               <CalendarSessionCRUD teacherId={user.id} />
             </div>
           </div>
