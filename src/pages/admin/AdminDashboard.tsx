@@ -9,16 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, BookOpen, Award, RefreshCw, Download, Search } from "lucide-react";
+import { LogOut, Users, GraduationCap, Calendar, DollarSign, TrendingUp, RefreshCw, Download, Search, BookOpen } from "lucide-react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
 import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
 import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
-import { SkillsManagement } from "@/components/crud/SkillsManagement";
-import { FullCurriculumView } from "@/components/crud/FullCurriculumView";
 import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
 import { ClassesCRUD } from "@/components/crud/ClassesCRUD";
-import { CurriculumCRUD } from "@/components/crud/CurriculumCRUD";
 import { exportToCSV } from "@/lib/export-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -32,7 +29,6 @@ import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
-import CurriculumManagementPanel from "@/pages/admin/components/CurriculumManagementPanel";
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
@@ -62,14 +58,12 @@ interface LevelDistribution {
   count: number;
 }
 
-type AdminTabType = 'overview' | 'students' | 'teachers' | 'curriculum' | 'skills' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
+type AdminTabType = 'overview' | 'students' | 'teachers' | 'calendar' | 'classes' | 'finance' | 'analytics' | 'audit';
 
 const ADMIN_TABS: AdminTabType[] = [
   'overview',
   'students',
   'teachers',
-  'curriculum',
-  'skills',
   'calendar',
   'classes',
   'finance',
@@ -597,12 +591,10 @@ export default function AdminDashboard() {
 
         {/* Charts and Tables */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTabType)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-10 h-auto" role="tablist" aria-label="Dashboard sections">
+          <TabsList className="grid w-full grid-cols-8 h-auto" role="tablist" aria-label="Dashboard sections">
             <TabsTrigger value="overview" aria-label="Overview tab (Ctrl+1)">Overview</TabsTrigger>
             <TabsTrigger value="students" aria-label="Students tab (Ctrl+2)">Students</TabsTrigger>
             <TabsTrigger value="teachers" aria-label="Teachers tab (Ctrl+3)">Teachers</TabsTrigger>
-            <TabsTrigger value="curriculum" aria-label="Full Curriculum tab">Curriculum</TabsTrigger>
-            <TabsTrigger value="skills" aria-label="Skills tab">Skills</TabsTrigger>
             <TabsTrigger value="calendar" aria-label="Calendar tab">Calendar</TabsTrigger>
             <TabsTrigger value="classes" aria-label="Classes tab (Ctrl+4)">Classes</TabsTrigger>
             <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
@@ -764,48 +756,6 @@ export default function AdminDashboard() {
               <CardContent className="px-0">
                 <div className="px-6">
                   <ClassesCRUD />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="curriculum" className="space-y-4">
-            <CurriculumManagementPanel />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Curriculum Management</CardTitle>
-                <CardDescription>Assign lessons to teachers and classes, and manage full curriculum content</CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <CurriculumCRUD enableTeacherSelection enableClassSelection />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Curriculum Library</CardTitle>
-                <CardDescription>Detailed view of every lesson with activity breakdowns</CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <FullCurriculumView />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="skills" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Skills Management</CardTitle>
-                <CardDescription>Manage skills and their assignments to classes</CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <SkillsManagement showHeader={false} />
                 </div>
               </CardContent>
             </Card>

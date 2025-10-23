@@ -1,28 +1,16 @@
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, Target, Calendar, BookOpen, Award, MapPin, Phone, User } from "lucide-react";
-import SkillsProgress from "@/pages/student/SkillsProgress";
-import AssessmentProgress from "@/pages/student/AssessmentProgress";
+import { TrendingUp, Target, Calendar, BookOpen, MapPin, Phone, User } from "lucide-react";
 import AttendanceChart from "@/pages/student/AttendanceChart";
 import HomeworkList from "@/pages/student/HomeworkList";
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
 
 type DashboardStudent = Tables<"dashboard_students">;
-type SkillsEvaluationRecord = Tables<"skills_evaluation">;
-type AssessmentRecord = Tables<"assessment">;
-
-interface RadarDataPoint {
-  subject: string;
-  score: number;
-  fullMark: number;
-}
-
 interface StudentDashboardViewerProps {
     studentId: string;
 }
@@ -30,9 +18,6 @@ interface StudentDashboardViewerProps {
 export default function StudentDashboardViewer({ studentId }: StudentDashboardViewerProps) {
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recentSkills, setRecentSkills] = useState<SkillsEvaluationRecord[]>([]);
-  const [recentAssessments, setRecentAssessments] = useState<AssessmentRecord[]>([]);
-  const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
   useEffect(() => {
     const fetchStudentData = async () => {
@@ -55,52 +40,6 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
         const student = data as DashboardStudent;
         setStudentData(student);
-
-        const { data: skillsData, error: skillsError } = await supabase
-          .from("skills_evaluation")
-          .select("*")
-          .eq("student_id", student.id)
-          .order("evaluation_date", { ascending: false })
-          .limit(20);
-
-        if (!skillsError && skillsData) {
-          const typedSkills = skillsData as SkillsEvaluationRecord[];
-          setRecentSkills(typedSkills);
-
-          const categoryAverages = typedSkills.reduce<Record<string, { total: number; count: number }>>((acc, skill) => {
-            if (!skill.skill_category) {
-              return acc;
-            }
-
-            const categoryKey = skill.skill_category;
-            if (!acc[categoryKey]) {
-              acc[categoryKey] = { total: 0, count: 0 };
-            }
-
-            acc[categoryKey].total += skill.average_score ?? 0;
-            acc[categoryKey].count += 1;
-            return acc;
-          }, {});
-
-          const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
-            subject: category,
-            score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-            fullMark: 5,
-          }));
-          setSkillsRadarData(radarData);
-        }
-
-        const { data: assessmentsData, error: assessmentsError } = await supabase
-          .from("assessment")
-          .select("*")
-          .eq("student_id", student.id)
-          .eq("published", true)
-          .order("assessment_date", { ascending: false })
-          .limit(5);
-
-        if (!assessmentsError && assessmentsData) {
-          setRecentAssessments(assessmentsData as AssessmentRecord[]);
-        }
       } catch (error) {
         console.error("Error fetching student data:", error);
       } finally {
@@ -110,12 +49,6 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
 
     void fetchStudentData();
   }, [studentId]);
-
-  const averageAssessmentScore = useMemo(() => {
-    if (!recentAssessments.length) return 0;
-    const total = recentAssessments.reduce((acc, assessment) => acc + (assessment.total_score ?? 0), 0);
-    return total / recentAssessments.length;
-  }, [recentAssessments]);
 
   if (loading) {
     return (
@@ -278,22 +211,6 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overall Performance</CardTitle>
-              <Award className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600">
-                {recentAssessments.length > 0 ? averageAssessmentScore.toFixed(1) : "N/A"}
-              </div>
-              <Progress
-                value={recentAssessments.length > 0 ? (averageAssessmentScore / 5) * 100 : 0}
-                className="mt-2 h-2"
-              />
-              <p className="text-xs text-muted-foreground mt-2">average assessment score</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Placement Test Results */}
@@ -336,43 +253,12 @@ export default function StudentDashboardViewer({ studentId }: StudentDashboardVi
           </CardContent>
         </Card>
 
-        {/* Skills Overview Radar Chart */}
-        {skillsRadarData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Skills Overview</CardTitle>
-              <CardDescription>Current performance across all skill categories</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <RadarChart data={skillsRadarData}>
-                  <PolarGrid stroke="#e5e7eb" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: "#6b7280", fontSize: 12 }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fill: "#6b7280", fontSize: 10 }} />
-                  <Radar name="Score" dataKey="score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
-                  <Tooltip />
-                </RadarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Tabs */}
-        <Tabs defaultValue="skills" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="skills">Skills Progress</TabsTrigger>
-            <TabsTrigger value="assessments">Assessments</TabsTrigger>
+        <Tabs defaultValue="attendance" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="homework">Homework</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="skills" className="space-y-4">
-            <SkillsProgress studentId={studentId} />
-          </TabsContent>
-
-          <TabsContent value="assessments" className="space-y-4">
-            <AssessmentProgress studentId={studentId} />
-          </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
             <AttendanceChart
