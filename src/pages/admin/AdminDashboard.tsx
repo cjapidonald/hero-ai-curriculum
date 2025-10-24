@@ -47,12 +47,7 @@ interface ClassRecord {
   is_active: boolean | null;
 }
 
-interface EventRecord {
-  id: string;
-  title: string;
-  event_date: string | null;
-  location: string | null;
-}
+// EventRecord removed - events table no longer exists
 
 interface LevelDistribution {
   level: string;
@@ -106,7 +101,6 @@ export default function AdminDashboard() {
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [classesPage, setClassesPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -195,12 +189,7 @@ export default function AdminDashboard() {
         .order("payment_date", { ascending: false })
         .limit(10);
 
-      const eventsRequest = supabase
-        .from("events")
-        .select("id, title, event_date, location")
-        .eq("is_published", true)
-        .gte("event_date", new Date().toISOString())
-        .order("event_date", { ascending: true });
+      // Events table was removed - no longer querying
 
       const { data: teachersData, error: teacherError } = await teacherRequest;
       if (teacherError) throw new Error(`Failed to fetch teachers: ${teacherError.message}`);
@@ -210,17 +199,14 @@ export default function AdminDashboard() {
         { data: studentsData, error: studentError },
         { data: classesData, error: classesError },
         { data: paymentsData, error: paymentsError },
-        { data: eventsData, error: eventsError },
-      ] = await Promise.all([studentsRequest, classesRequest, paymentsRequest, eventsRequest]);
+      ] = await Promise.all([studentsRequest, classesRequest, paymentsRequest]);
 
       if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
       if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
       if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
-      if (eventsError) throw new Error(`Failed to fetch events: ${eventsError.message}`);
 
       setStudents((studentsData ?? []) as DashboardStudent[]);
       setClasses((classesData ?? []) as ClassRecord[]);
-      setEvents((eventsData ?? []) as EventRecord[]);
 
       const totalRevenue =
         paymentsData?.reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0) ?? 0;
@@ -232,7 +218,7 @@ export default function AdminDashboard() {
         totalTeachers: teachersData?.length ?? 0,
         totalClasses: classesData?.length ?? 0,
         totalRevenue,
-        upcomingEvents: eventsData?.length ?? 0,
+        upcomingEvents: 0,
       });
 
       setLastUpdated(new Date());
@@ -310,25 +296,11 @@ export default function AdminDashboard() {
       )
       .subscribe();
 
-    const eventsChannel = supabase
-      .channel('admin-events-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'events',
-        },
-        handleRealtimeUpdate
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(studentsChannel);
       supabase.removeChannel(teachersChannel);
       supabase.removeChannel(classesChannel);
       supabase.removeChannel(paymentsChannel);
-      supabase.removeChannel(eventsChannel);
     };
   }, [user, navigate, fetchAdminData]);
 
