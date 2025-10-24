@@ -38,6 +38,12 @@ COMMENT ON TABLE public.evaluation_notifications IS 'Notifications for evaluatio
 
 -- RLS for notifications
 ALTER TABLE public.evaluation_notifications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.evaluation_notifications;
+DROP POLICY IF EXISTS "System can create notifications" ON public.evaluation_notifications;
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.evaluation_notifications;
+
 CREATE POLICY "Users can view their own notifications"
     ON public.evaluation_notifications
     FOR SELECT

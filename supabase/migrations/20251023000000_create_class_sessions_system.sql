@@ -68,6 +68,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_class_sessions_updated_at ON class_sessions;
+
 CREATE TRIGGER trigger_update_class_sessions_updated_at
   BEFORE UPDATE ON class_sessions
   FOR EACH ROW
@@ -97,6 +99,8 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_update_attendance_count ON attendance;
 
 CREATE TRIGGER trigger_update_attendance_count
   AFTER INSERT OR UPDATE ON attendance
@@ -131,6 +135,13 @@ ORDER BY cs.session_date ASC, cs.start_time ASC;
 
 -- 8. Create RLS policies
 ALTER TABLE class_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Teachers can view their own class sessions" ON class_sessions;
+DROP POLICY IF EXISTS "Teachers can create their own class sessions" ON class_sessions;
+DROP POLICY IF EXISTS "Teachers can update their own class sessions" ON class_sessions;
+DROP POLICY IF EXISTS "Teachers can delete their own class sessions" ON class_sessions;
+DROP POLICY IF EXISTS "Admins have full access to class sessions" ON class_sessions;
 
 -- Teachers can view their own sessions
 CREATE POLICY "Teachers can view their own class sessions"

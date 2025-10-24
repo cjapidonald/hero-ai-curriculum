@@ -140,7 +140,7 @@ BEGIN
         start_slot := start_times[((existing_count + idx - 1) % array_length(start_times, 1)) + 1];
         end_slot := end_times[((existing_count + idx - 1) % array_length(end_times, 1)) + 1];
         lesson_title_text := format('%s - Lesson %s: %s', class_rec.class_name, existing_count + idx, topic_value);
-        lesson_date_val := base_date + (idx - 1) + (teacher_rec.row_index * 2);
+        lesson_date_val := base_date + ((idx - 1) + (teacher_rec.row_index * 2)) * INTERVAL '1 day';
 
         SELECT id INTO new_curriculum_id
         FROM public.curriculum
@@ -252,8 +252,8 @@ BEGIN
           class_rec.id,
           new_curriculum_id,
           lesson_date_val,
-          start_slot,
-          end_slot,
+          start_slot::TIME,
+          end_slot::TIME,
           status_value,
           'Main Campus - Room 101',
           total_students,
@@ -277,7 +277,7 @@ BEGIN
           WHERE teacher_id = teacher_rec.id
             AND class_id = class_rec.id
             AND session_date = lesson_date_val
-            AND start_time = start_slot
+            AND start_time = start_slot::TIME
         );
       END LOOP;
     END IF;
