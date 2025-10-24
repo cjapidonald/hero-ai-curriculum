@@ -17,10 +17,10 @@ import Events from "./pages/Events";
 import Contact from "./pages/Contact";
 import Login from "./pages/Login";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
-import LessonStartFlow from './pages/teacher/LessonStartFlow';
-import LessonEvaluateFlow from './pages/teacher/LessonEvaluateFlow';
-import LessonPrintablesManager from './pages/teacher/LessonPrintablesManager';
-import LessonHomeworkManager from './pages/teacher/LessonHomeworkManager';
+import StartLesson from './pages/teacher/StartLesson';
+import EvaluateSkills from './pages/teacher/EvaluateSkills';
+import PrintablesManager from './pages/teacher/PrintablesManager';
+import HomeworkManager from './pages/teacher/HomeworkManager';
 import LessonAssessmentsManager from './pages/teacher/LessonAssessmentsManager';
 import StudentDashboard from "./pages/student/StudentDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -45,10 +45,10 @@ function AppContent() {
           <Route path="/" element={<Root />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
-          <Route path="/teacher/lessons/:lessonId/start" element={<LessonStartFlow />} />
-          <Route path="/teacher/lessons/:lessonId/evaluate" element={<LessonEvaluateFlow />} />
-          <Route path="/teacher/lessons/:lessonId/printables" element={<LessonPrintablesManager />} />
-          <Route path="/teacher/lessons/:lessonId/homework" element={<LessonHomeworkManager />} />
+          <Route path="/teacher/lessons/:lessonId/start" element={<StartLesson />} />
+          <Route path="/teacher/lessons/:lessonId/evaluate" element={<EvaluateSkills />} />
+          <Route path="/teacher/lessons/:lessonId/printables" element={<PrintablesManager />} />
+          <Route path="/teacher/lessons/:lessonId/homework" element={<HomeworkManager />} />
           <Route path="/teacher/lessons/:lessonId/assessments" element={<LessonAssessmentsManager />} />
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/about" element={<About />} />
