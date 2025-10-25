@@ -14,8 +14,8 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import type { Tables } from "@/integrations/supabase/types";
 import { EnhancedStudentCRUD } from "@/components/crud/EnhancedStudentCRUD";
 import { EnhancedTeacherCRUD } from "@/components/crud/EnhancedTeacherCRUD";
-import { CalendarSessionCRUD } from "@/components/crud/CalendarSessionCRUD";
-import { ClassesCRUD } from "@/components/crud/ClassesCRUD";
+// CalendarSessionCRUD removed - calendar_sessions table dropped
+// ClassesCRUD removed - classes system will be rebuilt
 import { exportToCSV } from "@/lib/export-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
@@ -29,23 +29,12 @@ import { useTheme } from "@/hooks/use-theme";
 import { useChartTheme, getTooltipStyles } from "@/lib/chart-theme";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import FinanceDashboard from "@/pages/admin/components/FinanceDashboard";
-import CurriculumManagementPanel from "@/pages/admin/components/CurriculumManagementPanel";
+// CurriculumManagementPanel removed - curriculum system will be rebuilt
 
 type DashboardStudent = Tables<"dashboard_students">;
 type TeacherRecord = Tables<"teachers">;
 
-interface ClassRecord {
-  id: string;
-  class_name: string;
-  teacher_name: string | null;
-  stage: string | null;
-  schedule_days: string[] | null;
-  start_time: string | null;
-  end_time: string | null;
-  current_students: number | null;
-  max_students: number | null;
-  is_active: boolean | null;
-}
+// ClassRecord interface removed - classes table dropped
 
 // EventRecord removed - events table no longer exists
 
@@ -58,9 +47,6 @@ type AdminTabType =
   | 'overview'
   | 'students'
   | 'teachers'
-  | 'calendar'
-  | 'classes'
-  | 'curriculum'
   | 'finance'
   | 'analytics'
   | 'audit';
@@ -69,9 +55,6 @@ const ADMIN_TABS: AdminTabType[] = [
   'overview',
   'students',
   'teachers',
-  'calendar',
-  'classes',
-  'curriculum',
   'finance',
   'analytics',
   'audit',
@@ -94,18 +77,11 @@ export default function AdminDashboard() {
     totalStudents: 0,
     activeStudents: 0,
     totalTeachers: 0,
-    totalClasses: 0,
     totalRevenue: 0,
-    upcomingEvents: 0,
   });
   const [students, setStudents] = useState<DashboardStudent[]>([]);
   const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
-  const [classes, setClasses] = useState<ClassRecord[]>([]);
-  const [classesPage, setClassesPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [selectedCalendarTeacherId, setSelectedCalendarTeacherId] = useState<string>('all');
-  const classesPerPage = 10;
 
   // Update URL when tab changes
   useEffect(() => {
@@ -144,12 +120,6 @@ export default function AdminDashboard() {
       description: 'Go to Teachers tab',
     },
     {
-      key: '4',
-      ctrl: true,
-      callback: () => setActiveTab('classes'),
-      description: 'Go to Classes tab',
-    },
-    {
       key: '/',
       ctrl: true,
       callback: () => {
@@ -178,11 +148,6 @@ export default function AdminDashboard() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      const classesRequest = supabase
-        .from("classes")
-        .select("id, class_name, teacher_name, stage, schedule_days, start_time, end_time, current_students, max_students, is_active")
-        .eq("is_active", true);
-
       const paymentsRequest = supabase
         .from("payments")
         .select("id, payment_date, receipt_number, payment_for, payment_method, amount")
@@ -197,16 +162,13 @@ export default function AdminDashboard() {
 
       const [
         { data: studentsData, error: studentError },
-        { data: classesData, error: classesError },
         { data: paymentsData, error: paymentsError },
-      ] = await Promise.all([studentsRequest, classesRequest, paymentsRequest]);
+      ] = await Promise.all([studentsRequest, paymentsRequest]);
 
       if (studentError) throw new Error(`Failed to fetch students: ${studentError.message}`);
-      if (classesError) throw new Error(`Failed to fetch classes: ${classesError.message}`);
       if (paymentsError) throw new Error(`Failed to fetch payments: ${paymentsError.message}`);
 
       setStudents((studentsData ?? []) as DashboardStudent[]);
-      setClasses((classesData ?? []) as ClassRecord[]);
 
       const totalRevenue =
         paymentsData?.reduce((acc, payment) => acc + Number(payment.amount ?? 0), 0) ?? 0;
@@ -216,9 +178,7 @@ export default function AdminDashboard() {
         totalStudents: studentsData?.length ?? 0,
         activeStudents,
         totalTeachers: teachersData?.length ?? 0,
-        totalClasses: classesData?.length ?? 0,
         totalRevenue,
-        upcomingEvents: 0,
       });
 
       setLastUpdated(new Date());
@@ -270,19 +230,6 @@ export default function AdminDashboard() {
       )
       .subscribe();
 
-    const classesChannel = supabase
-      .channel('admin-classes-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'classes',
-        },
-        handleRealtimeUpdate
-      )
-      .subscribe();
-
     const paymentsChannel = supabase
       .channel('admin-payments-updates')
       .on(
@@ -299,7 +246,6 @@ export default function AdminDashboard() {
     return () => {
       supabase.removeChannel(studentsChannel);
       supabase.removeChannel(teachersChannel);
-      supabase.removeChannel(classesChannel);
       supabase.removeChannel(paymentsChannel);
     };
   }, [user, navigate, fetchAdminData]);
@@ -359,47 +305,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const exportClassesToCSV = () => {
-    try {
-      const classesForExport = classes.map((classItem) => ({
-        'Class Name': classItem.class_name,
-        Teacher: classItem.teacher_name || 'Unassigned',
-        Stage: classItem.stage || 'N/A',
-        Schedule: classItem.schedule_days?.join(', ') || 'N/A',
-        Time: `${classItem.start_time}-${classItem.end_time}`,
-        'Current Students': classItem.current_students || 0,
-        'Max Students': classItem.max_students || 0,
-        Status: classItem.is_active ? 'Active' : 'Inactive',
-      }));
-      exportToCSV(classesForExport, `classes-export-${new Date().toISOString().split('T')[0]}.csv`);
-      toast({
-        title: "Export Successful",
-        description: `Exported ${classes.length} classes to CSV`,
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export classes. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  // exportClassesToCSV removed - classes table dropped
 
-  // Chart data
-  const classDistributionData = useMemo(
-    () =>
-      classes.map((classroom) => ({
-        name: classroom.class_name,
-        students: classroom.current_students ?? 0,
-        capacity: classroom.max_students ?? 0,
-      })),
-    [classes],
-  );
-
-  const selectedCalendarTeacher = useMemo(
-    () => teachers.find((teacher) => teacher.id === selectedCalendarTeacherId),
-    [teachers, selectedCalendarTeacherId]
-  );
+  // Chart data removed - classes table dropped
 
   const studentLevelData = students.reduce<LevelDistribution[]>((acc, student) => {
     const levelLabel = student.level || "Unknown";
@@ -419,18 +327,6 @@ export default function AdminDashboard() {
 
   // Use theme-aware colors instead of hard-coded ones
   const COLORS = chartTheme.pie;
-
-  // Filter data based on search query
-  const filteredClasses = useMemo(() => {
-    if (!searchQuery) return classes;
-    const query = searchQuery.toLowerCase();
-    return classes.filter(
-      (c) =>
-        c.class_name?.toLowerCase().includes(query) ||
-        c.teacher_name?.toLowerCase().includes(query) ||
-        c.stage?.toLowerCase().includes(query)
-    );
-  }, [classes, searchQuery]);
 
   if (loading) {
     return (
@@ -522,7 +418,7 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -547,17 +443,6 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Classes</CardTitle>
-              <BookOpen className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-600">{stats.totalClasses}</div>
-              <p className="text-xs text-muted-foreground mt-2">running this term</p>
-            </CardContent>
-          </Card>
-
           <Card className="border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Revenue</CardTitle>
@@ -574,13 +459,10 @@ export default function AdminDashboard() {
 
         {/* Charts and Tables */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminTabType)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-9 h-auto" role="tablist" aria-label="Dashboard sections">
+          <TabsList className="grid w-full grid-cols-6 h-auto" role="tablist" aria-label="Dashboard sections">
             <TabsTrigger value="overview" aria-label="Overview tab (Ctrl+1)">Overview</TabsTrigger>
             <TabsTrigger value="students" aria-label="Students tab (Ctrl+2)">Students</TabsTrigger>
             <TabsTrigger value="teachers" aria-label="Teachers tab (Ctrl+3)">Teachers</TabsTrigger>
-            <TabsTrigger value="calendar" aria-label="Calendar tab">Calendar</TabsTrigger>
-            <TabsTrigger value="classes" aria-label="Classes tab (Ctrl+4)">Classes</TabsTrigger>
-            <TabsTrigger value="curriculum" aria-label="Curriculum tab">Curriculum</TabsTrigger>
             <TabsTrigger value="finance" aria-label="Finance tab">Finance</TabsTrigger>
             <TabsTrigger value="analytics" aria-label="Analytics tab">Analytics</TabsTrigger>
             <TabsTrigger value="audit" aria-label="Audit Log tab">Audit Log</TabsTrigger>
@@ -588,39 +470,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Class Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Class Enrollment</CardTitle>
-                  <CardDescription>Current students vs capacity</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={classDistributionData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fill: chartTheme.axis, fontSize: 11 }}
-                        tickLine={false}
-                        axisLine={{ stroke: chartTheme.grid }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={100}
-                      />
-                      <YAxis
-                        tick={{ fill: chartTheme.axis, fontSize: 12 }}
-                        tickLine={false}
-                        axisLine={{ stroke: chartTheme.grid }}
-                      />
-                      <Tooltip {...tooltipStyles} />
-                      <Legend wrapperStyle={{ fontSize: '12px', color: chartTheme.legend }} />
-                      <Bar dataKey="students" fill={chartTheme.bar[0]} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="capacity" fill={chartTheme.bar[1]} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
               {/* Student Level Distribution */}
               <Card>
                 <CardHeader>
@@ -651,7 +500,7 @@ export default function AdminDashboard() {
               </Card>
 
               {/* Top Attendance Rates */}
-              <Card className="lg:col-span-2">
+              <Card>
                 <CardHeader>
                   <CardTitle>Student Attendance Rates</CardTitle>
                   <CardDescription>Top 10 students by attendance</CardDescription>
@@ -726,68 +575,6 @@ export default function AdminDashboard() {
               <CardContent className="px-0">
                 <div className="px-6">
                   <EnhancedTeacherCRUD />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="classes" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Class Management</CardTitle>
-                <CardDescription>Add, edit, and manage all classes</CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <ClassesCRUD />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="curriculum" className="space-y-4">
-            <CurriculumManagementPanel />
-          </TabsContent>
-
-          <TabsContent value="calendar" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="space-y-1">
-                    <CardTitle>Calendar & Sessions</CardTitle>
-                    <CardDescription>
-                      {selectedCalendarTeacher
-                        ? `Viewing schedule for ${selectedCalendarTeacher.name} ${selectedCalendarTeacher.surname}`
-                        : 'Schedule and manage class sessions with real-time sync'}
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                    <span className="text-sm font-medium text-muted-foreground">Filter by teacher</span>
-                    <Select
-                      value={selectedCalendarTeacherId}
-                      onValueChange={(value) => setSelectedCalendarTeacherId(value)}
-                    >
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder="All teachers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All teachers</SelectItem>
-                        {teachers.map((teacher) => (
-                          <SelectItem key={teacher.id} value={teacher.id}>
-                            {teacher.name} {teacher.surname}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="px-0">
-                <div className="px-6">
-                  <CalendarSessionCRUD
-                    teacherId={selectedCalendarTeacherId === 'all' ? undefined : selectedCalendarTeacherId}
-                    showHeading={false}
-                  />
                 </div>
               </CardContent>
             </Card>

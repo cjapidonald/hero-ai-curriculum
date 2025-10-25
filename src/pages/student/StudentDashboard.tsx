@@ -8,10 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { LogOut, TrendingUp, Target, Calendar, BookOpen, Award, MapPin, Phone, User, MessageCircle, FileText, HelpCircle } from "lucide-react";
-import SkillsProgress from "./SkillsProgress";
-import AssessmentProgress from "./AssessmentProgress";
-import AttendanceChart from "./AttendanceChart";
-import HomeworkList from "./HomeworkList";
+// SkillsProgress, AssessmentProgress, AttendanceChart, and HomeworkList removed - curriculum system will be rebuilt
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Tooltip } from "recharts";
 import type { Tables } from "@/integrations/supabase/types";
 import { DashboardSkeleton } from "@/components/ui/skeleton-loader";
@@ -19,21 +16,7 @@ import { NotificationCenter } from "@/components/NotificationCenter";
 import { ProfileEditor } from "@/components/ProfileEditor";
 
 type DashboardStudent = Tables<"dashboard_students">;
-interface SkillEvaluationRecord {
-  score: number | null;
-  evaluation_date: string | null;
-  skills: {
-    skill_name?: string | null;
-    subject?: string | null;
-    category?: string | null;
-  } | null;
-}
-
-interface RadarDataPoint {
-  subject: string;
-  score: number;
-  fullMark: number;
-}
+// SkillEvaluationRecord and RadarDataPoint interfaces removed - skills system dropped
 
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
@@ -42,8 +25,6 @@ export default function StudentDashboard() {
   const [studentData, setStudentData] = useState<DashboardStudent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recentEvaluations, setRecentEvaluations] = useState<SkillEvaluationRecord[]>([]);
-  const [skillsRadarData, setSkillsRadarData] = useState<RadarDataPoint[]>([]);
 
   const fetchStudentData = useCallback(async () => {
     try {
@@ -68,52 +49,6 @@ export default function StudentDashboard() {
 
       const student = data as DashboardStudent;
       setStudentData(student);
-
-      const { data: evaluationData, error: evaluationsError } = await supabase
-        .from("skill_evaluations")
-        .select(
-          `score, evaluation_date, skills:skill_id (skill_name, subject, category)`
-        )
-        .eq("student_id", student.id)
-        .order("evaluation_date", { ascending: false })
-        .limit(100);
-
-      if (evaluationsError) {
-        console.error('Error loading evaluations:', evaluationsError);
-        setError(`Warning: Could not load evaluation data. ${evaluationsError.message}`);
-      }
-
-      if (evaluationData) {
-        const typedEvaluations = (evaluationData as SkillEvaluationRecord[]) ?? [];
-        setRecentEvaluations(typedEvaluations);
-
-        const categoryAverages = typedEvaluations.reduce<Record<string, { total: number; count: number }>>((acc, evaluation) => {
-          if (evaluation.score === null) {
-            return acc;
-          }
-
-          const categoryKey =
-            evaluation.skills?.subject ||
-            evaluation.skills?.category ||
-            evaluation.skills?.skill_name ||
-            "Other";
-
-          if (!acc[categoryKey]) {
-            acc[categoryKey] = { total: 0, count: 0 };
-          }
-
-          acc[categoryKey].total += Number(evaluation.score);
-          acc[categoryKey].count += 1;
-          return acc;
-        }, {});
-
-        const radarData: RadarDataPoint[] = Object.entries(categoryAverages).map(([category, aggregate]) => ({
-          subject: category,
-          score: aggregate.count ? Number((aggregate.total / aggregate.count).toFixed(2)) : 0,
-          fullMark: 100,
-        }));
-        setSkillsRadarData(radarData);
-      }
     } catch (error: any) {
       console.error("Error fetching student data:", error);
       setError(error.message);
@@ -140,32 +75,8 @@ export default function StudentDashboard() {
       return;
     }
 
-    const evaluationsChannel = supabase
-      .channel('student-skill-evaluations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'skill_evaluations',
-          filter: `student_id=eq.${studentData.id}`,
-        },
-        () => {
-          void fetchStudentData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(evaluationsChannel);
-    };
-  }, [fetchStudentData, studentData?.id]);
-
-  const averageEvaluationScore = useMemo(() => {
-    if (!recentEvaluations.length) return 0;
-    const total = recentEvaluations.reduce((acc, evaluation) => acc + (evaluation.score ?? 0), 0);
-    return recentEvaluations.length ? total / recentEvaluations.length : 0;
-  }, [recentEvaluations]);
+    // Real-time subscriptions removed - skill_evaluations table dropped
+  }, [studentData?.id]);
 
   const handleLogout = () => {
     logout();
@@ -358,7 +269,7 @@ export default function StudentDashboard() {
         </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <Card className="border-l-4 border-l-green-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
@@ -404,22 +315,6 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Overall Performance</CardTitle>
-              <Award className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-orange-600">
-                {recentEvaluations.length > 0 ? averageEvaluationScore.toFixed(1) : "N/A"}
-              </div>
-              <Progress
-                value={recentEvaluations.length > 0 ? averageEvaluationScore : 0}
-                className="mt-2 h-2"
-              />
-              <p className="text-xs text-muted-foreground mt-2">average evaluation score</p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Quick Actions */}
@@ -486,93 +381,23 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
-        {/* Skills Overview Radar Chart */}
-        {skillsRadarData.length > 0 && (
-          <Card className="mb-6 overflow-hidden border-none bg-gradient-to-br from-slate-50/90 via-white/70 to-white/90 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-900/60 shadow-xl backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle>Skills Overview</CardTitle>
-              <CardDescription>Your current performance across all skill categories</CardDescription>
-            </CardHeader>
-            <CardContent className="relative">
-              <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.18),transparent_65%)]" />
-              <ResponsiveContainer width="100%" height={350}>
-                <RadarChart data={skillsRadarData}>
-                  <defs>
-                    <radialGradient id="radarFill" cx="50%" cy="50%" r="65%">
-                      <stop offset="0%" stopColor="rgba(59,130,246,0.35)" />
-                      <stop offset="100%" stopColor="rgba(139,92,246,0)" />
-                    </radialGradient>
-                    <linearGradient id="radarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#38bdf8" />
-                      <stop offset="100%" stopColor="#a855f7" />
-                    </linearGradient>
-                  </defs>
-                  <PolarGrid stroke="rgba(148, 163, 184, 0.3)" radialLines={false} />
-                  <PolarAngleAxis
-                    dataKey="subject"
-                    tick={{ fill: "rgba(71,85,105,0.85)", fontSize: 12, fontWeight: 500 }}
-                  />
-                  <PolarRadiusAxis
-                    angle={90}
-                    domain={[0, 100]}
-                    tick={{ fill: "rgba(100,116,139,0.65)", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Radar
-                    name="Score"
-                    dataKey="score"
-                    stroke="url(#radarStroke)"
-                    fill="url(#radarFill)"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                  />
-                  <Tooltip
-                    cursor={false}
-                    wrapperStyle={{ outline: "none" }}
-                    contentStyle={{
-                      backgroundColor: "rgba(15,23,42,0.85)",
-                      borderRadius: 16,
-                      border: "none",
-                      color: "#e2e8f0",
-                      boxShadow: "0 20px 45px -25px rgba(15,23,42,0.7)",
-                    }}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tabs */}
-        <Tabs defaultValue="skills" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="skills">Skills Progress</TabsTrigger>
-            <TabsTrigger value="assessments">Evaluations</TabsTrigger>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-            <TabsTrigger value="homework">Homework</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="skills" className="space-y-4">
-            <SkillsProgress studentId={dashboardStudentId} />
-          </TabsContent>
-
-          <TabsContent value="assessments" className="space-y-4">
-            <AssessmentProgress studentId={dashboardStudentId} />
-          </TabsContent>
-
-          <TabsContent value="attendance" className="space-y-4">
-            <AttendanceChart
-              studentId={dashboardStudentId}
-              attendanceRate={attendanceRate}
-              sessionsCompleted={sessionsCompleted}
-            />
-          </TabsContent>
-
-          <TabsContent value="homework" className="space-y-4">
-            <HomeworkList studentId={dashboardStudentId} />
-          </TabsContent>
-        </Tabs>
+        {/* Curriculum System Notice */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Curriculum System Update</CardTitle>
+            <CardDescription>Important Information</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <p className="text-lg font-medium mb-2">Curriculum System Being Rebuilt</p>
+              <p className="text-sm text-muted-foreground">
+                The curriculum, skills tracking, assessments, and homework systems are currently being redesigned
+                for a better learning experience. These features will be available soon.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

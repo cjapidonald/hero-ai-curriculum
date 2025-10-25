@@ -4,11 +4,9 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Users,
-  BookOpen,
   FileText,
   LogOut,
   BarChart3,
-  Layers,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,14 +16,11 @@ import { ProfileEditor } from '@/components/ProfileEditor';
 import TeacherPerformance from './TeacherPerformance';
 import { TeacherStudentCRUD } from '@/components/crud/TeacherStudentCRUD';
 import CurriculumManagementPanel from '@/pages/admin/components/CurriculumManagementPanel';
-import MyClasses from './MyClasses';
-import CurriculumTab from './CurriculumTab';
+// MyClasses and CurriculumTab removed - curriculum system will be rebuilt
 
 type TabType =
   | 'performance'
-  | 'classes'
   | 'students'
-  | 'curriculum'
   | 'lessonBuilder';
 
 const TeacherDashboard = () => {
@@ -33,9 +28,7 @@ const TeacherDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const validTabs: TabType[] = [
     'performance',
-    'classes',
     'students',
-    'curriculum',
     'lessonBuilder',
   ];
   const tabFromUrlParam = searchParams.get('tab');
@@ -110,9 +103,7 @@ const TeacherDashboard = () => {
 
   const tabs = [
     { id: 'performance' as TabType, label: 'Performance', icon: BarChart3 },
-    { id: 'classes' as TabType, label: 'My Classes', icon: BookOpen },
     { id: 'students' as TabType, label: 'My Students', icon: Users },
-    { id: 'curriculum' as TabType, label: 'Curriculum', icon: Layers },
     { id: 'lessonBuilder' as TabType, label: 'Lesson Builder', icon: FileText },
   ];
 
@@ -125,8 +116,6 @@ const TeacherDashboard = () => {
             teacherProfile={teacherProfile}
           />
         );
-      case 'classes':
-        return <MyClasses teacherId={user.id} />;
       case 'students':
         return (
           <div className="space-y-4">
@@ -134,14 +123,6 @@ const TeacherDashboard = () => {
               <TeacherStudentCRUD teacherId={user.id} />
             </div>
           </div>
-        );
-      case 'curriculum':
-        return (
-          <CurriculumTab
-            teacherId={user.id}
-            teacherName={resolvedName}
-            onOpenLessonBuilder={() => handleTabChange('lessonBuilder')}
-          />
         );
       case 'lessonBuilder':
         return <CurriculumManagementPanel />;
