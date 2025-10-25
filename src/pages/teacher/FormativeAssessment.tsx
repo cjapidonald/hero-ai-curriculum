@@ -81,7 +81,7 @@ const FormativeAssessment = ({ teacherId }: FormativeAssessmentProps) => {
       const { data, error } = await supabase
         .from('dashboard_students')
         .select('id, name, surname')
-        .eq('class', (await supabase.from('classes').select('name').eq('id', classId).single()).data?.name || '')
+        .eq('class', (await supabase.from('classes').select('class_name').eq('id', classId).single()).data?.class_name || '')
         .order('name');
 
       if (error) throw error;

@@ -71,7 +71,7 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
       // First, get classes assigned to this teacher
       const { data: teacherClasses, error: classesError } = await supabase
         .from('classes')
-        .select('id, class_name, name')
+        .select('id, class_name')
         .eq('teacher_id', teacherId)
         .eq('is_active', true);
 
@@ -81,17 +81,15 @@ const MyClasses = ({ teacherId }: MyClassesProps) => {
 
       type TeacherClassRow = {
         id: string;
-        class_name?: string | null;
-        name?: string | null;
+        class_name: string;
       };
 
       const classEntries: ClassInfo[] = ((teacherClasses ?? []) as TeacherClassRow[])
         .map((classRow) => {
-          const displayName = classRow.class_name ?? classRow.name;
-          if (!displayName || !classRow.id) {
+          if (!classRow.class_name || !classRow.id) {
             return null;
           }
-          return { id: classRow.id, name: displayName };
+          return { id: classRow.id, name: classRow.class_name };
         })
         .filter((entry): entry is ClassInfo => entry !== null);
 
