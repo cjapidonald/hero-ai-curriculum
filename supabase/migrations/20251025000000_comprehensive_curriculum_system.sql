@@ -407,59 +407,69 @@ ALTER TABLE public.teacher_contribution_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_skill_milestones ENABLE ROW LEVEL SECURITY;
 
 -- Teachers can view and manage their own lesson plans
+DROP POLICY IF EXISTS "Teachers can manage their lesson plans" ON public.lesson_plans;
 CREATE POLICY "Teachers can manage their lesson plans"
 ON public.lesson_plans
 FOR ALL
 USING (teacher_id = auth.uid() OR auth.role() = 'authenticated');
 
 -- Teachers can view all approved resources and manage their own
+DROP POLICY IF EXISTS "Teachers can view approved resources" ON public.teacher_resources;
 CREATE POLICY "Teachers can view approved resources"
 ON public.teacher_resources
 FOR SELECT
 USING (is_approved = true AND is_public = true OR teacher_id = auth.uid());
 
+DROP POLICY IF EXISTS "Teachers can manage their resources" ON public.teacher_resources;
 CREATE POLICY "Teachers can manage their resources"
 ON public.teacher_resources
 FOR ALL
 USING (teacher_id = auth.uid());
 
 -- Teachers can manage their sessions
+DROP POLICY IF EXISTS "Teachers can manage their sessions" ON public.lesson_sessions;
 CREATE POLICY "Teachers can manage their sessions"
 ON public.lesson_sessions
 FOR ALL
 USING (teacher_id = auth.uid() OR auth.role() = 'authenticated');
 
 -- Authenticated users can view/manage behavior points
+DROP POLICY IF EXISTS "Authenticated users can manage behavior points" ON public.student_behavior_points;
 CREATE POLICY "Authenticated users can manage behavior points"
 ON public.student_behavior_points
 FOR ALL
 USING (auth.role() = 'authenticated');
 
 -- Authenticated users can manage skill evaluations
+DROP POLICY IF EXISTS "Authenticated users can manage skill evaluations" ON public.skill_evaluations_new;
 CREATE POLICY "Authenticated users can manage skill evaluations"
 ON public.skill_evaluations_new
 FOR ALL
 USING (auth.role() = 'authenticated');
 
 -- Authenticated users can manage homework
+DROP POLICY IF EXISTS "Authenticated users can manage homework" ON public.homework_assignments_new;
 CREATE POLICY "Authenticated users can manage homework"
 ON public.homework_assignments_new
 FOR ALL
 USING (auth.role() = 'authenticated');
 
 -- Authenticated users can manage printables
+DROP POLICY IF EXISTS "Authenticated users can manage printables" ON public.printables_distributed;
 CREATE POLICY "Authenticated users can manage printables"
 ON public.printables_distributed
 FOR ALL
 USING (auth.role() = 'authenticated');
 
 -- Anyone can view contribution stats
+DROP POLICY IF EXISTS "Anyone can view contribution stats" ON public.teacher_contribution_stats;
 CREATE POLICY "Anyone can view contribution stats"
 ON public.teacher_contribution_stats
 FOR SELECT
 USING (true);
 
 -- Students can view their own milestones
+DROP POLICY IF EXISTS "Students can view their milestones" ON public.student_skill_milestones;
 CREATE POLICY "Students can view their milestones"
 ON public.student_skill_milestones
 FOR SELECT
